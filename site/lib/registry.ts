@@ -5,6 +5,8 @@ import { getNetwork } from "./networks";
 import {
   fetchAgentsFromSubgraph,
   fetchAgentByIdFromSubgraph,
+  fetchAgentsFromGoldskySubgraph,
+  fetchAgentByIdFromGoldskySubgraph,
 } from "./subgraph";
 
 const IDENTITY_READ_ABI = parseAbi([
@@ -163,6 +165,11 @@ export async function fetchRegistryAgents(
 ): Promise<RegistryAgent[]> {
   const config = getNetwork(networkId);
 
+  // Filecoin Calibration: Goldsky subgraph only — no RPC fallback
+  if (networkId === "filecoinCalibration") {
+    return fetchAgentsFromGoldskySubgraph(config.subgraphUrl!, networkId);
+  }
+
   // Use subgraph when available (faster than RPC)
   if (config.subgraphUrl) {
     try {
@@ -271,7 +278,7 @@ export async function fetchRegistryAgents(
     .filter(
       (r): r is PromiseFulfilledResult<RegistryAgent> => r.status === "fulfilled"
     )
-    .map((r) => r.value);
+    .map((r) => r.value) as RegistryAgent[];
 }
 
 // --- Single agent with reputation ------------------------------------------
@@ -290,6 +297,11 @@ export async function fetchAgentById(
   networkId: NetworkId
 ): Promise<AgentDetail | null> {
   const config = getNetwork(networkId);
+
+  // Filecoin Calibration: Goldsky subgraph only — no RPC fallback
+  if (networkId === "filecoinCalibration") {
+    return fetchAgentByIdFromGoldskySubgraph(config.subgraphUrl!, agentId, networkId);
+  }
 
   // Use subgraph when available (faster than RPC)
   if (config.subgraphUrl) {

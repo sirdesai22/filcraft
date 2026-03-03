@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { AgentDetail } from "@/lib/registry";
 import { getExplorerUrl, getNetwork, NETWORK_IDS, type NetworkId } from "@/lib/networks";
+import { GiveFeedback } from "@/components/give-feedback";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -290,10 +291,26 @@ export default function AgentDetailPage() {
             {/* Reputation stats */}
             <Card className="border-border">
               <CardHeader className="pb-3">
-                <h2 className="font-semibold text-sm flex items-center gap-2">
-                  <Star className="h-4 w-4 text-amber-500" />
-                  Reputation
-                </h2>
+                <div className="flex items-center justify-between">
+                  <h2 className="font-semibold text-sm flex items-center gap-2">
+                    <Star className="h-4 w-4 text-amber-500" />
+                    Reputation
+                  </h2>
+                  <GiveFeedback
+                    agentId={agent.agentId}
+                    networkId={networkId}
+                    onSuccess={async () => {
+                      await fetch("/api/agents/revalidate", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id, network: networkId }),
+                      });
+                      const r = await fetch(`/api/agents/${id}?network=${networkId}`);
+                      const d = await r.json();
+                      if (d.agent) setAgent(d.agent);
+                    }}
+                  />
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4">

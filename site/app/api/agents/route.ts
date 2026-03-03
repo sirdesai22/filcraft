@@ -17,8 +17,8 @@ export async function GET(request: NextRequest) {
     : DEFAULT_NETWORK;
   const noCache = searchParams.get("noCache") === "1";
   if (noCache) {
-    revalidateTag("registry-agents");
-    revalidateTag(`registry-agents-${network}`);
+    revalidateTag("registry-agents", "default");
+    revalidateTag(`registry-agents-${network}`, "default");
   }
 
   try {

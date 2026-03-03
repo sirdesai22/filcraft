@@ -203,3 +203,203 @@ export async function fetchAgentByIdFromSubgraph(
     },
   };
 }
+
+// ---------------------------------------------------------------------------
+// Goldsky instant subgraph adapter (Filecoin Calibration)
+// Goldsky auto-generates entities from events:
+//   registereds  ← Registered(uint256 agentId, string agentURI, address owner)
+//   uriupdateds  ← URIUpdated(uint256 agentId, string newURI, address updatedBy)
+// ---------------------------------------------------------------------------
+
+interface GoldskyRegistered {
+  agentId: string;
+  agentURI: string;
+  owner: string;
+  block_number: string;
+}
+
+interface GoldskyURIUpdated {
+  agentId: string;
+  newURI: string;
+  block_number: string;
+}
+
+const GOLDSKY_GET_REGISTEREDS = gql`
+  query GetRegistereds($first: Int!, $skip: Int!) {
+    registereds(first: $first, skip: $skip, orderBy: block_number, orderDirection: desc) {
+      agentId
+      agentURI
+      owner
+      block_number
+    }
+  }
+`;
+
+const GOLDSKY_GET_URI_UPDATEDS = gql`
+  query GetURIUpdateds($first: Int!, $skip: Int!) {
+    uriupdateds(first: $first, skip: $skip, orderBy: block_number, orderDirection: desc) {
+      agentId
+      newURI
+      block_number
+    }
+  }
+`;
+
+const GOLDSKY_GET_AGENT = gql`
+  query GetAgent($agentId: String!) {
+    registereds(where: { agentId: $agentId }, orderBy: block_number, orderDirection: asc, first: 1) {
+      agentId
+      agentURI
+      owner
+      block_number
+    }
+    uriupdateds(where: { agentId: $agentId }, orderBy: block_number, orderDirection: desc, first: 1) {
+      agentId
+      newURI
+      block_number
+    }
+  }
+`;
+
+const GOLDSKY_PAGE_SIZE = 1000;
+
+function resolveURI(uri: string): string {
+  return uri.startsWith("ipfs://")
+    ? uri.replace("ipfs://", "https://ipfs.io/ipfs/")
+    : uri;
+}
+
+async function fetchMetadata(uri: string): Promise<AgentMetadata | null> {
+  if (!uri) return null;
+  try {
+    const res = await fetch(resolveURI(uri), {
+      next: { revalidate: 3600 },
+    } as RequestInit);
+    if (!res.ok) return null;
+    return (await res.json()) as AgentMetadata;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchAgentsFromGoldskySubgraph(
+  subgraphUrl: string,
+  networkId: NetworkId
+): Promise<RegistryAgent[]> {
+  const client = new GraphQLClient(subgraphUrl);
+
+  // Paginate Registered events
+  const allRegistered: GoldskyRegistered[] = [];
+  let skip = 0;
+  while (true) {
+    const res = await client.request<{ registereds: GoldskyRegistered[] }>(
+      GOLDSKY_GET_REGISTEREDS,
+      { first: GOLDSKY_PAGE_SIZE, skip }
+    );
+    allRegistered.push(...res.registereds);
+    if (res.registereds.length < GOLDSKY_PAGE_SIZE) break;
+    skip += GOLDSKY_PAGE_SIZE;
+  }
+
+  // Paginate URIUpdated events
+  const allURIUpdated: GoldskyURIUpdated[] = [];
+  skip = 0;
+  while (true) {
+    const res = await client.request<{ uriupdateds: GoldskyURIUpdated[] }>(
+      GOLDSKY_GET_URI_UPDATEDS,
+      { first: GOLDSKY_PAGE_SIZE, skip }
+    );
+    allURIUpdated.push(...res.uriupdateds);
+    if (res.uriupdateds.length < GOLDSKY_PAGE_SIZE) break;
+    skip += GOLDSKY_PAGE_SIZE;
+  }
+
+  // Build latest URI per agentId
+  const latestURI = new Map<string, { uri: string; blockNumber: bigint }>();
+  for (const e of allRegistered) {
+    const bn = BigInt(e.block_number);
+    const curr = latestURI.get(e.agentId);
+    if (!curr || bn >= curr.blockNumber)
+      latestURI.set(e.agentId, { uri: e.agentURI, blockNumber: bn });
+  }
+  for (const e of allURIUpdated) {
+    const bn = BigInt(e.block_number);
+    const curr = latestURI.get(e.agentId);
+    if (!curr || bn > curr.blockNumber)
+      latestURI.set(e.agentId, { uri: e.newURI, blockNumber: bn });
+  }
+
+  // Deduplicate: keep earliest registration per agentId for owner/blockNumber
+  const agentMap = new Map<string, { owner: string; blockNumber: bigint }>();
+  for (const e of allRegistered) {
+    const bn = BigInt(e.block_number);
+    const curr = agentMap.get(e.agentId);
+    if (!curr || bn < curr.blockNumber)
+      agentMap.set(e.agentId, { owner: e.owner, blockNumber: bn });
+  }
+
+  // Sort newest-first, fetch metadata in parallel
+  const sorted = [...agentMap.entries()].sort(
+    ([, a], [, b]) => (b.blockNumber > a.blockNumber ? 1 : -1)
+  );
+
+  const results = await Promise.allSettled(
+    sorted.map(async ([agentId, { owner, blockNumber }]) => {
+      const uri = latestURI.get(agentId)?.uri ?? "";
+      const metadata = await fetchMetadata(uri);
+      return {
+        id: `${networkId}:${agentId}`,
+        agentId,
+        owner,
+        agentURI: uri,
+        blockNumber: blockNumber.toString(),
+        metadata,
+        protocols: getProtocols(metadata),
+        networkId,
+      } satisfies RegistryAgent;
+    })
+  );
+
+  return results
+    .filter(
+      (r): r is PromiseFulfilledResult<RegistryAgent> => r.status === "fulfilled"
+    )
+    .map((r) => r.value);
+}
+
+export async function fetchAgentByIdFromGoldskySubgraph(
+  subgraphUrl: string,
+  agentId: string,
+  networkId: NetworkId
+): Promise<AgentDetail | null> {
+  const client = new GraphQLClient(subgraphUrl);
+
+  const res = await client.request<{
+    registereds: GoldskyRegistered[];
+    uriupdateds: GoldskyURIUpdated[];
+  }>(GOLDSKY_GET_AGENT, { agentId });
+
+  if (!res.registereds.length) return null;
+
+  const reg = res.registereds[0];
+  let agentURI = reg.agentURI;
+  if (res.uriupdateds.length > 0) {
+    const update = res.uriupdateds[0];
+    if (BigInt(update.block_number) > BigInt(reg.block_number))
+      agentURI = update.newURI;
+  }
+
+  const metadata = await fetchMetadata(agentURI);
+
+  return {
+    id: `${networkId}:${agentId}`,
+    agentId,
+    owner: reg.owner,
+    agentURI,
+    blockNumber: reg.block_number,
+    metadata,
+    protocols: getProtocols(metadata),
+    networkId,
+    reputation: { totalFeedback: 0, averageScore: null },
+  };
+}

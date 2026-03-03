@@ -82,8 +82,9 @@ export const NETWORKS: Record<NetworkId, NetworkConfig> = {
     explorerName: "Filscan",
     explorerTokenUrl:
       "https://calibration.filscan.io/token/0xa450345b850088f68b8982c57fe987124533e194?a=",
-    // GLIF RPC disallows lookbacks > ~16h40m; use 500 blocks (~4h) to stay well under limit
-    maxLookbackBlocks: 500,
+    subgraphUrl:
+      process.env.SUBGRAPH_URL_FILECOIN_CALIBRATION ||
+      "https://api.goldsky.com/api/public/project_cmmaf9dwcfw7s01zc9s19e8xf/subgraphs/erc8004-identity-registry-filecoin-testnet/1.0.0/gn",
   },
 };
 

@@ -201,7 +201,7 @@ export function AgentsPageClient({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+              className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
             >
               {Array.from({ length: PAGE_SIZE }).map((_, i) => (
                 <AgentCardSkeleton key={i} />
@@ -221,7 +221,7 @@ export function AgentsPageClient({
             <motion.div
               key="grid"
               layout
-              className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+              className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
               initial="hidden"
               animate="visible"
               variants={{

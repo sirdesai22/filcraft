@@ -18,7 +18,7 @@ export async function GET(
   const getCachedAgent = unstable_cache(
     () => fetchAgentById(id, network),
     ["agent-detail", id, network],
-    { revalidate: 300, tags: ["agent-detail", `agent-${id}`, `agent-${id}-${network}`] }
+    { revalidate: 60, tags: ["agent-detail", `agent-${id}`, `agent-${id}-${network}`] }
   );
 
   try {
