@@ -30,6 +30,19 @@ export interface NetworkConfig {
 }
 
 export const NETWORKS: Record<NetworkId, NetworkConfig> = {
+  filecoinCalibration: {
+    id: "filecoinCalibration",
+    name: "Filecoin Calibration",
+    chain: filecoinCalibration,
+    identityRegistry: "0xa450345b850088f68b8982c57fe987124533e194",
+    reputationRegistry: "0x11bd1d7165a3b482ff72cbbb96068d1298a9d07c",
+    explorerName: "Filscan",
+    explorerTokenUrl:
+      "https://calibration.filscan.io/token/0xa450345b850088f68b8982c57fe987124533e194?a=",
+    subgraphUrl:
+      process.env.SUBGRAPH_URL_FILECOIN_CALIBRATION ||
+      "https://api.goldsky.com/api/public/project_cmmaf9dwcfw7s01zc9s19e8xf/subgraphs/erc8004-identity-registry-filecoin-testnet/1.0.0/gn",
+  },
   baseSepolia: {
     id: "baseSepolia",
     name: "Base Sepolia",
@@ -73,19 +86,6 @@ export const NETWORKS: Record<NetworkId, NetworkConfig> = {
   //   explorerTokenUrl:
   //     "https://sepolia.celoscan.io/token/0x8004A818BFB912233c491871b3d84c89A494BD9e?a=",
   // },
-  filecoinCalibration: {
-    id: "filecoinCalibration",
-    name: "Filecoin Calibration",
-    chain: filecoinCalibration,
-    identityRegistry: "0xa450345b850088f68b8982c57fe987124533e194",
-    reputationRegistry: "0x11bd1d7165a3b482ff72cbbb96068d1298a9d07c",
-    explorerName: "Filscan",
-    explorerTokenUrl:
-      "https://calibration.filscan.io/token/0xa450345b850088f68b8982c57fe987124533e194?a=",
-    subgraphUrl:
-      process.env.SUBGRAPH_URL_FILECOIN_CALIBRATION ||
-      "https://api.goldsky.com/api/public/project_cmmaf9dwcfw7s01zc9s19e8xf/subgraphs/erc8004-identity-registry-filecoin-testnet/1.0.0/gn",
-  },
 };
 
 export const DEFAULT_NETWORK: NetworkId = "baseSepolia";
