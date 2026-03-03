@@ -26,6 +26,8 @@ export function AgentsPageLoading() {
           network="baseSepolia"
           onNetworkChange={() => {}}
           networks={NETWORK_OPTIONS}
+          showIncompleteAgents={false}
+          onShowIncompleteAgentsChange={() => {}}
         />
       }
     >

@@ -189,6 +189,8 @@ interface RegistryAgentFilterSidebarProps {
   network: string;
   onNetworkChange: (n: string) => void;
   networks: { id: string; name: string }[];
+  showIncompleteAgents: boolean;
+  onShowIncompleteAgentsChange: (v: boolean) => void;
 }
 
 const PROTOCOL_LABELS: Record<ProtocolFilter, string> = {
@@ -205,6 +207,8 @@ export function RegistryAgentFilterSidebar({
   network,
   onNetworkChange,
   networks,
+  showIncompleteAgents,
+  onShowIncompleteAgentsChange,
 }: RegistryAgentFilterSidebarProps) {
   return (
     <div className="space-y-6">
@@ -260,6 +264,23 @@ export function RegistryAgentFilterSidebar({
               {PROTOCOL_LABELS[p]}
             </button>
           ))}
+        </div>
+      </div>
+
+      <Separator />
+
+      <div>
+        <div className="flex items-center space-x-2">
+          <input
+            type="checkbox"
+            id="show-incomplete"
+            checked={showIncompleteAgents}
+            onChange={(e) => onShowIncompleteAgentsChange(e.target.checked)}
+            className="h-4 w-4 rounded border-border"
+          />
+          <Label htmlFor="show-incomplete" className="text-sm font-normal cursor-pointer">
+            Show agents without image or metadata
+          </Label>
         </div>
       </div>
     </div>

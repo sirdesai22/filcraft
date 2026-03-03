@@ -269,7 +269,7 @@ export async function fetchRegistryAgents(
         blockNumber: agent.blockNumber.toString(),
         metadata,
         protocols: getProtocols(metadata),
-        networkId,
+        networkId: networkId as NetworkId,
       } satisfies RegistryAgent;
     })
   );

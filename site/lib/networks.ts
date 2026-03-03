@@ -10,8 +10,8 @@ import {
 export type NetworkId =
   | "baseSepolia"
   | "sepolia"
-  | "celo"
-  | "celoSepolia"
+  // | "celo"
+  // | "celoSepolia"
   | "filecoinCalibration";
 
 export interface NetworkConfig {
@@ -53,32 +53,32 @@ export const NETWORKS: Record<NetworkId, NetworkConfig> = {
       process.env.SUBGRAPH_URL_SEPOLIA ||
       "https://gateway.thegraph.com/api/00a452ad3cd1900273ea62c1bf283f93/subgraphs/id/6wQRC7geo9XYAhckfmfo8kbMRLeWU8KQd3XsJqFKmZLT",
   },
-  celo: {
-    id: "celo",
-    name: "Celo Mainnet",
-    chain: celo,
-    identityRegistry: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
-    reputationRegistry: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63",
-    explorerName: "Celoscan",
-    explorerTokenUrl:
-      "https://celoscan.io/token/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432?a=",
-  },
-  celoSepolia: {
-    id: "celoSepolia",
-    name: "Celo Sepolia",
-    chain: celoSepolia,
-    identityRegistry: "0x8004A818BFB912233c491871b3d84c89A494BD9e",
-    reputationRegistry: "0x8004B663056A597Dffe9eCcC1965A193B7388713",
-    explorerName: "Celoscan",
-    explorerTokenUrl:
-      "https://sepolia.celoscan.io/token/0x8004A818BFB912233c491871b3d84c89A494BD9e?a=",
-  },
+  // celo: {
+  //   id: "celo",
+  //   name: "Celo Mainnet",
+  //   chain: celo,
+  //   identityRegistry: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+  //   reputationRegistry: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63",
+  //   explorerName: "Celoscan",
+  //   explorerTokenUrl:
+  //     "https://celoscan.io/token/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432?a=",
+  // },
+  // celoSepolia: {
+  //   id: "celoSepolia",
+  //   name: "Celo Sepolia",
+  //   chain: celoSepolia,
+  //   identityRegistry: "0x8004A818BFB912233c491871b3d84c89A494BD9e",
+  //   reputationRegistry: "0x8004B663056A597Dffe9eCcC1965A193B7388713",
+  //   explorerName: "Celoscan",
+  //   explorerTokenUrl:
+  //     "https://sepolia.celoscan.io/token/0x8004A818BFB912233c491871b3d84c89A494BD9e?a=",
+  // },
   filecoinCalibration: {
     id: "filecoinCalibration",
     name: "Filecoin Calibration",
     chain: filecoinCalibration,
     identityRegistry: "0xa450345b850088f68b8982c57fe987124533e194",
-    reputationRegistry: "0xeeed4869f6b0cdb1793fd2dcd2d49abc1d9d8d6e",
+    reputationRegistry: "0x11bd1d7165a3b482ff72cbbb96068d1298a9d07c",
     explorerName: "Filscan",
     explorerTokenUrl:
       "https://calibration.filscan.io/token/0xa450345b850088f68b8982c57fe987124533e194?a=",

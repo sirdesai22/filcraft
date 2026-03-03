@@ -123,6 +123,67 @@ function EndpointSection({
   );
 }
 
+// ── Raw metadata card with clipping ──────────────────────────────────────────
+
+const RAW_URI_LIMIT = 200;
+const RAW_JSON_LIMIT = 3000;
+
+function RawMetadataCard({
+  agentURI,
+  metadata,
+}: {
+  agentURI: string;
+  metadata: AgentMetadata | null;
+}) {
+  const [expandedURI, setExpandedURI] = useState(false);
+  const [expandedJSON, setExpandedJSON] = useState(false);
+
+  const fullJSON = JSON.stringify(metadata, null, 2);
+  const uriClipped = agentURI.length > RAW_URI_LIMIT;
+  const jsonClipped = fullJSON.length > RAW_JSON_LIMIT;
+
+  return (
+    <Card className="border-border overflow-hidden">
+      <CardHeader className="pb-3">
+        <h2 className="font-semibold text-sm">Raw Metadata</h2>
+        <p className="text-xs text-muted-foreground">Parsed from</p>
+        <div className="mt-1 max-w-full overflow-x-auto rounded bg-muted px-2 py-1.5">
+          <code className="font-mono text-xs break-all whitespace-pre-wrap">
+            {expandedURI || !uriClipped
+              ? agentURI
+              : `${agentURI.slice(0, RAW_URI_LIMIT)}…`}
+          </code>
+          {uriClipped && (
+            <button
+              onClick={() => setExpandedURI((v) => !v)}
+              className="ml-1 text-xs font-medium text-primary hover:underline"
+            >
+              {expandedURI ? "Show less" : "Show full URI"}
+            </button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <pre className="overflow-x-auto rounded-lg border border-border bg-muted/40 p-4 text-xs leading-relaxed whitespace-pre-wrap break-words">
+          <code>
+            {expandedJSON || !jsonClipped
+              ? fullJSON
+              : `${fullJSON.slice(0, RAW_JSON_LIMIT)}\n…`}
+          </code>
+        </pre>
+        {jsonClipped && (
+          <button
+            onClick={() => setExpandedJSON((v) => !v)}
+            className="mt-2 text-xs font-medium text-primary hover:underline"
+          >
+            {expandedJSON ? "Show less" : `Show all (${(fullJSON.length / 1024).toFixed(1)} KB)`}
+          </button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ── page ─────────────────────────────────────────────────────────────────────
 
 type Tab = "overview" | "raw";
@@ -440,26 +501,7 @@ export default function AgentDetailPage() {
         </div>
       )}
 
-      {tab === "raw" && (
-        <Card className="border-border">
-          <CardHeader className="pb-3">
-            <h2 className="font-semibold text-sm">Raw Metadata</h2>
-            <p className="text-xs text-muted-foreground">
-              Parsed from{" "}
-              <span className="block max-w-full overflow-x-auto rounded bg-muted px-2 py-1.5 mt-1">
-                <code className="font-mono text-xs whitespace-nowrap">
-                  {agent.agentURI}
-                </code>
-              </span>
-            </p>
-          </CardHeader>
-          <CardContent>
-            <pre className="overflow-x-auto rounded-lg border border-border bg-muted/40 p-4 text-xs leading-relaxed">
-              <code>{JSON.stringify(metadata, null, 2)}</code>
-            </pre>
-          </CardContent>
-        </Card>
-      )}
+      {tab === "raw" && <RawMetadataCard agentURI={agent.agentURI} metadata={metadata} />}
     </div>
   );
 }
