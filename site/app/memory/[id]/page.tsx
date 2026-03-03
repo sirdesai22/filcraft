@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
-import { getEpisodeById } from "@/lib/data";
+import { getMemoryById } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,29 +14,29 @@ import { InstallCommand } from "@/components/install-command";
 import { PaymentModal } from "@/components/payment-modal";
 import Link from "next/link";
 
-export default function EpisodeDetailPage() {
+export default function MemoryDetailPage() {
   const params = useParams();
   const id = params.id as string;
-  const episode = getEpisodeById(id);
+  const memory = getMemoryById(id);
   const [paymentOpen, setPaymentOpen] = useState(false);
 
-  if (!episode) {
+  if (!memory) {
     return (
       <div className="container flex flex-col items-center justify-center px-4 py-24">
         <h1 className="font-display text-2xl font-bold" style={{ fontFamily: "var(--font-playfair-display), serif" }}>
-          Episode not found
+          Memory not found
         </h1>
         <p className="mt-2 text-muted-foreground">
-          The episode you're looking for doesn't exist or has been removed.
+          The memory you're looking for doesn't exist or has been removed.
         </p>
         <Button asChild className="mt-6 rounded-full">
-          <Link href="/">Browse Episodes</Link>
+          <Link href="/">Browse Memories</Link>
         </Button>
       </div>
     );
   }
 
-  const readme = episode.readme ?? `## Overview\n\n${episode.description}\n\n## Installation\n\nUse the install command in the sidebar to add this episode to your project.`;
+  const readme = memory.readme ?? `## Overview\n\n${memory.description}\n\n## Installation\n\nUse the install command in the sidebar to add this memory to your project.`;
 
   return (
     <>
@@ -53,12 +53,20 @@ export default function EpisodeDetailPage() {
               className="font-display text-3xl font-bold tracking-tight text-foreground md:text-4xl"
               style={{ fontFamily: "var(--font-playfair-display), serif" }}
             >
-              {episode.name}
+              {memory.name}
             </h1>
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              {episode.tags.map((tag) => (
+              {memory.tags.map((tag) => (
                 <TagBadge key={tag} tag={tag} />
               ))}
+            </div>
+
+            {/* Command to get memory locally - shown when book is "opened" */}
+            <div className="parchment-command mt-6 rounded-lg p-4">
+              <p className="mb-3 text-sm font-medium text-foreground/90">
+                Get this memory locally
+              </p>
+              <InstallCommand name={memory.id} variant="parchment" />
             </div>
 
             <Tabs defaultValue="overview" className="mt-8">
@@ -119,10 +127,10 @@ export default function EpisodeDetailPage() {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <span className="text-2xl font-bold text-foreground">
-                      {episode.price} FIL
+                      {memory.price} FIL
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      v{episode.version}
+                      v{memory.version}
                     </span>
                   </div>
                 </CardHeader>
@@ -137,7 +145,7 @@ export default function EpisodeDetailPage() {
                     <p className="text-xs font-medium text-muted-foreground">
                       Install command
                     </p>
-                    <InstallCommand name={episode.id} />
+                    <InstallCommand name={memory.id} variant="parchment" />
                   </div>
                 </CardContent>
               </Card>
@@ -149,7 +157,7 @@ export default function EpisodeDetailPage() {
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <CIDBadge cid={episode.cid} />
+                  <CIDBadge cid={memory.cid} />
                 </CardContent>
               </Card>
 
@@ -159,10 +167,10 @@ export default function EpisodeDetailPage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
-                    {episode.author}
+                    {memory.author}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {episode.installs.toLocaleString()} installs
+                    {memory.installs.toLocaleString()} installs
                   </p>
                 </CardContent>
               </Card>
@@ -174,7 +182,7 @@ export default function EpisodeDetailPage() {
       <PaymentModal
         open={paymentOpen}
         onOpenChange={setPaymentOpen}
-        item={episode ? { type: "episode", data: episode } : null}
+        item={memory ? { type: "memory", data: memory } : null}
       />
     </>
   );

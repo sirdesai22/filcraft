@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check } from "lucide-react";
-import type { Episode, Agent } from "@/lib/data";
+import type { Memory, Agent } from "@/lib/data";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-type PaymentModalItem = { type: "episode"; data: Episode } | { type: "agent"; data: Agent };
+type PaymentModalItem = { type: "memory"; data: Memory } | { type: "agent"; data: Agent };
 
 interface PaymentModalProps {
   open: boolean;
@@ -57,9 +57,9 @@ export function PaymentModal({ open, onOpenChange, item }: PaymentModalProps) {
     }, 2000);
   };
 
-  const name = item?.type === "episode" ? item.data.name : item?.data.name;
-  const price = item?.type === "episode" ? item.data.price : (item?.data.price === "free" ? "Free" : item?.data.price);
-  const installName = item?.type === "episode" ? item.data.id : item?.data.id ?? "";
+  const name = item?.type === "memory" ? item.data.name : item?.data.name;
+  const price = item?.type === "memory" ? item.data.price : (item?.data.price === "free" ? "Free" : item?.data.price);
+  const installName = item?.type === "memory" ? item.data.id : item?.data.id ?? "";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -165,7 +165,7 @@ export function PaymentModal({ open, onOpenChange, item }: PaymentModalProps) {
                   Payment complete!
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Your episode is ready to install.
+                  Your memory is ready to install.
                 </p>
               </div>
 

@@ -21,7 +21,7 @@ const playfairDisplay = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "EpisodeMarket",
+  title: "Memfil",
   description:
     "Plug memories into agents. Pay once. Run forever. Browse and install curated experience files and agents.",
 };

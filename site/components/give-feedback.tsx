@@ -222,11 +222,15 @@ export function GiveFeedback({ agentId, networkId, onSuccess }: GiveFeedbackProp
           )}
 
           {isError && (
-            <p className="text-sm text-destructive">
-              {error?.message?.includes("Self-feedback not allowed")
-                ? "You cannot give feedback to your own agent."
-                : error?.message ?? "Transaction failed."}
-            </p>
+            <div className="max-h-24 overflow-auto rounded-md border border-destructive/30 bg-destructive/5 p-3">
+              <p className="break-words text-sm text-destructive">
+                {error?.message?.includes("Self-feedback not allowed")
+                  ? "You cannot give feedback to your own agent."
+                  : error?.message?.includes("User rejected the request")
+                    ? "Transaction was rejected in your wallet."
+                    : error?.message ?? "Transaction failed."}
+              </p>
+            </div>
           )}
 
           {isSuccess && (

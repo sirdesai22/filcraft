@@ -47,7 +47,7 @@ export function AgentCard({ agent, onAddClick }: AgentCardProps) {
           ))}
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span>{agent.installedEpisodes} episodes</span>
+          <span>{agent.installedMemories} memories</span>
           <span>·</span>
           <span className="font-medium text-foreground">{priceLabel}</span>
         </div>
@@ -86,9 +86,11 @@ function getAgentPlaceholderImage(agentId: string, agentName?: string): string {
 
 interface RegistryAgentCardProps {
   agent: RegistryAgent;
+  /** Called when the agent's image fails to load (only when using a real image URL, not placeholder) */
+  onImageError?: () => void;
 }
 
-export function RegistryAgentCard({ agent }: RegistryAgentCardProps) {
+export function RegistryAgentCard({ agent, onImageError }: RegistryAgentCardProps) {
   const name = agent.metadata?.name ?? `Agent #${agent.agentId}`;
   const description = agent.metadata?.description;
   const image = agent.metadata?.image;
@@ -130,7 +132,7 @@ export function RegistryAgentCard({ agent }: RegistryAgentCardProps) {
         <div className="relative mx-2 mt-2">
           <div
             className={cn(
-              "relative aspect-[4/3] overflow-hidden rounded-sm",
+              "relative aspect-square overflow-hidden rounded-sm",
               "border border-amber-800/50 dark:border-amber-600/40",
               "bg-gradient-to-br from-amber-200/50 to-stone-300/50 dark:from-amber-900/50 dark:to-stone-800/50",
               "shadow-[inset_0_1px_4px_rgba(0,0,0,0.1)]"
@@ -140,6 +142,7 @@ export function RegistryAgentCard({ agent }: RegistryAgentCardProps) {
               src={imgSrc ?? getAgentPlaceholderImage(agent.id, name)}
               alt={name}
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              onError={image ? onImageError : undefined}
             />
             <div className="absolute inset-0.5 rounded-sm border border-amber-600/20 dark:border-amber-500/10" />
           </div>

@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 const STEPS = [
   {
-    title: "Find an Episode",
+    title: "Find a Memory",
     description:
       "Browse by tag, use case, or agent compatibility. Filter and sort to find what you need.",
   },
@@ -20,12 +20,12 @@ const STEPS = [
   {
     title: "Install in seconds",
     description:
-      "Run pnpm add episode <name> --token <token>. Your episode is ready to use.",
+      "Run pnpm add memory <name> --token <token>. Your memory is ready to use.",
   },
   {
     title: "Agent loads it",
     description:
-      "Episode is injected into agent memory/context. Your agent gains new capabilities.",
+      "Memory is injected into agent context. Your agent gains new capabilities.",
   },
   {
     title: "It lives on Filecoin",

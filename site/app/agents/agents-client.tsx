@@ -40,6 +40,7 @@ export function AgentsPageClient({
   const [searchQuery, setSearchQuery] = useState("");
   const [network, setNetwork] = useState<NetworkId>(initialNetwork);
   const [showIncompleteAgents, setShowIncompleteAgents] = useState(false);
+  const [inaccessibleImageIds, setInaccessibleImageIds] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(initialData.page);
   const [hasMore, setHasMore] = useState(initialData.hasMore);
   const [total, setTotal] = useState(initialData.total);
@@ -117,6 +118,11 @@ export function AgentsPageClient({
     }
   }, [searchParams]);
 
+  // Reset inaccessible image tracking when agents list changes
+  useEffect(() => {
+    setInaccessibleImageIds(new Set());
+  }, [agents]);
+
   const handleProtocolChange = (p: ProtocolFilter) => {
     setProtocol(p);
   };
@@ -130,9 +136,15 @@ export function AgentsPageClient({
 
   const hasImageAndMetadata = (a: RegistryAgent) =>
     !!a.metadata && !!a.metadata.image;
+  const hasAccessibleImage = (a: RegistryAgent) =>
+    !inaccessibleImageIds.has(a.id);
   const displayedAgents = showIncompleteAgents
     ? agents
-    : agents.filter(hasImageAndMetadata);
+    : agents.filter(hasImageAndMetadata).filter(hasAccessibleImage);
+
+  const handleImageError = useCallback((agentId: string) => {
+    setInaccessibleImageIds((prev) => new Set(prev).add(agentId));
+  }, []);
 
   return (
     <WorkspaceLayout
@@ -226,7 +238,7 @@ export function AgentsPageClient({
             >
               <p className="text-muted-foreground">
                 {!showIncompleteAgents && agents.length > 0
-                  ? "No agents with image and metadata. Enable “Show agents without image or metadata” to see all."
+                  ? "No agents with accessible image and metadata. Enable “Show agents without image or metadata” to see all."
                   : "No agents found."}
               </p>
             </motion.div>
@@ -253,7 +265,14 @@ export function AgentsPageClient({
                     }}
                     transition={{ duration: 0.3 }}
                   >
-                    <RegistryAgentCard agent={agent} />
+                    <RegistryAgentCard
+                      agent={agent}
+                      onImageError={
+                        !showIncompleteAgents && agent.metadata?.image
+                          ? () => handleImageError(agent.id)
+                          : undefined
+                      }
+                    />
                   </motion.div>
                 ))}
               </AnimatePresence>

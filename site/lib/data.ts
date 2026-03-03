@@ -1,4 +1,4 @@
-export type EpisodeTag =
+export type MemoryTag =
   | "reasoning"
   | "memory"
   | "coding"
@@ -6,12 +6,12 @@ export type EpisodeTag =
   | "planning"
   | "tool-use";
 
-export interface Episode {
+export interface Memory {
   id: string;
   name: string;
   description: string;
   readme?: string;
-  tags: EpisodeTag[];
+  tags: MemoryTag[];
   cid: string;
   author: string;
   price: number;
@@ -27,13 +27,13 @@ export interface Agent {
   name: string;
   description: string;
   avatar: string;
-  compatibleTags: EpisodeTag[];
-  installedEpisodes: number;
+  compatibleTags: MemoryTag[];
+  installedMemories: number;
   price: number | "free";
   author: string;
 }
 
-export const EPISODE_TAGS: EpisodeTag[] = [
+export const MEMORY_TAGS: MemoryTag[] = [
   "reasoning",
   "memory",
   "coding",
@@ -42,7 +42,7 @@ export const EPISODE_TAGS: EpisodeTag[] = [
   "tool-use",
 ];
 
-export const EPISODES: Episode[] = [
+export const MEMORIES: Memory[] = [
   {
     id: "chain-of-thought-pro",
     name: "Chain of Thought Pro",
@@ -57,7 +57,7 @@ export const EPISODES: Episode[] = [
     createdAt: "2025-01-15",
     featured: true,
     staffPick: true,
-    readme: `## Overview\n\nChain of Thought Pro provides structured reasoning patterns for complex multi-step problem solving. It improves accuracy on math and logic tasks by guiding the agent through explicit step-by-step reasoning.\n\n## Features\n\n- **Structured reasoning**: Breaks down problems into clear steps\n- **Math & logic**: Optimized for numerical and logical tasks\n- **Transparency**: Each reasoning step is visible and debuggable\n\n## Usage\n\nOnce installed, the episode is automatically loaded into your agent's context. No additional configuration required.`,
+    readme: `## Overview\n\nChain of Thought Pro provides structured reasoning patterns for complex multi-step problem solving. It improves accuracy on math and logic tasks by guiding the agent through explicit step-by-step reasoning.\n\n## Features\n\n- **Structured reasoning**: Breaks down problems into clear steps\n- **Math & logic**: Optimized for numerical and logical tasks\n- **Transparency**: Each reasoning step is visible and debuggable\n\n## Usage\n\nOnce installed, the memory is automatically loaded into your agent's context. No additional configuration required.`,
   },
   {
     id: "context-memory-v2",
@@ -77,7 +77,7 @@ export const EPISODES: Episode[] = [
     id: "code-review-assistant",
     name: "Code Review Assistant",
     description:
-      "Episode for automated code review. Detects bugs, style issues, and suggests improvements.",
+      "Memory for automated code review. Detects bugs, style issues, and suggests improvements.",
     tags: ["coding", "reasoning"],
     cid: "bafybeic3k4l5m6n7o8p9q0r1s2t3u4v5w6x7y8z9a0b1c2d",
     author: "@devtools",
@@ -252,7 +252,7 @@ export const AGENTS: Agent[] = [
     description: "Specialized in multi-step reasoning and chain-of-thought tasks.",
     avatar: "🧠",
     compatibleTags: ["reasoning", "planning"],
-    installedEpisodes: 12,
+    installedMemories: 12,
     price: 0.8,
     author: "@reasoning-labs",
   },
@@ -262,7 +262,7 @@ export const AGENTS: Agent[] = [
     description: "Development assistant with code review and refactoring capabilities.",
     avatar: "💻",
     compatibleTags: ["coding", "reasoning", "tool-use"],
-    installedEpisodes: 8,
+    installedMemories: 8,
     price: 1.2,
     author: "@devtools",
   },
@@ -272,7 +272,7 @@ export const AGENTS: Agent[] = [
     description: "Image and diagram understanding. Extracts insights from visual data.",
     avatar: "👁",
     compatibleTags: ["vision", "reasoning"],
-    installedEpisodes: 5,
+    installedMemories: 5,
     price: 0.9,
     author: "@vision-labs",
   },
@@ -282,7 +282,7 @@ export const AGENTS: Agent[] = [
     description: "Long-context agent with episodic and semantic memory.",
     avatar: "📚",
     compatibleTags: ["memory"],
-    installedEpisodes: 6,
+    installedMemories: 6,
     price: "free",
     author: "@memory-ai",
   },
@@ -292,7 +292,7 @@ export const AGENTS: Agent[] = [
     description: "Planning and execution agent. Breaks goals into subtasks.",
     avatar: "📋",
     compatibleTags: ["planning", "reasoning", "tool-use"],
-    installedEpisodes: 10,
+    installedMemories: 10,
     price: 0.6,
     author: "@planning-ai",
   },
@@ -302,24 +302,24 @@ export const AGENTS: Agent[] = [
     description: "Orchestrates external tools and APIs. Handles complex workflows.",
     avatar: "🔧",
     compatibleTags: ["tool-use", "coding"],
-    installedEpisodes: 7,
+    installedMemories: 7,
     price: "free",
     author: "@toolsmith",
   },
   {
     id: "generalist-pro",
     name: "Generalist Pro",
-    description: "Versatile agent supporting all episode types. Best for experimentation.",
+    description: "Versatile agent supporting all memory types. Best for experimentation.",
     avatar: "🌟",
     compatibleTags: ["reasoning", "memory", "coding", "vision", "planning", "tool-use"],
-    installedEpisodes: 24,
+    installedMemories: 24,
     price: 1.5,
-    author: "@episodemarket",
+    author: "@memfil",
   },
 ];
 
-export function getEpisodeById(id: string): Episode | undefined {
-  return EPISODES.find((e) => e.id === id);
+export function getMemoryById(id: string): Memory | undefined {
+  return MEMORIES.find((e) => e.id === id);
 }
 
 export function getAgentById(id: string): Agent | undefined {

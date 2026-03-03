@@ -9,9 +9,9 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
-  { href: "/", label: "Episodes" },
+  { href: "/", label: "Memories" },
   { href: "/agents", label: "Agents" },
-  { href: "/explore", label: "Explore" },
+  { href: "/explore", label: "Skills" },
   { href: "/docs", label: "Docs" },
 ];
 
@@ -27,7 +27,7 @@ export function Navbar() {
           className="font-display text-xl font-semibold tracking-tight text-foreground"
           style={{ fontFamily: "var(--font-playfair-display), serif" }}
         >
-          EpisodeMarket
+          Memfil
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex">

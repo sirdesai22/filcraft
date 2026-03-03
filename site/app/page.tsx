@@ -2,22 +2,22 @@
 
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { EPISODES } from "@/lib/data";
-import type { Episode, EpisodeTag } from "@/lib/data";
+import { MEMORIES } from "@/lib/data";
+import type { Memory, MemoryTag } from "@/lib/data";
 import { WorkspaceLayout } from "@/components/workspace-layout";
-import { EpisodeFilterSidebar, type SortOption } from "@/components/filter-sidebar";
-import { EpisodeCard } from "@/components/episode-card";
+import { MemoryFilterSidebar, type SortOption } from "@/components/filter-sidebar";
+import { MemoryCard } from "@/components/memory-card";
 import { PaymentModal } from "@/components/payment-modal";
 
-export default function EpisodesPage() {
-  const [selectedTags, setSelectedTags] = useState<EpisodeTag[]>([]);
+export default function MemoriesPage() {
+  const [selectedTags, setSelectedTags] = useState<MemoryTag[]>([]);
   const [sort, setSort] = useState<SortOption>("newest");
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1]);
-  const [paymentItem, setPaymentItem] = useState<{ type: "episode"; data: Episode } | null>(null);
+  const [paymentItem, setPaymentItem] = useState<{ type: "memory"; data: Memory } | null>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
 
-  const filteredEpisodes = useMemo(() => {
-    let result = [...EPISODES];
+  const filteredMemories = useMemo(() => {
+    let result = [...MEMORIES];
 
     if (selectedTags.length > 0) {
       result = result.filter((e) =>
@@ -50,8 +50,8 @@ export default function EpisodesPage() {
     return result;
   }, [selectedTags, sort, priceRange]);
 
-  const handleBuyClick = (episode: Episode) => {
-    setPaymentItem({ type: "episode", data: episode });
+  const handleBuyClick = (memory: Memory) => {
+    setPaymentItem({ type: "memory", data: memory });
     setPaymentOpen(true);
   };
 
@@ -59,7 +59,7 @@ export default function EpisodesPage() {
     <>
       <WorkspaceLayout
         sidebar={
-          <EpisodeFilterSidebar
+          <MemoryFilterSidebar
             selectedTags={selectedTags}
             onTagsChange={setSelectedTags}
             sort={sort}
@@ -75,15 +75,15 @@ export default function EpisodesPage() {
               className="font-display text-2xl font-bold tracking-tight text-foreground md:text-3xl"
               style={{ fontFamily: "var(--font-playfair-display), serif" }}
             >
-              Episodes
+              Memories
             </h1>
             <p className="mt-1 text-muted-foreground">
-              Browse and install curated experience files for your agents.
+              Browse and install curated memory files for your agents.
             </p>
           </div>
 
           <AnimatePresence mode="wait">
-            {filteredEpisodes.length === 0 ? (
+            {filteredMemories.length === 0 ? (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -91,7 +91,7 @@ export default function EpisodesPage() {
                 className="rounded-xl border border-dashed border-border bg-muted/30 py-16 text-center"
               >
                 <p className="text-muted-foreground">
-                  No episodes match your filters.
+                  No memories match your filters.
                 </p>
               </motion.div>
             ) : (
@@ -108,9 +108,9 @@ export default function EpisodesPage() {
                 }}
               >
                 <AnimatePresence mode="popLayout">
-                  {filteredEpisodes.map((episode, i) => (
+                  {filteredMemories.map((memory, i) => (
                     <motion.div
-                      key={episode.id}
+                      key={memory.id}
                       layout
                       variants={{
                         hidden: { opacity: 0, y: 20 },
@@ -118,8 +118,8 @@ export default function EpisodesPage() {
                       }}
                       transition={{ duration: 0.3 }}
                     >
-                      <EpisodeCard
-                        episode={episode}
+                      <MemoryCard
+                        memory={memory}
                         onBuyClick={handleBuyClick}
                       />
                     </motion.div>

@@ -15,18 +15,20 @@ interface InstallCommandProps {
   token?: string;
   registry?: string;
   className?: string;
+  variant?: "default" | "parchment";
 }
 
 export function InstallCommand({
   name,
   token,
-  registry = "episodemarket",
+  registry = "memfil",
   className,
+  variant = "default",
 }: InstallCommandProps) {
   const [copied, setCopied] = useState(false);
   const command = token
-    ? `pnpm add episode ${name} --token ${token} --registry ${registry}`
-    : `pnpm add episode ${name} --registry ${registry}`;
+    ? `pnpm add memory ${name} --token ${token} --registry ${registry}`
+    : `pnpm add memory ${name} --registry ${registry}`;
 
   const copyToClipboard = async () => {
     await navigator.clipboard.writeText(command);
@@ -34,10 +36,15 @@ export function InstallCommand({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const isParchment = variant === "parchment";
+
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-2 rounded-lg bg-black px-3 py-2 font-mono text-sm text-white",
+        "flex items-center justify-between gap-2 rounded-lg px-3 py-2 font-mono text-sm",
+        isParchment
+          ? "border border-foreground/20 bg-foreground/5 text-foreground"
+          : "bg-black text-white",
         className
       )}
     >
@@ -47,7 +54,12 @@ export function InstallCommand({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 shrink-0 text-white hover:bg-white/20"
+            className={cn(
+              "h-8 w-8 shrink-0",
+              isParchment
+                ? "text-foreground hover:bg-foreground/10"
+                : "text-white hover:bg-white/20"
+            )}
             onClick={copyToClipboard}
           >
             <Copy className="h-4 w-4" />

@@ -1,6 +1,6 @@
 "use client";
 
-import { EPISODE_TAGS, type EpisodeTag } from "@/lib/data";
+import { MEMORY_TAGS, type MemoryTag } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -16,9 +16,9 @@ import { cn } from "@/lib/utils";
 
 export type SortOption = "newest" | "most-installed" | "price-low" | "price-high";
 
-interface EpisodeFilterSidebarProps {
-  selectedTags: EpisodeTag[];
-  onTagsChange: (tags: EpisodeTag[]) => void;
+interface MemoryFilterSidebarProps {
+  selectedTags: MemoryTag[];
+  onTagsChange: (tags: MemoryTag[]) => void;
   sort: SortOption;
   onSortChange: (sort: SortOption) => void;
   priceRange: [number, number];
@@ -32,15 +32,15 @@ const SORT_LABELS: Record<SortOption, string> = {
   "price-high": "Price: High to low",
 };
 
-export function EpisodeFilterSidebar({
+export function MemoryFilterSidebar({
   selectedTags,
   onTagsChange,
   sort,
   onSortChange,
   priceRange,
   onPriceRangeChange,
-}: EpisodeFilterSidebarProps) {
-  const toggleTag = (tag: EpisodeTag) => {
+}: MemoryFilterSidebarProps) {
+  const toggleTag = (tag: MemoryTag) => {
     if (selectedTags.includes(tag)) {
       onTagsChange(selectedTags.filter((t) => t !== tag));
     } else {
@@ -53,7 +53,7 @@ export function EpisodeFilterSidebar({
       <div>
         <h3 className="mb-3 text-sm font-medium text-foreground">Tags</h3>
         <div className="flex flex-wrap gap-2">
-          {EPISODE_TAGS.map((tag) => (
+          {MEMORY_TAGS.map((tag) => (
             <button
               key={tag}
               onClick={() => toggleTag(tag)}
@@ -114,8 +114,8 @@ export function EpisodeFilterSidebar({
 }
 
 interface AgentFilterSidebarProps {
-  selectedTags: EpisodeTag[];
-  onTagsChange: (tags: EpisodeTag[]) => void;
+  selectedTags: MemoryTag[];
+  onTagsChange: (tags: MemoryTag[]) => void;
   showFreeOnly: boolean;
   onShowFreeOnlyChange: (v: boolean) => void;
 }
@@ -126,7 +126,7 @@ export function AgentFilterSidebar({
   showFreeOnly,
   onShowFreeOnlyChange,
 }: AgentFilterSidebarProps) {
-  const toggleTag = (tag: EpisodeTag) => {
+  const toggleTag = (tag: MemoryTag) => {
     if (selectedTags.includes(tag)) {
       onTagsChange(selectedTags.filter((t) => t !== tag));
     } else {
@@ -139,7 +139,7 @@ export function AgentFilterSidebar({
       <div>
         <h3 className="mb-3 text-sm font-medium text-foreground">Compatibility</h3>
         <div className="flex flex-wrap gap-2">
-          {EPISODE_TAGS.map((tag) => (
+          {MEMORY_TAGS.map((tag) => (
             <button
               key={tag}
               onClick={() => toggleTag(tag)}

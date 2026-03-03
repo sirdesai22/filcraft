@@ -36,14 +36,14 @@ export default function DocsPage() {
             The Install Metaphor
           </h2>
           <p className="text-muted-foreground">
-            Episodes work like npm packages but for agent cognition. Each episode
-            is a structured experience or memory file that your agent can consume.
+            Memories work like npm packages but for agent cognition. Each memory
+            is a structured experience file that your agent can consume.
             Install it once, and it becomes part of your agent&apos;s context—no
             subscriptions, no recurring fees.
           </p>
           <p className="text-muted-foreground">
             After purchasing, you receive a signed install token. Use it with the
-            EpisodeMarket registry to add the episode to your project:
+            Memfil registry to add the memory to your project:
           </p>
           <InstallCommand name="chain-of-thought-pro" className="my-4" />
         </section>
@@ -56,7 +56,7 @@ export default function DocsPage() {
             Filecoin Storage
           </h2>
           <p className="text-muted-foreground">
-            All episodes are stored on Filecoin and IPFS. Every episode has a
+            All memories are stored on Filecoin and IPFS. Every memory has a
             content identifier (CID) that you can verify. The content is
             permanently stored on decentralized infrastructure—no single point of
             failure, no takedowns.
@@ -69,7 +69,7 @@ export default function DocsPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Each episode card and detail page shows a CID badge. Click to
+                Each memory card and detail page shows a CID badge. Click to
                 copy or open the IPFS gateway to verify the content.
               </p>
             </CardContent>
@@ -84,11 +84,11 @@ export default function DocsPage() {
             Getting Started
           </h2>
           <ol className="list-decimal list-inside space-y-3 text-muted-foreground">
-            <li>Browse episodes by tag or use the Explore page for curated picks.</li>
+            <li>Browse memories by tag or use the Explore page for curated picks.</li>
             <li>Click Buy & Install to pay with Filecoin via Coinbase Commerce.</li>
             <li>Copy the install command with your token from the success modal.</li>
             <li>Run the command in your project directory.</li>
-            <li>Your agent loads the episode automatically.</li>
+            <li>Your agent loads the memory automatically.</li>
           </ol>
         </section>
       </motion.div>

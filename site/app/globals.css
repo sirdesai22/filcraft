@@ -125,3 +125,27 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Parchment-style command block on memory detail page */
+.parchment-command {
+  background: linear-gradient(
+    180deg,
+    #f5eedf 0%,
+    #ebe3d3 50%,
+    #e8dcc8 100%
+  );
+  border: 1px solid #a08b6a;
+  box-shadow:
+    inset 0 0 60px rgba(139, 119, 91, 0.08),
+    2px 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.dark .parchment-command {
+  background: linear-gradient(
+    180deg,
+    #2a2318 0%,
+    #221d13 50%,
+    #1c180f 100%
+  );
+  border-color: #3d3222;
+}
