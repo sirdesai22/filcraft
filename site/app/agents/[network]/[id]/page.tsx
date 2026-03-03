@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import type { AgentDetail } from "@/lib/registry";
+import type { AgentDetail, AgentMetadata } from "@/lib/registry";
 import { getExplorerUrl, getNetwork, NETWORK_IDS, type NetworkId } from "@/lib/networks";
 import { GiveFeedback } from "@/components/give-feedback";
 
