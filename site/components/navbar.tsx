@@ -9,12 +9,18 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
-  { href: "/", label: "Memories" },
-  { href: "/agents", label: "Agents" },
-  { href: "/agents/register", label: "Register Agent" },
-  { href: "/explore", label: "Skills" },
-  { href: "/docs", label: "Docs" },
+  { href: "/marketplace", label: "Marketplace", exact: false },
+  { href: "/agents", label: "Agent Registry", exact: true },
+  { href: "/agents/register", label: "Register Agent", exact: false },
+  { href: "/explore", label: "Skills", exact: false },
+  { href: "/docs", label: "Docs", exact: false },
 ];
+
+function isActive(pathname: string, href: string, exact: boolean): boolean {
+  if (exact) return pathname === href;
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(href + "/");
+}
 
 export function Navbar() {
   const pathname = usePathname();
@@ -38,7 +44,7 @@ export function Navbar() {
               href={link.href}
               className={cn(
                 "text-sm font-medium transition-colors hover:text-foreground",
-                pathname === link.href || (link.href !== "/" && pathname.startsWith(link.href))
+                isActive(pathname, link.href, link.exact)
                   ? "text-foreground underline underline-offset-4"
                   : "text-muted-foreground"
               )}
@@ -78,7 +84,7 @@ export function Navbar() {
                     onClick={() => setOpen(false)}
                     className={cn(
                       "text-base font-medium",
-                      pathname === link.href || (link.href !== "/" && pathname.startsWith(link.href))
+                      isActive(pathname, link.href, link.exact)
                         ? "text-foreground underline underline-offset-4"
                         : "text-muted-foreground"
                     )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import type { Agent } from "@/lib/data";
 import type { RegistryAgent } from "@/lib/registry";
@@ -79,15 +79,63 @@ function truncateAddress(address: string): string {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
-/** Deterministic avatar for agents without an image. Uses DiceBear bottts (robot) style. */
-function getAgentPlaceholderImage(agentId: string, agentName?: string): string {
-  const seed = [agentId, agentName].filter(Boolean).join("-");
-  return `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(seed)}&backgroundColor=amber,stone&size=128`;
+// ── Local SVG avatar (no external API) ─────────────────────────────────────
+
+const AVATAR_PALETTES = [
+  ["#3b1f0e", "#c97c2a"], // amber leather
+  ["#0f2b1c", "#4caf7a"], // forest green
+  ["#1a2744", "#6a8fd8"], // navy blue
+  ["#26133d", "#a87ad4"], // deep plum
+  ["#2e1808", "#d4935a"], // rust
+  ["#0f2828", "#4abdb0"], // teal
+  ["#2d1515", "#c96060"], // burgundy
+  ["#1a1a2e", "#8080d0"], // midnight blue
+];
+
+function agentAvatarSvg(seed: string, name: string): string {
+  // Simple deterministic hash
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) {
+    h = (Math.imul(31, h) + seed.charCodeAt(i)) | 0;
+  }
+  const palette = AVATAR_PALETTES[Math.abs(h) % AVATAR_PALETTES.length];
+  const [bg, fg] = palette;
+
+  // Initials: up to 2 chars from non-"Agent" words
+  const words = name.replace(/^Agent\s*#?\d*\s*/i, "").trim().split(/\s+/).filter(Boolean);
+  const initials = words.length >= 2
+    ? (words[0][0] + words[1][0]).toUpperCase()
+    : (name.replace(/\s+/g, "").slice(0, 2).toUpperCase() || "?");
+
+  // Subtle grid pattern for texture
+  const gridSize = 12;
+  const gridOpacity = 0.08;
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+    <defs>
+      <pattern id="g" width="${gridSize}" height="${gridSize}" patternUnits="userSpaceOnUse">
+        <path d="M ${gridSize} 0 L 0 0 0 ${gridSize}" fill="none" stroke="${fg}" stroke-width="0.5" opacity="${gridOpacity}"/>
+      </pattern>
+      <radialGradient id="grd" cx="40%" cy="35%">
+        <stop offset="0%" stop-color="${fg}" stop-opacity="0.18"/>
+        <stop offset="100%" stop-color="${bg}" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <rect width="128" height="128" fill="${bg}"/>
+    <rect width="128" height="128" fill="url(#g)"/>
+    <rect width="128" height="128" fill="url(#grd)"/>
+    <text x="64" y="74" text-anchor="middle" dominant-baseline="middle"
+      font-family="Georgia, serif" font-size="46" font-weight="bold"
+      fill="${fg}" opacity="0.92" letter-spacing="2">${initials}</text>
+    <rect width="128" height="128" fill="none" stroke="${fg}" stroke-width="2" opacity="0.15" rx="2"/>
+  </svg>`;
+
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
 }
 
 // ── Live health dot ────────────────────────────────────────────────────────────
 
-function HealthDot({ agentId, networkId }: { agentId: string; networkId: string }) {
+export function HealthDot({ agentId, networkId }: { agentId: string; networkId: string }) {
   const [status, setStatus] = useState<"ok" | "unreachable" | "unknown">("unknown");
 
   useEffect(() => {
@@ -120,11 +168,9 @@ function HealthDot({ agentId, networkId }: { agentId: string; networkId: string 
 
 interface RegistryAgentCardProps {
   agent: RegistryAgent;
-  /** Called when the agent's image fails to load (only when using a real image URL, not placeholder) */
-  onImageError?: () => void;
 }
 
-export function RegistryAgentCard({ agent, onImageError }: RegistryAgentCardProps) {
+export function RegistryAgentCard({ agent }: RegistryAgentCardProps) {
   const name = agent.metadata?.name ?? `Agent #${agent.agentId}`;
   const description = agent.metadata?.description;
   const image = agent.metadata?.image;
@@ -132,9 +178,12 @@ export function RegistryAgentCard({ agent, onImageError }: RegistryAgentCardProp
   const networkId = agent.networkId ?? "sepolia";
   const network = getNetwork(networkId);
   const explorerHref = getExplorerUrl(networkId, agent.agentId);
-  const imgSrc = image?.startsWith("ipfs://")
-    ? image.replace("ipfs://", "https://ipfs.io/ipfs/")
-    : image;
+  const [imgError, setImgError] = useState(false);
+  const handleImgError = useCallback(() => setImgError(true), []);
+
+  const resolvedImgSrc = image && !imgError
+    ? (image.startsWith("ipfs://") ? image.replace("ipfs://", "https://ipfs.io/ipfs/") : image)
+    : null;
 
   return (
     <Link
@@ -172,12 +221,21 @@ export function RegistryAgentCard({ agent, onImageError }: RegistryAgentCardProp
               "shadow-[inset_0_1px_4px_rgba(0,0,0,0.1)]"
             )}
           >
-            <img
-              src={imgSrc ?? getAgentPlaceholderImage(agent.id, name)}
-              alt={name}
-              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-              onError={image ? onImageError : undefined}
-            />
+            {resolvedImgSrc ? (
+              <img
+                src={resolvedImgSrc}
+                alt={name}
+                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                onError={handleImgError}
+              />
+            ) : (
+              <img
+                src={agentAvatarSvg(agent.id, name)}
+                alt={name}
+                className="h-full w-full object-cover"
+                draggable={false}
+              />
+            )}
             <div className="absolute inset-0.5 rounded-sm border border-amber-600/20 dark:border-amber-500/10" />
             <HealthDot agentId={agent.agentId} networkId={networkId} />
           </div>

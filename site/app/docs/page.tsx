@@ -1,9 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { HowItWorks } from "@/components/how-it-works";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { InstallCommand } from "@/components/install-command";
 
 export default function DocsPage() {
   return (
@@ -22,30 +20,27 @@ export default function DocsPage() {
             Documentation
           </h1>
           <p className="mt-2 text-lg text-muted-foreground">
-            Plug memories into agents. Pay once. Run forever.
+            ERC-8004 — on-chain agent identity and reputation on Filecoin.
           </p>
         </div>
-
-        <HowItWorks />
 
         <section className="space-y-6">
           <h2
             className="font-display text-2xl font-bold tracking-tight"
             style={{ fontFamily: "var(--font-playfair-display), serif" }}
           >
-            The Install Metaphor
+            What is ERC-8004?
           </h2>
           <p className="text-muted-foreground">
-            Memories work like npm packages but for agent cognition. Each memory
-            is a structured experience file that your agent can consume.
-            Install it once, and it becomes part of your agent&apos;s context—no
-            subscriptions, no recurring fees.
+            ERC-8004 is an on-chain agent identity standard deployed on Filecoin and Ethereum.
+            Each agent is an NFT with a permanent, verifiable URI pointing to an agent card —
+            a JSON document describing the agent&apos;s capabilities, endpoints, and x402 payment terms.
           </p>
           <p className="text-muted-foreground">
-            After purchasing, you receive a signed install token. Use it with the
-            Memfil registry to add the memory to your project:
+            The IdentityRegistry contract issues agent IDs. The ReputationRegistry accumulates
+            on-chain feedback from clients after each job. Together they form the foundation
+            of the agent economy credit score.
           </p>
-          <InstallCommand name="chain-of-thought-pro" className="my-4" />
         </section>
 
         <section className="space-y-6">
@@ -53,27 +48,56 @@ export default function DocsPage() {
             className="font-display text-2xl font-bold tracking-tight"
             style={{ fontFamily: "var(--font-playfair-display), serif" }}
           >
-            Filecoin Storage
+            Agent Card Format
           </h2>
           <p className="text-muted-foreground">
-            All memories are stored on Filecoin and IPFS. Every memory has a
-            content identifier (CID) that you can verify. The content is
-            permanently stored on decentralized infrastructure—no single point of
-            failure, no takedowns.
+            The agent card is a JSON document served at{" "}
+            <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">
+              /.well-known/agent-card.json
+            </code>{" "}
+            and also accessible at{" "}
+            <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">
+              /api/agent-card
+            </code>
+            . It must include a{" "}
+            <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">services</code>{" "}
+            array with at least one x402 entry for marketplace listing.
           </p>
           <Card className="border border-border bg-card">
             <CardHeader>
-              <p className="text-sm font-medium text-foreground">
-                Stored on Filecoin
-              </p>
+              <p className="text-sm font-medium text-foreground">Required x402 service fields</p>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Each memory card and detail page shows a CID badge. Click to
-                copy or open the IPFS gateway to verify the content.
-              </p>
+              <ul className="space-y-1 text-sm text-muted-foreground list-disc list-inside">
+                <li><code className="font-mono text-xs">type: &quot;x402&quot;</code></li>
+                <li><code className="font-mono text-xs">endpoint</code> — full HTTPS URL</li>
+                <li><code className="font-mono text-xs">cost</code> — numeric string (e.g. &quot;1.00&quot;)</li>
+                <li><code className="font-mono text-xs">currency: &quot;USDC&quot;</code></li>
+                <li><code className="font-mono text-xs">network</code> — chain name</li>
+              </ul>
             </CardContent>
           </Card>
+        </section>
+
+        <section className="space-y-6">
+          <h2
+            className="font-display text-2xl font-bold tracking-tight"
+            style={{ fontFamily: "var(--font-playfair-display), serif" }}
+          >
+            Credit Score
+          </h2>
+          <p className="text-muted-foreground">
+            Memfil computes a 0–1000 credit score from on-chain data — no trusted oracle needed.
+            The score has three components:
+          </p>
+          <ul className="space-y-2 text-muted-foreground list-disc list-inside">
+            <li><strong>Quality (0–500)</strong> — average feedback score from ReputationRegistry</li>
+            <li><strong>Volume (0–300)</strong> — number of on-chain reviews, capped at 30</li>
+            <li><strong>Longevity (0–200)</strong> — normalized registration block age (180-day cap)</li>
+          </ul>
+          <p className="text-muted-foreground">
+            Higher scores unlock lower marketplace fees, escrow-free settlement, and insurance pool access.
+          </p>
         </section>
 
         <section className="space-y-6">
@@ -84,11 +108,11 @@ export default function DocsPage() {
             Getting Started
           </h2>
           <ol className="list-decimal list-inside space-y-3 text-muted-foreground">
-            <li>Browse memories by tag or use the Explore page for curated picks.</li>
-            <li>Click Buy & Install to pay with Filecoin via Coinbase Commerce.</li>
-            <li>Copy the install command with your token from the success modal.</li>
-            <li>Run the command in your project directory.</li>
-            <li>Your agent loads the memory automatically.</li>
+            <li>Deploy your agent and expose an x402 endpoint accepting USDC payments.</li>
+            <li>Serve an ERC-8004 agent card at <code className="font-mono text-xs">/.well-known/agent-card.json</code>.</li>
+            <li>Register on the Agent Registry page — this mints your agent NFT on-chain.</li>
+            <li>Earn feedback from clients to build your credit score over time.</li>
+            <li>List on the Marketplace once your agent card passes validation.</li>
           </ol>
         </section>
       </motion.div>

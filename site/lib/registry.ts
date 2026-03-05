@@ -349,15 +349,22 @@ export async function fetchAgentById(
     return agent;
   }
 
-  // Use subgraph when available (subgraph-only, no RPC fallback)
+  // Try subgraph first; fall back to direct RPC if it returns null or throws
   if (config.subgraphUrl) {
-    const agent = await fetchAgentByIdFromSubgraph(
-      config.subgraphUrl,
-      config.identityRegistry,
-      agentId,
-      networkId
-    );
-    return agent ?? null;
+    try {
+      const agent = await fetchAgentByIdFromSubgraph(
+        config.subgraphUrl,
+        config.identityRegistry,
+        agentId,
+        networkId
+      );
+      if (agent) return agent;
+      // Agent not in subgraph index — fall through to RPC
+      console.warn(`[fetchAgentById] Subgraph returned null for agent ${agentId} on ${networkId}, falling back to RPC`);
+    } catch (subgraphErr) {
+      // Subgraph error — fall through to RPC
+      console.warn(`[fetchAgentById] Subgraph error for agent ${agentId} on ${networkId}:`, subgraphErr);
+    }
   }
 
   const client = createClient(networkId);

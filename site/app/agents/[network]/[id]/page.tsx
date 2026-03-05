@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
+  AlertTriangle,
   ArrowLeft,
   Copy,
   ExternalLink,
@@ -11,6 +12,7 @@ import {
   MessageSquare,
   Star,
   Terminal,
+  TrendingUp,
   Zap,
 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -19,6 +21,7 @@ import type { AgentDetail, AgentMetadata } from "@/lib/registry";
 import type { ParsedServices } from "@/lib/agent-validator";
 import { getExplorerUrl, getNetwork, NETWORK_IDS, type NetworkId } from "@/lib/networks";
 import { GiveFeedback } from "@/components/give-feedback";
+import { computeCreditScore } from "@/lib/credit-score";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -343,9 +346,125 @@ function InvokeSection({
   );
 }
 
+// ── Score tab ─────────────────────────────────────────────────────────────────
+
+const TIER_BADGE_CLASS: Record<string, string> = {
+  new: "bg-zinc-500/10 text-zinc-500 border border-zinc-500/30",
+  bronze: "bg-amber-700/10 text-amber-700 border border-amber-700/30 dark:text-amber-400",
+  silver: "bg-slate-400/10 text-slate-500 border border-slate-400/30 dark:text-slate-300",
+  gold: "bg-yellow-400/10 text-yellow-600 border border-yellow-400/30 dark:text-yellow-300",
+  platinum: "bg-violet-500/10 text-violet-600 border border-violet-500/30 dark:text-violet-300",
+};
+
+function ScoreTab({ agent }: { agent: AgentDetail }) {
+  const cs = computeCreditScore(agent);
+  const { breakdown, score, tier, label, listingFeeBps, escrowFree, insurancePool } = cs;
+
+  return (
+    <div className="space-y-6">
+      {agent.metadata?.active === false && (
+        <div className="mb-6 rounded-lg border border-amber-500/40 bg-amber-500/5 px-4 py-3 flex gap-2 text-sm text-amber-600">
+          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+          This agent is no longer active. Its history remains permanently on Filecoin.
+        </div>
+      )}
+
+      {/* Score card */}
+      <Card className="border-border">
+        <CardHeader className="pb-3">
+          <h2 className="font-semibold text-sm flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-primary" />
+            Credit Score
+          </h2>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-4">
+            <span className="text-4xl font-bold tabular-nums">{score}</span>
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${TIER_BADGE_CLASS[tier]}`}>
+              {label}
+            </span>
+          </div>
+          {/* Progress bar */}
+          <div className="space-y-1">
+            <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full bg-primary transition-all duration-500"
+                style={{ width: `${(score / 1000) * 100}%` }}
+              />
+            </div>
+            <p className="text-[10px] text-muted-foreground/60 font-mono">
+              0 New · 100 Bronze · 400 Silver · 650 Gold · 850 Platinum
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Breakdown card */}
+      <Card className="border-border">
+        <CardHeader className="pb-3">
+          <h2 className="font-semibold text-sm">Score Breakdown</h2>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {[
+            { label: "Quality", value: breakdown.qualityScore, max: 500 },
+            { label: "Volume", value: breakdown.feedbackScore, max: 300 },
+            { label: "Longevity", value: breakdown.longevityScore, max: 200 },
+          ].map(({ label: l, value, max }) => (
+            <div key={l} className="space-y-1">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">{l}</span>
+                <span className="font-mono text-xs text-muted-foreground">
+                  {value} / {max}
+                </span>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary/60 transition-all duration-500"
+                  style={{ width: `${(value / max) * 100}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Access privileges card */}
+      <Card className="border-border">
+        <CardHeader className="pb-3">
+          <h2 className="font-semibold text-sm">Access Privileges</h2>
+        </CardHeader>
+        <CardContent className="px-4 pb-4">
+          <div className="flex items-start justify-between gap-4 py-2.5 border-b border-border">
+            <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Listing Fee
+            </span>
+            <span className="text-sm font-semibold">{(listingFeeBps / 100).toFixed(2)}%</span>
+          </div>
+          <div className="flex items-start justify-between gap-4 py-2.5 border-b border-border">
+            <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Escrow-Free Settlement
+            </span>
+            <span className={`text-sm font-semibold ${escrowFree ? "text-emerald-500" : "text-muted-foreground"}`}>
+              {escrowFree ? "✓" : "—"}
+            </span>
+          </div>
+          <div className="flex items-start justify-between gap-4 py-2.5">
+            <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Insurance Pool
+            </span>
+            <span className={`text-sm font-semibold ${insurancePool ? "text-emerald-500" : "text-muted-foreground"}`}>
+              {insurancePool ? "✓" : "—"}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // ── page ─────────────────────────────────────────────────────────────────────
 
-type Tab = "overview" | "invoke" | "raw";
+type Tab = "overview" | "invoke" | "raw" | "score";
 
 export default function AgentDetailPage() {
   const params = useParams<{ network: string; id: string }>();
@@ -491,17 +610,24 @@ export default function AgentDetailPage() {
           </div>
         </div>
 
-        <Button asChild variant="outline" size="sm" className="shrink-0 rounded-full">
-          <a href={explorerUrl} target="_blank" rel="noopener noreferrer">
-            {network.explorerName}
-            <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
-          </a>
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button asChild variant="outline" size="sm" className="rounded-full">
+            <Link href={`/agents/update?id=${id}&network=${networkId}`}>
+              Update URI
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="rounded-full">
+            <a href={explorerUrl} target="_blank" rel="noopener noreferrer">
+              {network.explorerName}
+              <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+            </a>
+          </Button>
+        </div>
       </div>
 
       {/* Tabs */}
       <div className="mb-6 flex gap-6 border-b border-border">
-        {(["overview", "invoke", "raw"] as Tab[]).map((t) => (
+        {(["overview", "invoke", "score", "raw"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -511,7 +637,7 @@ export default function AgentDetailPage() {
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            {t === "raw" ? "Raw Metadata" : t === "invoke" ? "Invoke" : "Overview"}
+            {t === "raw" ? "Raw Metadata" : t === "invoke" ? "Invoke" : t === "score" ? "Score" : "Overview"}
           </button>
         ))}
       </div>
@@ -680,6 +806,8 @@ export default function AgentDetailPage() {
           healthStatus={healthStatus}
         />
       )}
+
+      {tab === "score" && <ScoreTab agent={agent} />}
 
       {tab === "raw" && <RawMetadataCard agentURI={agent.agentURI} metadata={metadata} />}
     </div>

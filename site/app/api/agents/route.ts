@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
     ? (networkParam as NetworkId)
     : DEFAULT_NETWORK;
   const noCache = searchParams.get("noCache") === "1";
+  const x402 = searchParams.get("x402") === "true";
   if (noCache) {
     revalidateTag("registry-agents", "default");
     revalidateTag(`registry-agents-${network}`, "default");
@@ -29,6 +30,7 @@ export async function GET(request: NextRequest) {
       protocol,
       network,
       noCache,
+      x402,
     });
 
     return NextResponse.json({

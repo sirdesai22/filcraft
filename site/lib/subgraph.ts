@@ -162,6 +162,14 @@ export async function fetchAgentsFromSubgraph(
   return allAgents;
 }
 
+const GET_AGENT_ONLY = gql`
+  query GetAgent($id: ID!) {
+    agent(id: $id) {
+      ${AGENT_FIELDS}
+    }
+  }
+`;
+
 export async function fetchAgentByIdFromSubgraph(
   subgraphUrl: string,
   identityRegistry: string,
@@ -171,15 +179,34 @@ export async function fetchAgentByIdFromSubgraph(
   const id = buildSubgraphAgentId(identityRegistry, agentId);
   const client = new GraphQLClient(subgraphUrl);
 
-  const response = await client.request<{
-    agent: SubgraphAgent | null;
-    agentStats: SubgraphAgentStats | null;
-  }>(GET_AGENT_WITH_STATS, { id });
+  // Try with stats first; fall back to agent-only query if agentStats entity
+  // doesn't exist on this particular subgraph deployment.
+  let subgraphAgent: SubgraphAgent | null = null;
+  let stats: SubgraphAgentStats | null = null;
 
-  if (!response.agent) return null;
+  try {
+    const response = await client.request<{
+      agent: SubgraphAgent | null;
+      agentStats: SubgraphAgentStats | null;
+    }>(GET_AGENT_WITH_STATS, { id });
+    subgraphAgent = response.agent;
+    stats = response.agentStats;
+  } catch {
+    // agentStats entity may not exist — retry without it
+    try {
+      const response = await client.request<{ agent: SubgraphAgent | null }>(
+        GET_AGENT_ONLY,
+        { id }
+      );
+      subgraphAgent = response.agent;
+    } catch {
+      return null;
+    }
+  }
 
-  const metadata = subgraphMetadataToAgentMetadata(response.agent.registrationFile);
-  const stats = response.agentStats;
+  // Narrow away null — already guarded above
+  const agent = subgraphAgent!;
+  const metadata = subgraphMetadataToAgentMetadata(agent.registrationFile);
 
   const totalFeedback = stats
     ? parseInt(stats.totalFeedback, 10) || 0
@@ -191,8 +218,8 @@ export async function fetchAgentByIdFromSubgraph(
   return {
     id: `${networkId}:${agentId}`,
     agentId,
-    owner: response.agent.owner,
-    agentURI: response.agent.agentURI ?? "",
+    owner: agent.owner,
+    agentURI: agent.agentURI ?? "",
     blockNumber: "0",
     metadata,
     protocols: getProtocols(metadata),

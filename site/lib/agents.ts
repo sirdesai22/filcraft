@@ -13,6 +13,7 @@ export interface GetAgentsPageParams {
   protocol?: ProtocolFilter;
   network?: NetworkId;
   noCache?: boolean;
+  x402?: boolean;
 }
 
 export interface GetAgentsPageResult {
@@ -44,6 +45,7 @@ export async function getAgentsPage(
     protocol = "all",
     network = DEFAULT_NETWORK,
     noCache = false,
+    x402 = false,
   } = params;
 
   let agents = noCache
@@ -53,6 +55,10 @@ export async function getAgentsPage(
   if (protocol !== "all") {
     const p = protocol.toUpperCase();
     agents = agents.filter((a) => a.protocols.includes(p));
+  }
+
+  if (x402) {
+    agents = agents.filter((a) => a.metadata?.x402Support === true);
   }
 
   if (query) {
