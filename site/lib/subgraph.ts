@@ -224,6 +224,22 @@ interface GoldskyURIUpdated {
   block_number: string;
 }
 
+interface GoldskyNewFeedback {
+  agentId: string;
+  clientAddress: string;
+  feedbackIndex: string;
+  value: string;
+  valueDecimals: string;
+  block_number: string;
+}
+
+interface GoldskyFeedbackRevoked {
+  agentId: string;
+  clientAddress: string;
+  feedbackIndex: string;
+  block_number: string;
+}
+
 const GOLDSKY_GET_REGISTEREDS = gql`
   query GetRegistereds($first: Int!, $skip: Int!) {
     registereds(first: $first, skip: $skip, orderBy: block_number, orderDirection: desc) {
@@ -256,6 +272,25 @@ const GOLDSKY_GET_AGENT = gql`
     uriupdateds(where: { agentId: $agentId }, orderBy: block_number, orderDirection: desc, first: 1) {
       agentId
       newURI
+      block_number
+    }
+  }
+`;
+
+const GOLDSKY_GET_FEEDBACK = gql`
+  query GetFeedback($agentId: String!) {
+    newfeedbacks(where: { agentId: $agentId }) {
+      agentId
+      clientAddress
+      feedbackIndex
+      value
+      valueDecimals
+      block_number
+    }
+    feedbackrevokeds(where: { agentId: $agentId }) {
+      agentId
+      clientAddress
+      feedbackIndex
       block_number
     }
   }
@@ -370,7 +405,8 @@ export async function fetchAgentsFromGoldskySubgraph(
 export async function fetchAgentByIdFromGoldskySubgraph(
   subgraphUrl: string,
   agentId: string,
-  networkId: NetworkId
+  networkId: NetworkId,
+  reputationSubgraphUrl?: string
 ): Promise<AgentDetail | null> {
   const client = new GraphQLClient(subgraphUrl);
 
@@ -391,6 +427,41 @@ export async function fetchAgentByIdFromGoldskySubgraph(
 
   const metadata = await fetchMetadata(agentURI);
 
+  // Fetch reputation from dedicated Goldsky ReputationRegistry subgraph when available.
+  // Uses a separate client so the identity-registry subgraph URL is not queried for
+  // entities it doesn't have (which would silently return empty results).
+  let reputation = { totalFeedback: 0, averageScore: null as number | null };
+  if (reputationSubgraphUrl) {
+    try {
+      const repClient = new GraphQLClient(reputationSubgraphUrl);
+      const feedbackRes = await repClient.request<{
+        newfeedbacks?: GoldskyNewFeedback[];
+        feedbackrevokeds?: GoldskyFeedbackRevoked[];
+      }>(GOLDSKY_GET_FEEDBACK, { agentId });
+      const feedbacks = feedbackRes.newfeedbacks ?? [];
+      const revoked = feedbackRes.feedbackrevokeds ?? [];
+      const revokedSet = new Set(
+        revoked.map((r) => `${r.clientAddress}-${r.feedbackIndex}`)
+      );
+      const activeFeedbacks = feedbacks.filter(
+        (f) => !revokedSet.has(`${f.clientAddress}-${f.feedbackIndex}`)
+      );
+      if (activeFeedbacks.length > 0) {
+        let sum = 0;
+        for (const f of activeFeedbacks) {
+          const decimals = parseInt(f.valueDecimals, 10) || 0;
+          sum += parseInt(f.value, 10) / Math.pow(10, decimals);
+        }
+        reputation = {
+          totalFeedback: activeFeedbacks.length,
+          averageScore: sum / activeFeedbacks.length,
+        };
+      }
+    } catch {
+      // Subgraph may still be indexing; caller will fall back to RPC
+    }
+  }
+
   return {
     id: `${networkId}:${agentId}`,
     agentId,
@@ -400,6 +471,6 @@ export async function fetchAgentByIdFromGoldskySubgraph(
     metadata,
     protocols: getProtocols(metadata),
     networkId,
-    reputation: { totalFeedback: 0, averageScore: null },
+    reputation,
   };
 }

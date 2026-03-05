@@ -3,7 +3,7 @@ import { fetchAgentById } from "@/lib/registry";
 import type { NetworkId } from "@/lib/networks";
 import { DEFAULT_NETWORK, NETWORK_IDS } from "@/lib/networks";
 
-// GET /api/agents/[id]/health?network=baseSepolia
+// GET /api/agents/[id]/health?network=sepolia
 // Proxies to the agent's healthUrl from its metadata and returns live status.
 export async function GET(
   request: NextRequest,

@@ -349,10 +349,10 @@ type Tab = "overview" | "invoke" | "raw";
 
 export default function AgentDetailPage() {
   const params = useParams<{ network: string; id: string }>();
-  const networkParam = params.network ?? "baseSepolia";
+  const networkParam = params.network ?? "sepolia";
   const networkId: NetworkId = NETWORK_IDS.includes(networkParam as NetworkId)
     ? (networkParam as NetworkId)
-    : "baseSepolia";
+    : "sepolia";
   const id = params.id;
 
   const [agent, setAgent] = useState<AgentDetail | null>(null);

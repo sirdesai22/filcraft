@@ -129,7 +129,7 @@ export function RegistryAgentCard({ agent, onImageError }: RegistryAgentCardProp
   const description = agent.metadata?.description;
   const image = agent.metadata?.image;
   const x402 = agent.metadata?.x402Support;
-  const networkId = agent.networkId ?? "baseSepolia";
+  const networkId = agent.networkId ?? "sepolia";
   const network = getNetwork(networkId);
   const explorerHref = getExplorerUrl(networkId, agent.agentId);
   const imgSrc = image?.startsWith("ipfs://")
@@ -255,15 +255,25 @@ export function RegistryAgentCard({ agent, onImageError }: RegistryAgentCardProp
           <span className="text-[10px] font-medium text-amber-800 dark:text-amber-200">
             View Details →
           </span>
-          <a
-            href={explorerHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="text-[9px] text-amber-700/70 hover:text-amber-900 dark:text-amber-300/70 dark:hover:text-amber-100"
+          <span
+            role="link"
+            tabIndex={0}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              window.open(explorerHref, "_blank", "noopener,noreferrer");
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                e.stopPropagation();
+                window.open(explorerHref, "_blank", "noopener,noreferrer");
+              }
+            }}
+            className="cursor-pointer text-[9px] text-amber-700/70 hover:text-amber-900 dark:text-amber-300/70 dark:hover:text-amber-100"
           >
             {network.explorerName} ↗
-          </a>
+          </span>
         </div>
       </article>
     </Link>

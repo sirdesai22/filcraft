@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/agents/:id(\\d+)",
-        destination: "/agents/baseSepolia/:id",
+        destination: "/agents/sepolia/:id",
         permanent: false,
       },
     ];

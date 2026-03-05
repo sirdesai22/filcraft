@@ -23,7 +23,7 @@ export function AgentsPageLoading() {
           onProtocolChange={() => {}}
           searchQuery=""
           onSearchChange={() => {}}
-          network="baseSepolia"
+          network="sepolia"
           onNetworkChange={() => {}}
           networks={NETWORK_OPTIONS}
           showIncompleteAgents={false}

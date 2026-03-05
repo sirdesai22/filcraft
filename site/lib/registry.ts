@@ -173,16 +173,9 @@ export async function fetchRegistryAgents(
     return fetchAgentsFromGoldskySubgraph(config.subgraphUrl!, networkId);
   }
 
-  // Use subgraph when available (faster than RPC)
+  // Use subgraph when available (subgraph-only, no RPC fallback)
   if (config.subgraphUrl) {
-    try {
-      return await fetchAgentsFromSubgraph(config.subgraphUrl, networkId);
-    } catch (e) {
-      console.warn(
-        `Subgraph fetch failed for ${networkId}, falling back to RPC:`,
-        e
-      );
-    }
+    return fetchAgentsFromSubgraph(config.subgraphUrl, networkId);
   }
 
   const client = createClient(networkId);
@@ -284,7 +277,41 @@ export async function fetchRegistryAgents(
     .map((r) => r.value) as RegistryAgent[];
 }
 
-// --- Single agent with reputation ------------------------------------------
+// --- Reputation from RPC (ReputationRegistry) -------------------------------
+
+async function fetchReputationFromRpc(
+  networkId: NetworkId,
+  reputationRegistry: `0x${string}`,
+  agentId: bigint
+): Promise<AgentReputation> {
+  const client = createClient(networkId);
+  try {
+    const clients = await client.readContract({
+      address: reputationRegistry,
+      abi: REPUTATION_ABI,
+      functionName: "getClients",
+      args: [agentId],
+    });
+    if (clients.length === 0) return { totalFeedback: 0, averageScore: null };
+    const summary = await client.readContract({
+      address: reputationRegistry,
+      abi: REPUTATION_ABI,
+      functionName: "getSummary",
+      args: [agentId, clients, "", ""],
+    });
+    const [count, summaryValue, summaryValueDecimals] = summary;
+    const total = Number(count);
+    return {
+      totalFeedback: total,
+      averageScore:
+        total > 0
+          ? Number(summaryValue) / Math.pow(10, summaryValueDecimals)
+          : null,
+    };
+  } catch {
+    return { totalFeedback: 0, averageScore: null };
+  }
+}
 
 export interface AgentReputation {
   totalFeedback: number;
@@ -303,25 +330,34 @@ export async function fetchAgentById(
 
   // Filecoin Calibration: Goldsky subgraph only — no RPC fallback
   if (networkId === "filecoinCalibration") {
-    return fetchAgentByIdFromGoldskySubgraph(config.subgraphUrl!, agentId, networkId);
+    const agent = await fetchAgentByIdFromGoldskySubgraph(
+      config.subgraphUrl!,
+      agentId,
+      networkId,
+      config.reputationSubgraphUrl
+    );
+    if (!agent) return null;
+    // RPC fallback when reputation subgraph is not yet deployed or still indexing
+    if (agent.reputation.totalFeedback === 0 && !config.reputationSubgraphUrl) {
+      const reputation = await fetchReputationFromRpc(
+        networkId,
+        config.reputationRegistry,
+        BigInt(agentId)
+      );
+      return { ...agent, reputation };
+    }
+    return agent;
   }
 
-  // Use subgraph when available (faster than RPC)
+  // Use subgraph when available (subgraph-only, no RPC fallback)
   if (config.subgraphUrl) {
-    try {
-      const agent = await fetchAgentByIdFromSubgraph(
-        config.subgraphUrl,
-        config.identityRegistry,
-        agentId,
-        networkId
-      );
-      if (agent) return agent;
-    } catch (e) {
-      console.warn(
-        `Subgraph fetch failed for agent ${agentId} on ${networkId}, falling back to RPC:`,
-        e
-      );
-    }
+    const agent = await fetchAgentByIdFromSubgraph(
+      config.subgraphUrl,
+      config.identityRegistry,
+      agentId,
+      networkId
+    );
+    return agent ?? null;
   }
 
   const client = createClient(networkId);
