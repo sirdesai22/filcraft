@@ -5,10 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { RefreshCw } from "lucide-react";
 import { WorkspaceLayout } from "@/components/workspace-layout";
-import {
-  RegistryAgentFilterSidebar,
-  type ProtocolFilter,
-} from "@/components/filter-sidebar";
+import { RegistryAgentFilterSidebar } from "@/components/filter-sidebar";
 import { MarketplaceAgentCard } from "@/components/marketplace-agent-card";
 import { AgentCardSkeleton } from "@/components/agent-card-skeleton";
 import { Button } from "@/components/ui/button";
@@ -44,8 +41,6 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
   const [agents, setAgents] = useState<RegistryAgent[]>(initialData.items);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [protocol, setProtocol] = useState<ProtocolFilter>("all");
-  const [searchQuery, setSearchQuery] = useState("");
   const [network, setNetwork] = useState<NetworkId>(initialNetwork);
   const [currentPage, setCurrentPage] = useState(initialData.page);
   const [hasMore, setHasMore] = useState(initialData.hasMore);
@@ -56,7 +51,7 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
   const [maxCostUsdc, setMaxCostUsdc] = useState<number>(10);
 
   const fetchAgents = useCallback(
-    async (page: number, q: string, proto: ProtocolFilter, net: NetworkId) => {
+    async (page: number, net: NetworkId) => {
       setIsLoading(true);
       setError(null);
       try {
@@ -66,8 +61,6 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
           network: net,
           x402: "true",
         });
-        if (q) params.set("q", q);
-        if (proto !== "all") params.set("protocol", proto);
         if (net === "filecoinCalibration") params.set("noCache", "1");
 
         const res = await fetch(`/api/agents?${params}`);
@@ -97,24 +90,16 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
       const next = new URLSearchParams(searchParams.toString());
       next.set("network", n);
       router.push(`/marketplace?${next.toString()}`, { scroll: false });
-      fetchAgents(1, searchQuery, protocol, n);
+      fetchAgents(1, n);
     },
-    [searchParams, router, searchQuery, protocol, fetchAgents]
+    [searchParams, router, fetchAgents]
   );
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (currentPage === 1 && !searchQuery && protocol === "all") return;
-      fetchAgents(1, searchQuery, protocol, network);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [searchQuery, protocol]);
 
   useEffect(() => {
     const urlNet = searchParams.get("network") as NetworkId | null;
     if (urlNet && NETWORK_IDS.includes(urlNet) && urlNet !== network) {
       setNetwork(urlNet);
-      fetchAgents(1, searchQuery, protocol, urlNet);
+      fetchAgents(1, urlNet);
     }
   }, [searchParams]);
 
@@ -142,15 +127,9 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
   const sidebar = (
     <div className="space-y-5">
       <RegistryAgentFilterSidebar
-        protocol={protocol}
-        onProtocolChange={setProtocol}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
         network={network}
         onNetworkChange={handleNetworkChange}
         networks={NETWORK_OPTIONS}
-        showIncompleteAgents={false}
-        onShowIncompleteAgentsChange={() => {}}
       />
 
       <Separator className="opacity-50" />
@@ -232,7 +211,7 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => fetchAgents(currentPage, searchQuery, protocol, network)}
+            onClick={() => fetchAgents(currentPage, network)}
             disabled={isLoading}
             title="Refresh"
           >
@@ -254,7 +233,7 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
                 variant="outline"
                 size="sm"
                 className="mt-4"
-                onClick={() => fetchAgents(currentPage, searchQuery, protocol, network)}
+                onClick={() => fetchAgents(currentPage, network)}
               >
                 Retry
               </Button>
@@ -324,7 +303,7 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
                 variant="outline"
                 size="sm"
                 disabled={currentPage === 1 || isLoading}
-                onClick={() => fetchAgents(currentPage - 1, searchQuery, protocol, network)}
+                onClick={() => fetchAgents(currentPage - 1, network)}
               >
                 ← Previous
               </Button>
@@ -332,7 +311,7 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
                 variant="outline"
                 size="sm"
                 disabled={!hasMore || isLoading}
-                onClick={() => fetchAgents(currentPage + 1, searchQuery, protocol, network)}
+                onClick={() => fetchAgents(currentPage + 1, network)}
               >
                 Next →
               </Button>

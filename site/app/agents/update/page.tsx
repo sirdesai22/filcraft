@@ -3,12 +3,13 @@
 import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import {
   useWriteContract,
   useWaitForTransactionReceipt,
   useReadContract,
   useAccount,
+  useSwitchChain,
 } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,7 +38,8 @@ export default function UpdateAgentPage() {
 }
 
 function UpdateAgentPageInner() {
-  const { address: connectedAddress } = useAccount();
+  const { address: connectedAddress, chain } = useAccount();
+  const { switchChainAsync, isPending: isSwitchingChain } = useSwitchChain();
 
   const [networkId, setNetworkId] = useState<NetworkId>(DEFAULT_NETWORK);
   const [agentId, setAgentId] = useState("");
@@ -45,6 +47,10 @@ function UpdateAgentPageInner() {
   const [validating, setValidating] = useState(false);
   const [validation, setValidation] = useState<ValidationState | null>(null);
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
+  const [chainSwitchError, setChainSwitchError] = useState<string | null>(null);
+  const [goldskyOwner, setGoldskyOwner] = useState<string | null>(null);
+  const [goldskyError, setGoldskyError] = useState<string | null>(null);
+  const [goldskyLoading, setGoldskyLoading] = useState(false);
 
   const searchParams = useSearchParams();
 
@@ -60,24 +66,71 @@ function UpdateAgentPageInner() {
 
   const networkConfig = NETWORKS[networkId];
 
-  // Read the current owner of this agentId on-chain
-  const { data: onChainOwner } = useReadContract({
+  const chainId = networkConfig.chain.id;
+
+  const useGoldsky = networkId === "filecoinCalibration";
+
+  // Filecoin Calibration: fetch owner from Goldsky subgraph (RPC is unreliable)
+  useEffect(() => {
+    if (!useGoldsky || !agentId || isNaN(Number(agentId))) {
+      setGoldskyOwner(null);
+      setGoldskyError(null);
+      return;
+    }
+    let cancelled = false;
+    setGoldskyLoading(true);
+    setGoldskyError(null);
+    fetch(`/api/agents/owner?network=filecoinCalibration&agentId=${agentId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled) {
+          setGoldskyOwner(data.owner ?? null);
+          setGoldskyError(data.error ?? null);
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setGoldskyOwner(null);
+          setGoldskyError(e instanceof Error ? e.message : "Failed to fetch owner");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setGoldskyLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [useGoldsky, agentId]);
+
+  // RPC: Read owner for non-Filecoin networks (Sepolia, Base Sepolia)
+  const {
+    data: onChainOwnerRpc,
+    isError: ownerReadError,
+    error: ownerReadErrorDetail,
+  } = useReadContract({
     address: networkConfig.identityRegistry,
     abi: IDENTITY_REGISTRY_ABI,
     functionName: "ownerOf",
     args: agentId ? [BigInt(agentId)] : undefined,
-    query: { enabled: !!agentId && !isNaN(Number(agentId)) },
+    chainId,
+    query: {
+      enabled: !!agentId && !isNaN(Number(agentId)) && !useGoldsky,
+    },
   });
+
+  const onChainOwner = useGoldsky ? goldskyOwner : (onChainOwnerRpc as string | undefined);
+  const ownerReadErrorDisplay = useGoldsky ? goldskyError : (ownerReadError ? ownerReadErrorDetail?.message : null);
 
   const isOwner =
     connectedAddress &&
     onChainOwner &&
-    connectedAddress.toLowerCase() === (onChainOwner as string).toLowerCase();
+    connectedAddress.toLowerCase() === onChainOwner.toLowerCase();
 
   const { writeContract, isPending: isWriting, error: writeError } =
     useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } =
-    useWaitForTransactionReceipt({ hash: txHash });
+    useWaitForTransactionReceipt({
+      hash: txHash,
+      chainId,
+    });
 
   async function handleVerify() {
     if (!newAgentCardUrl.trim()) return;
@@ -110,14 +163,30 @@ function UpdateAgentPageInner() {
     }
   }
 
-  function handleUpdate() {
+  async function handleUpdate() {
     if (!agentId || !newAgentCardUrl.trim()) return;
+    setChainSwitchError(null);
+    if (chain?.id !== chainId) {
+      try {
+        await switchChainAsync({ chainId });
+        return;
+      } catch (e) {
+        setChainSwitchError(
+          e instanceof Error ? e.message : "Failed to switch network. Add the chain in your wallet if needed."
+        );
+        return;
+      }
+    }
     writeContract(
       {
         address: networkConfig.identityRegistry,
         abi: IDENTITY_REGISTRY_ABI,
         functionName: "setAgentURI",
         args: [BigInt(agentId), newAgentCardUrl.trim()],
+        chainId,
+        ...(networkConfig.transactionGasLimit !== undefined && {
+          gas: networkConfig.transactionGasLimit,
+        }),
       },
       {
         onSuccess(hash) {
@@ -127,14 +196,23 @@ function UpdateAgentPageInner() {
     );
   }
 
+  const isWrongChain = !!connectedAddress && chain?.id !== chainId;
   const canUpdate =
     !!agentId &&
     validation?.valid === true &&
     isOwner &&
+    !isWrongChain &&
     !isWriting &&
     !isConfirming;
 
+  const connectedButNotOwner =
+    !!connectedAddress && !!onChainOwner && !isOwner && !!agentId && !isWrongChain;
+
   const explorerBase = networkConfig.explorerTokenUrl;
+
+  function truncateAddr(addr: string) {
+    return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+  }
 
   return (
     <div className="container px-4 py-8 md:px-6 max-w-2xl">
@@ -170,7 +248,18 @@ function UpdateAgentPageInner() {
               <code className="font-mono text-xs">URIUpdated</code> event and
               refresh agent metadata within a few minutes.
             </p>
-            <div className="flex justify-center gap-3">
+            <div className="flex flex-wrap justify-center gap-3">
+              {txHash && (
+                <Button asChild variant="outline" size="sm">
+                  <a
+                    href={`${networkConfig.explorerTxUrl}${txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    View transaction
+                  </a>
+                </Button>
+              )}
               <Button asChild variant="outline" size="sm">
                 <a
                   href={`${explorerBase}${agentId}`}
@@ -227,14 +316,28 @@ function UpdateAgentPageInner() {
                     setValidation(null);
                   }}
                 />
-                {agentId && !isNaN(Number(agentId)) && onChainOwner && (
-                  <p
-                    className={`text-xs ${isOwner ? "text-emerald-600" : "text-red-600"}`}
-                  >
-                    {isOwner
-                      ? `✓ You own agent #${agentId}`
-                      : `✗ Owner is ${(onChainOwner as string).slice(0, 10)}… — connect that wallet to update`}
-                  </p>
+                {agentId && !isNaN(Number(agentId)) && (
+                  <>
+                    {goldskyLoading && useGoldsky && (
+                      <p className="text-xs text-muted-foreground">
+                        Fetching owner from indexer…
+                      </p>
+                    )}
+                    {ownerReadErrorDisplay && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                        Could not fetch owner: {ownerReadErrorDisplay.slice(0, 80)}. Agent may not exist on this network.
+                      </p>
+                    )}
+                    {!ownerReadErrorDisplay && !goldskyLoading && onChainOwner && (
+                      <p
+                        className={`text-xs ${isOwner ? "text-emerald-600" : "text-red-600"}`}
+                      >
+                        {isOwner
+                          ? `✓ You own agent #${agentId}`
+                          : `✗ Owner is ${(onChainOwner as string).slice(0, 10)}… — connect that wallet to update`}
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
             </CardContent>
@@ -302,19 +405,99 @@ function UpdateAgentPageInner() {
                     setAgentURI({agentId || "agentId"}, newURI)
                   </code>{" "}
                   on the {networkConfig.name} Identity Registry.
-                  {!isOwner && connectedAddress && (
-                    <span className="text-amber-600 ml-1">
-                      Connect the owner wallet to enable this.
-                    </span>
-                  )}
-                  {!connectedAddress && (
-                    <span className="text-amber-600 ml-1">
-                      Connect a wallet to continue.
-                    </span>
-                  )}
                 </p>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                {isWrongChain && (
+                  <div
+                    className="flex gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm"
+                    role="alert"
+                  >
+                    <AlertCircle className="size-5 shrink-0 text-amber-600 dark:text-amber-500" />
+                    <div>
+                      <p className="font-medium text-amber-800 dark:text-amber-200">
+                        Wrong network
+                      </p>
+                      <p className="mt-1 text-amber-700 dark:text-amber-300/90">
+                        Your wallet is on a different chain. Switch to{" "}
+                        <strong>{networkConfig.name}</strong> to update this agent.
+                        {networkId === "filecoinCalibration" && (
+                          <span className="block mt-1 text-amber-600/90 dark:text-amber-400/80">
+                            If your wallet doesn&apos;t have Filecoin Calibration, it will prompt you to add it (chainId 314159).
+                          </span>
+                        )}
+                      </p>
+                      {chainSwitchError && (
+                        <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+                          {chainSwitchError}
+                        </p>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-3"
+                        onClick={async () => {
+                          setChainSwitchError(null);
+                          try {
+                            await switchChainAsync({ chainId });
+                          } catch (e) {
+                            setChainSwitchError(
+                              e instanceof Error ? e.message : "Failed to switch network"
+                            );
+                          }
+                        }}
+                        disabled={isSwitchingChain}
+                      >
+                        {isSwitchingChain ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Switching…
+                          </>
+                        ) : (
+                          `Switch to ${networkConfig.name}`
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {connectedButNotOwner && (
+                  <div
+                    className="flex gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm"
+                    role="alert"
+                  >
+                    <AlertCircle className="size-5 shrink-0 text-amber-600 dark:text-amber-500" />
+                    <div>
+                      <p className="font-medium text-amber-800 dark:text-amber-200">
+                        Connected wallet is not the owner
+                      </p>
+                      <p className="mt-1 text-amber-700 dark:text-amber-300/90">
+                        Your wallet:{" "}
+                        <code className="font-mono text-xs">
+                          {connectedAddress && truncateAddr(connectedAddress)}
+                        </code>
+                        {" · "}
+                        Owner:{" "}
+                        <code className="font-mono text-xs">
+                          {onChainOwner && truncateAddr(onChainOwner as string)}
+                        </code>
+                      </p>
+                      <p className="mt-1 text-amber-700/90 dark:text-amber-300/80">
+                        Connect the owner wallet to update this agent.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {!connectedAddress && (
+                  <div
+                    className="flex gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm"
+                    role="alert"
+                  >
+                    <AlertCircle className="size-5 shrink-0 text-amber-600 dark:text-amber-500" />
+                    <p className="text-amber-800 dark:text-amber-200">
+                      Connect a wallet to enable this step.
+                    </p>
+                  </div>
+                )}
                 <Button
                   onClick={handleUpdate}
                   disabled={!canUpdate}
@@ -329,6 +512,18 @@ function UpdateAgentPageInner() {
                     "Update Agent URI"
                   )}
                 </Button>
+                {txHash && (isConfirming || isConfirmed) && (
+                  <p className="text-xs text-muted-foreground">
+                    <a
+                      href={`${networkConfig.explorerTxUrl}${txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      View transaction on {networkConfig.explorerName} →
+                    </a>
+                  </p>
+                )}
                 {writeError && (
                   <p className="mt-2 text-xs text-red-600">
                     {writeError.message?.split("\n")[0]}

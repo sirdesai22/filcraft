@@ -8,7 +8,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button";
 import { TagBadge } from "@/components/tag-badge";
 import { cn } from "@/lib/utils";
-import { getExplorerUrl, getNetwork } from "@/lib/networks";
+import { getExplorerUrl, getExplorerAddressUrl, getNetwork } from "@/lib/networks";
 
 // ── Local dummy agent card (unchanged) ──────────────────────────────────────
 
@@ -261,9 +261,16 @@ export function RegistryAgentCard({ agent }: RegistryAgentCardProps) {
           >
             {name}
           </h3>
-          <p className="mt-0.5 text-center font-mono text-[9px] text-amber-700/80 dark:text-amber-300/70">
-            {truncateAddress(agent.owner)}
-          </p>
+          <a
+            href={getExplorerAddressUrl(networkId, agent.owner)}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="mt-0.5 block text-center font-mono text-[9px] text-amber-700/80 hover:text-amber-900 dark:text-amber-300/70 dark:hover:text-amber-100 transition-colors"
+            title={`Owner: ${agent.owner}`}
+          >
+            Owner: {truncateAddress(agent.owner)}
+          </a>
         </div>
 
         {/* Divider */}

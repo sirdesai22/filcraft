@@ -19,15 +19,9 @@ export function AgentsPageLoading() {
     <WorkspaceLayout
       sidebar={
         <RegistryAgentFilterSidebar
-          protocol="all"
-          onProtocolChange={() => {}}
-          searchQuery=""
-          onSearchChange={() => {}}
           network="sepolia"
           onNetworkChange={() => {}}
           networks={NETWORK_OPTIONS}
-          showIncompleteAgents={false}
-          onShowIncompleteAgentsChange={() => {}}
         />
       }
     >

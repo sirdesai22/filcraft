@@ -1,0 +1,447 @@
+"use client";
+
+/**
+ * EconomyClient — client-side economy dashboard with 30s auto-refresh.
+ *
+ * Sections:
+ * 1. Live stats bar
+ * 2. Survival status cards (Healthy / At-Risk / Wound Down)
+ * 3. Agent P&L table
+ * 4. Recent activity feed
+ * 5. Storage cost leaderboard
+ */
+
+import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
+import {
+  Zap,
+  TrendingDown,
+  XCircle,
+  ArrowUpDown,
+  Database,
+  DollarSign,
+  Clock,
+  AlertTriangle,
+  CheckCircle,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import type {
+  AgentEconomyAccount,
+  EconomyEvent,
+  EconomySummary,
+} from "@/lib/economy";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface AgentRow {
+  agentId: string;
+  networkId: string;
+  name: string;
+  economy: AgentEconomyAccount;
+  completedRuns: number;
+}
+
+interface DashboardData {
+  summary: EconomySummary;
+  agentRows: AgentRow[];
+  events: EconomyEvent[];
+  fetchedAt: string;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function formatTFil(wei: string | bigint): string {
+  const n = typeof wei === "string" ? BigInt(wei) : wei;
+  if (n === 0n) return "0";
+  const eth = Number(n) / 1e18;
+  return eth < 0.001 ? eth.toExponential(2) : eth.toFixed(4);
+}
+
+function formatUsd(cents: string | bigint): string {
+  const n = typeof cents === "string" ? BigInt(cents) : cents;
+  return (Number(n) / 100).toFixed(2);
+}
+
+function formatBigIntWei(wei: string | bigint): string {
+  return formatTFil(wei);
+}
+
+function formatBigIntCents(cents: string | bigint): string {
+  return formatUsd(cents);
+}
+
+function statusColor(status: AgentEconomyAccount["status"]): string {
+  switch (status) {
+    case "healthy":
+      return "text-emerald-500";
+    case "at-risk":
+      return "text-amber-500";
+    case "wound-down":
+      return "text-zinc-400";
+  }
+}
+
+function statusBg(status: AgentEconomyAccount["status"]): string {
+  switch (status) {
+    case "healthy":
+      return "border-emerald-500/20 bg-emerald-500/5";
+    case "at-risk":
+      return "border-amber-500/20 bg-amber-500/5";
+    case "wound-down":
+      return "border-zinc-500/20 bg-zinc-500/5 opacity-60";
+  }
+}
+
+function statusRowClass(status: AgentEconomyAccount["status"]): string {
+  switch (status) {
+    case "healthy":
+      return "hover:bg-emerald-500/5";
+    case "at-risk":
+      return "hover:bg-amber-500/5";
+    case "wound-down":
+      return "opacity-50 hover:bg-zinc-500/5";
+  }
+}
+
+function eventTypeLabel(type: EconomyEvent["type"]): string {
+  switch (type) {
+    case "BudgetDeposited":
+      return "Budget topped up";
+    case "StorageCostRecorded":
+      return "Storage cost recorded";
+    case "RevenueRecorded":
+      return "Revenue recorded";
+    case "AgentWindDown":
+      return "Agent wound down";
+  }
+}
+
+function eventIcon(type: EconomyEvent["type"]) {
+  switch (type) {
+    case "BudgetDeposited":
+      return <Zap className="h-4 w-4 text-emerald-500" />;
+    case "StorageCostRecorded":
+      return <Database className="h-4 w-4 text-blue-500" />;
+    case "RevenueRecorded":
+      return <DollarSign className="h-4 w-4 text-violet-500" />;
+    case "AgentWindDown":
+      return <XCircle className="h-4 w-4 text-zinc-400" />;
+  }
+}
+
+function eventDescription(event: EconomyEvent): string {
+  switch (event.type) {
+    case "BudgetDeposited":
+      return `Agent #${event.agentId} received ${formatTFil(event.data.amount ?? "0")} tFIL`;
+    case "StorageCostRecorded":
+      return `Agent #${event.agentId} stored artifact — cost ${formatTFil(event.data.costWei ?? "0")} tFIL`;
+    case "RevenueRecorded":
+      return `Agent #${event.agentId} earned $${formatUsd(event.data.usdCents ?? "0")} USD`;
+    case "AgentWindDown":
+      return `Agent #${event.agentId} wound down — ${event.data.reason ?? ""}`;
+  }
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
+export function EconomyClient({
+  initialData,
+  agentIds,
+}: {
+  initialData: DashboardData;
+  agentIds: string[];
+}) {
+  const [data, setData] = useState<DashboardData>(initialData);
+  const [sortBy, setSortBy] = useState<"totalSpent" | "balance" | "totalEarned">("totalSpent");
+  const [refreshing, setRefreshing] = useState(false);
+
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const res = await fetch(`/api/economy?agentIds=${agentIds.join(",")}`);
+      if (res.ok) {
+        const fresh = await res.json() as DashboardData;
+        setData(fresh);
+      }
+    } catch {
+      // silent — keep stale data
+    } finally {
+      setRefreshing(false);
+    }
+  }, [agentIds]);
+
+  useEffect(() => {
+    const interval = setInterval(refresh, 30_000);
+    return () => clearInterval(interval);
+  }, [refresh]);
+
+  const { summary, agentRows, events } = data;
+
+  // Sorted agent rows
+  const sorted = [...agentRows].sort((a, b) => {
+    return Number(BigInt(b.economy[sortBy]) - BigInt(a.economy[sortBy]));
+  });
+
+  // Top 5 by storage cost
+  const leaderboard = [...agentRows]
+    .sort((a, b) => Number(BigInt(b.economy.totalSpent) - BigInt(a.economy.totalSpent)))
+    .slice(0, 5);
+
+  return (
+    <div className="space-y-8">
+      {/* 1. Live stats bar */}
+      <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-xl border border-border bg-card px-6 py-4 text-sm">
+        <span>
+          <span className="font-semibold text-emerald-500">{summary.activeAgents}</span>{" "}
+          <span className="text-muted-foreground">healthy</span>
+        </span>
+        <span>
+          <span className="font-semibold text-amber-500">{summary.atRiskAgents}</span>{" "}
+          <span className="text-muted-foreground">at-risk</span>
+        </span>
+        <span>
+          <span className="font-semibold text-zinc-400">{summary.windDownCount}</span>{" "}
+          <span className="text-muted-foreground">wound down</span>
+        </span>
+        <span className="text-muted-foreground">·</span>
+        <span>
+          <span className="font-semibold">{formatBigIntWei(summary.totalStorageCostWei)}</span>{" "}
+          <span className="text-muted-foreground">tFIL storage spent</span>
+        </span>
+        <span>
+          <span className="font-semibold">${formatBigIntCents(summary.totalRevenueUsdCents)}</span>{" "}
+          <span className="text-muted-foreground">USDC revenue</span>
+        </span>
+        <span className="ml-auto flex items-center gap-1 text-muted-foreground text-xs">
+          <Clock className="h-3 w-3" />
+          {refreshing ? "refreshing…" : `as of ${new Date(data.fetchedAt).toLocaleTimeString()}`}
+        </span>
+      </div>
+
+      {/* 2. Survival status cards */}
+      <div className="grid sm:grid-cols-3 gap-4">
+        <StatusCard
+          icon={<CheckCircle className="h-5 w-5 text-emerald-500" />}
+          label="Healthy"
+          count={summary.activeAgents}
+          description="Balance &gt; 3× minimum"
+          className="border-emerald-500/20 bg-emerald-500/5"
+        />
+        <StatusCard
+          icon={<AlertTriangle className="h-5 w-5 text-amber-500" />}
+          label="At Risk"
+          count={summary.atRiskAgents}
+          description="Between 1× and 3× minimum"
+          className="border-amber-500/20 bg-amber-500/5"
+        />
+        <StatusCard
+          icon={<TrendingDown className="h-5 w-5 text-zinc-400" />}
+          label="Wound Down"
+          count={summary.windDownCount}
+          description="Depleted or manually stopped"
+          className="border-zinc-500/20 bg-zinc-500/5"
+        />
+      </div>
+
+      {/* 3. Agent P&L table */}
+      <div className="rounded-xl border border-border overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+          <h2 className="text-sm font-semibold">Agent P&amp;L</h2>
+          <div className="flex gap-2">
+            {(["totalSpent", "balance", "totalEarned"] as const).map((col) => (
+              <button
+                key={col}
+                onClick={() => setSortBy(col)}
+                className={cn(
+                  "text-xs px-2 py-1 rounded flex items-center gap-1 transition-colors",
+                  sortBy === col
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <ArrowUpDown className="h-3 w-3" />
+                {col === "totalSpent" ? "Storage" : col === "balance" ? "Balance" : "Revenue"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-muted-foreground text-xs">
+                <th className="text-left px-4 py-2">Agent</th>
+                <th className="text-right px-4 py-2">Runs</th>
+                <th className="text-right px-4 py-2">Revenue (USD)</th>
+                <th className="text-right px-4 py-2">Storage Cost (tFIL)</th>
+                <th className="text-right px-4 py-2">Balance (tFIL)</th>
+                <th className="text-right px-4 py-2">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                    No agents found on Filecoin Calibration.
+                  </td>
+                </tr>
+              ) : (
+                sorted.map((row) => (
+                  <tr
+                    key={row.agentId}
+                    className={cn(
+                      "border-b border-border last:border-0 transition-colors",
+                      statusRowClass(row.economy.status)
+                    )}
+                  >
+                    <td className="px-4 py-2">
+                      <Link
+                        href={`/agents/${row.networkId}/${row.agentId}`}
+                        className="font-medium hover:underline"
+                      >
+                        {row.name}
+                      </Link>
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        #{row.agentId}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {row.completedRuns > 0 ? (
+                        <span className="font-semibold">{row.completedRuns}</span>
+                      ) : (
+                        <span className="text-muted-foreground">0</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      ${formatUsd(row.economy.totalEarned)}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {formatTFil(row.economy.totalSpent)}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {formatTFil(row.economy.balance)}
+                    </td>
+                    <td className={cn("px-4 py-2 text-right font-medium", statusColor(row.economy.status))}>
+                      {row.economy.status === "healthy"
+                        ? "Healthy"
+                        : row.economy.status === "at-risk"
+                        ? "At Risk"
+                        : "Wound Down"}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* 4. Recent activity feed */}
+        <div className="rounded-xl border border-border">
+          <div className="px-4 py-3 border-b border-border bg-muted/30">
+            <h2 className="text-sm font-semibold">Recent Activity</h2>
+          </div>
+          <div className="divide-y divide-border">
+            {events.length === 0 ? (
+              <p className="px-4 py-6 text-sm text-muted-foreground text-center">
+                No events yet — economy contract events appear here once deployed.
+              </p>
+            ) : (
+              events.slice(0, 20).map((ev, i) => (
+                <div key={i} className="flex gap-3 px-4 py-3 items-start">
+                  <div className="mt-0.5 shrink-0">{eventIcon(ev.type)}</div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-foreground leading-snug">
+                      {eventDescription(ev)}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
+                      <span>{eventTypeLabel(ev.type)}</span>
+                      {ev.txHash && (
+                        <a
+                          href={`https://calibration.filscan.io/tx/${ev.txHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:underline font-mono text-[10px]"
+                        >
+                          {ev.txHash.slice(0, 10)}…
+                        </a>
+                      )}
+                    </p>
+                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    #{ev.blockNumber}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* 5. Storage cost leaderboard */}
+        <div className="rounded-xl border border-border">
+          <div className="px-4 py-3 border-b border-border bg-muted/30">
+            <h2 className="text-sm font-semibold">Storage Cost Leaderboard</h2>
+            <p className="text-xs text-muted-foreground">Top 5 agents by cumulative tFIL spent</p>
+          </div>
+          <div className="divide-y divide-border">
+            {leaderboard.length === 0 ? (
+              <p className="px-4 py-6 text-sm text-muted-foreground text-center">
+                No storage activity recorded yet.
+              </p>
+            ) : (
+              leaderboard.map((row, rank) => (
+                <div key={row.agentId} className="flex items-center gap-4 px-4 py-3">
+                  <span className="text-2xl font-bold tabular-nums text-muted-foreground/40 w-8">
+                    {rank + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <Link
+                      href={`/agents/${row.networkId}/${row.agentId}`}
+                      className="text-sm font-medium hover:underline truncate block"
+                    >
+                      {row.name}
+                    </Link>
+                    <p className="text-xs text-muted-foreground">#{row.agentId}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className={cn("text-sm font-semibold tabular-nums", statusColor(row.economy.status))}>
+                      {formatTFil(row.economy.totalSpent)} tFIL
+                    </p>
+                    <p className="text-xs text-muted-foreground">{row.economy.status}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function StatusCard({
+  icon,
+  label,
+  count,
+  description,
+  className,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  count: number;
+  description: string;
+  className?: string;
+}) {
+  return (
+    <div className={cn("rounded-xl border p-4", className)}>
+      <div className="flex items-center gap-2 mb-2">
+        {icon}
+        <span className="text-sm font-semibold">{label}</span>
+      </div>
+      <p className="text-3xl font-bold tabular-nums">{count}</p>
+      <p className="text-xs text-muted-foreground mt-1">{description}</p>
+    </div>
+  );
+}

@@ -5,10 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { RefreshCw } from "lucide-react";
 import { WorkspaceLayout } from "@/components/workspace-layout";
-import {
-  RegistryAgentFilterSidebar,
-  type ProtocolFilter,
-} from "@/components/filter-sidebar";
+import { RegistryAgentFilterSidebar } from "@/components/filter-sidebar";
 import { RegistryAgentCard } from "@/components/agent-card";
 import { AgentCardSkeleton } from "@/components/agent-card-skeleton";
 import { Button } from "@/components/ui/button";
@@ -36,20 +33,13 @@ export function AgentsPageClient({
   const [agents, setAgents] = useState<RegistryAgent[]>(initialData.items);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [protocol, setProtocol] = useState<ProtocolFilter>("all");
-  const [searchQuery, setSearchQuery] = useState("");
   const [network, setNetwork] = useState<NetworkId>(initialNetwork);
   const [currentPage, setCurrentPage] = useState(initialData.page);
   const [hasMore, setHasMore] = useState(initialData.hasMore);
   const [total, setTotal] = useState(initialData.total);
 
   const fetchAgents = useCallback(
-    async (
-      page: number,
-      q: string,
-      proto: ProtocolFilter,
-      net: NetworkId
-    ) => {
+    async (page: number, net: NetworkId) => {
       setIsLoading(true);
       setError(null);
       try {
@@ -58,8 +48,6 @@ export function AgentsPageClient({
           pageSize: PAGE_SIZE.toString(),
           network: net,
         });
-        if (q) params.set("q", q);
-        if (proto !== "all") params.set("protocol", proto);
         // Filecoin Calibration: bypass cache (GLIF RPC lookback can cause stale empty cache)
         if (net === "filecoinCalibration") params.set("noCache", "1");
 
@@ -90,39 +78,19 @@ export function AgentsPageClient({
       const next = new URLSearchParams(searchParams.toString());
       next.set("network", n);
       router.push(`/agents?${next.toString()}`, { scroll: false });
-      fetchAgents(1, searchQuery, protocol, n);
+      fetchAgents(1, n);
     },
-    [searchParams, router, searchQuery, protocol]
+    [searchParams, router, fetchAgents]
   );
-
-  // Refetch when filters change (initial data already shown from server)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (currentPage === 1 && !searchQuery && protocol === "all") {
-        // Already have initial data, skip redundant fetch
-        return;
-      }
-      fetchAgents(1, searchQuery, protocol, network);
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [searchQuery, protocol]);
 
   // Sync network from URL when navigating back/forward
   useEffect(() => {
     const urlNet = searchParams.get("network") as NetworkId | null;
     if (urlNet && NETWORK_IDS.includes(urlNet) && urlNet !== network) {
       setNetwork(urlNet);
-      fetchAgents(1, searchQuery, protocol, urlNet);
+      fetchAgents(1, urlNet);
     }
   }, [searchParams]);
-
-  const handleProtocolChange = (p: ProtocolFilter) => {
-    setProtocol(p);
-  };
-
-  const handleSearchChange = (q: string) => {
-    setSearchQuery(q);
-  };
 
   const showSkeleton = isLoading;
   const showContent = !isLoading && !error;
@@ -132,15 +100,9 @@ export function AgentsPageClient({
     <WorkspaceLayout
       sidebar={
         <RegistryAgentFilterSidebar
-          protocol={protocol}
-          onProtocolChange={handleProtocolChange}
-          searchQuery={searchQuery}
-          onSearchChange={handleSearchChange}
           network={network}
           onNetworkChange={handleNetworkChange}
           networks={NETWORK_OPTIONS}
-          showIncompleteAgents={false}
-          onShowIncompleteAgentsChange={() => {}}
         />
       }
     >
@@ -166,9 +128,7 @@ export function AgentsPageClient({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() =>
-              fetchAgents(currentPage, searchQuery, protocol, network)
-            }
+            onClick={() => fetchAgents(currentPage, network)}
             disabled={isLoading}
             title="Refresh"
           >
@@ -191,9 +151,7 @@ export function AgentsPageClient({
                 variant="outline"
                 size="sm"
                 className="mt-4"
-                onClick={() =>
-                  fetchAgents(currentPage, searchQuery, protocol, network)
-                }
+                onClick={() => fetchAgents(currentPage, network)}
               >
                 Retry
               </Button>
@@ -262,9 +220,7 @@ export function AgentsPageClient({
                 variant="outline"
                 size="sm"
                 disabled={currentPage === 1 || isLoading}
-                onClick={() =>
-                  fetchAgents(currentPage - 1, searchQuery, protocol, network)
-                }
+                onClick={() => fetchAgents(currentPage - 1, network)}
               >
                 ← Previous
               </Button>
@@ -272,9 +228,7 @@ export function AgentsPageClient({
                 variant="outline"
                 size="sm"
                 disabled={!hasMore || isLoading}
-                onClick={() =>
-                  fetchAgents(currentPage + 1, searchQuery, protocol, network)
-                }
+                onClick={() => fetchAgents(currentPage + 1, network)}
               >
                 Next →
               </Button>

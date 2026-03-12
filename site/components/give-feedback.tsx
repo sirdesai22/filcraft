@@ -95,6 +95,7 @@ export function GiveFeedback({ agentId, networkId, onSuccess }: GiveFeedbackProp
         "",
         feedbackHash,
       ],
+      ...(network.transactionGasLimit !== undefined && { gas: network.transactionGasLimit }),
     });
   };
 
@@ -224,9 +225,9 @@ export function GiveFeedback({ agentId, networkId, onSuccess }: GiveFeedbackProp
           {isError && (
             <div className="max-h-24 overflow-auto rounded-md border border-destructive/30 bg-destructive/5 p-3">
               <p className="break-words text-sm text-destructive">
-                {error?.message?.includes("Self-feedback not allowed")
+                {(error?.message?.includes("Self-feedback not allowed") || error?.message?.includes("self-feedback"))
                   ? "You cannot give feedback to your own agent."
-                  : error?.message?.includes("User rejected the request")
+                  : (error?.message?.includes("User rejected the request") || error?.message?.includes("user rejected"))
                     ? "Transaction was rejected in your wallet."
                     : error?.message ?? "Transaction failed."}
               </p>

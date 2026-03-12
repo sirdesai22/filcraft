@@ -337,14 +337,14 @@ export async function fetchAgentById(
       config.reputationSubgraphUrl
     );
     if (!agent) return null;
-    // RPC fallback when reputation subgraph is not yet deployed or still indexing
-    if (agent.reputation.totalFeedback === 0 && !config.reputationSubgraphUrl) {
+    // RPC fallback when subgraph shows 0 — it may still be indexing or the query silently failed
+    if (agent.reputation.totalFeedback === 0) {
       const reputation = await fetchReputationFromRpc(
         networkId,
         config.reputationRegistry,
         BigInt(agentId)
       );
-      return { ...agent, reputation };
+      if (reputation.totalFeedback > 0) return { ...agent, reputation };
     }
     return agent;
   }

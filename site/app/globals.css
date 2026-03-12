@@ -149,3 +149,9 @@
   );
   border-color: #3d3222;
 }
+
+@keyframes loadBar {
+  to {
+    width: 100%;
+  }
+}

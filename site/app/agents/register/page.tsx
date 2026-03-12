@@ -50,6 +50,7 @@ interface EndpointsState {
 const TX_EXPLORER_BASE: Record<NetworkId, string> = {
   sepolia: "https://sepolia.etherscan.io/tx/",
   filecoinCalibration: "https://calibration.filscan.io/tx/",
+  baseSepolia: "https://sepolia.basescan.org/tx/",
 };
 
 // ── Network card ─────────────────────────────────────────────────────────────

@@ -1,14 +1,15 @@
 import { createConfig, http } from "wagmi";
 import { injected } from "wagmi/connectors";
-import { sepolia, filecoinCalibration } from "viem/chains";
+import { sepolia, filecoinCalibration, baseSepolia } from "viem/chains";
 
 export const config = createConfig({
-  chains: [sepolia, filecoinCalibration],
+  chains: [sepolia, filecoinCalibration, baseSepolia],
   connectors: [injected()],
   transports: {
     [sepolia.id]: http(),
     [filecoinCalibration.id]: http(
-      "https://filecoin-calibration.chainup.net/rpc/v1"
+      "https://api.calibration.node.glif.io/rpc/v1"
     ),
+    [baseSepolia.id]: http(),
   },
 });

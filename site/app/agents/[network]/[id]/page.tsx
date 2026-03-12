@@ -19,7 +19,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { AgentDetail, AgentMetadata } from "@/lib/registry";
 import type { ParsedServices } from "@/lib/agent-validator";
-import { getExplorerUrl, getNetwork, NETWORK_IDS, type NetworkId } from "@/lib/networks";
+import { getExplorerUrl, getExplorerAddressUrl, getNetwork, NETWORK_IDS, type NetworkId } from "@/lib/networks";
 import { GiveFeedback } from "@/components/give-feedback";
 import { computeCreditScore } from "@/lib/credit-score";
 
@@ -47,24 +47,41 @@ function InfoRow({
   value,
   mono = false,
   canCopy,
+  href,
 }: {
   label: string;
   value: string;
   mono?: boolean;
   canCopy?: boolean;
+  href?: string;
 }) {
+  const content = (
+    <span
+      className={`truncate text-sm ${mono ? "font-mono" : ""} ${href ? "hover:underline" : ""}`}
+      title={value}
+    >
+      {value}
+    </span>
+  );
   return (
     <div className="flex items-start justify-between gap-4 py-2.5 border-b border-border last:border-0">
       <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </span>
       <div className="flex min-w-0 items-center gap-1.5">
-        <span
-          className={`truncate text-sm ${mono ? "font-mono" : ""}`}
-          title={value}
-        >
-          {value}
-        </span>
+        {href ? (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex min-w-0 items-center gap-1.5 text-primary hover:underline"
+          >
+            {content}
+            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+          </a>
+        ) : (
+          content
+        )}
         {canCopy && (
           <button
             onClick={() => copyText(value)}
@@ -762,10 +779,11 @@ export default function AgentDetailPage() {
                   canCopy
                 />
                 <InfoRow
-                  label="Owner"
-                  value={truncateAddress(agent.owner)}
+                  label="Owner (creator)"
+                  value={agent.owner}
                   mono
                   canCopy
+                  href={getExplorerAddressUrl(networkId, agent.owner)}
                 />
                 {agent.agentURI && (
                   <InfoRow

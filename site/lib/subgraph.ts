@@ -321,6 +321,26 @@ const GOLDSKY_GET_AGENT = gql`
   }
 `;
 
+const GOLDSKY_GET_OWNER = gql`
+  query GetOwner($agentId: String!) {
+    registereds(where: { agentId: $agentId }, orderBy: block_number, orderDirection: asc, first: 1) {
+      owner
+    }
+  }
+`;
+
+export async function fetchOwnerFromGoldskySubgraph(
+  subgraphUrl: string,
+  agentId: string
+): Promise<string | null> {
+  const client = new GraphQLClient(subgraphUrl);
+  const res = await client.request<{ registereds: { owner: string }[] }>(
+    GOLDSKY_GET_OWNER,
+    { agentId }
+  );
+  return res.registereds[0]?.owner ?? null;
+}
+
 const GOLDSKY_GET_FEEDBACK = gql`
   query GetFeedback($agentId: String!) {
     newfeedbacks(where: { agentId: $agentId }) {

@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import Link from "next/link";
 import type { RegistryAgent } from "@/lib/registry";
-import { getNetwork } from "@/lib/networks";
+import { getNetwork, getExplorerAddressUrl } from "@/lib/networks";
 import { computeCreditScore } from "@/lib/credit-score";
 import { parseAgentCardServices } from "@/lib/agent-validator";
 import { HealthDot } from "@/components/agent-card";
@@ -16,6 +16,11 @@ const TIER_BADGE: Record<string, string> = {
   gold: "bg-yellow-400/10 text-yellow-600 border-yellow-400/30 dark:text-yellow-300 dark:border-yellow-400/30",
   platinum: "bg-violet-500/10 text-violet-600 border-violet-500/30 dark:text-violet-300 dark:border-violet-400/30",
 };
+
+function truncateAddress(addr: string): string {
+  if (!addr) return "—";
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+}
 
 function agentInitialsSvg(seed: string, name: string): string {
   const PALETTES = [
@@ -116,6 +121,16 @@ export function MarketplaceAgentCard({ agent }: MarketplaceAgentCardProps) {
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
+          <a
+            href={getExplorerAddressUrl(networkId, agent.owner)}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors font-mono"
+            title={`Owner: ${agent.owner}`}
+          >
+            Owner: {truncateAddress(agent.owner)}
+          </a>
           <span
             className={cn(
               "rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize",
