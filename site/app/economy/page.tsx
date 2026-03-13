@@ -6,6 +6,7 @@
  */
 
 import { Suspense } from "react";
+import Link from "next/link";
 import { EconomyClient } from "./economy-client";
 import { getAgentsPage } from "@/lib/agents";
 import {
@@ -91,12 +92,20 @@ export default async function EconomyPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Agent Economy</h1>
-        <p className="text-muted-foreground">
-          Live accounting: storage costs, revenue, survival rates, and wind-downs
-          for the RFS-4 autonomous agent economy testbed on Filecoin Calibration.
-        </p>
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Agent Economy</h1>
+          <p className="text-muted-foreground">
+            Live accounting: storage costs, revenue, survival rates, and wind-downs
+            for the RFS-4 autonomous agent economy testbed on Filecoin Calibration.
+          </p>
+        </div>
+        <Link
+          href="/"
+          className="shrink-0 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+        >
+          View in World →
+        </Link>
       </div>
 
       <Suspense fallback={<EconomySkeleton />}>

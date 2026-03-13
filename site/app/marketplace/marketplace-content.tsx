@@ -9,7 +9,6 @@ export async function MarketplaceContent({ initialNetwork }: { initialNetwork: N
     protocol: "all",
     query: "",
     network: initialNetwork,
-    x402: true,
     noCache: initialNetwork === "filecoinCalibration",
   });
 

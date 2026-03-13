@@ -19,11 +19,11 @@ function truncateAddress(address: string) {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
-const NAV_LINKS = [
-  { href: "/world", label: "World", exact: false },
-  { href: "/live", label: "Live", exact: false, live: true },
+const NAV_LINKS: Array<{ href: string; label: string; exact: boolean; live?: boolean }> = [
+  { href: "/", label: "World", exact: true },
+  { href: "/marketplace", label: "Marketplace", exact: false },
   { href: "/economy", label: "Economy", exact: false },
-  { href: "/agents", label: "Agents", exact: false },
+  { href: "/marketplace?register=1", label: "Register", exact: false },
 ];
 
 function isActive(pathname: string, href: string, exact: boolean): boolean {

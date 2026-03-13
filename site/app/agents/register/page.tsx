@@ -314,7 +314,7 @@ export default function RegisterAgentPage() {
                 </a>
               </Button>
               <Button asChild size="sm">
-                <Link href="/agents">Browse Agents</Link>
+                <Link href="/marketplace">Browse Marketplace</Link>
               </Button>
             </div>
           </CardContent>
@@ -328,7 +328,7 @@ export default function RegisterAgentPage() {
   return (
     <div className="container px-4 py-8 md:px-6 max-w-2xl">
       <Link
-        href="/agents"
+        href="/marketplace"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-8"
       >
         <ArrowLeft className="h-4 w-4" />

@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   Copy,
+  Database,
   ExternalLink,
   Loader2,
   MessageSquare,
@@ -373,6 +374,240 @@ const TIER_BADGE_CLASS: Record<string, string> = {
   platinum: "bg-violet-500/10 text-violet-600 border border-violet-500/30 dark:text-violet-300",
 };
 
+function EconomyTab({ agentId, networkId }: { agentId: string; networkId: string }) {
+  const [data, setData] = useState<{
+    agentRows?: Array<{
+      agentId: string;
+      economy: { balance: string; totalSpent: string; totalEarned: string; status: string; windDown: boolean };
+    }>;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`/api/economy?agentIds=${agentId}&network=${networkId}`)
+      .then((r) => r.json())
+      .then(setData)
+      .finally(() => setLoading(false));
+  }, [agentId, networkId]);
+
+  if (loading || !data?.agentRows?.length) {
+    return (
+      <Card className="border-border">
+        <CardContent className="pt-6 text-center text-sm text-muted-foreground">
+          {loading ? "Loading economy data…" : "No economy data for this agent (Filecoin Calibration only)."}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const row = data.agentRows.find((r) => r.agentId === agentId);
+  if (!row) return null;
+
+  const { economy } = row;
+  const balanceNum = Number(BigInt(economy.balance)) / 1e18;
+  const spentNum = Number(BigInt(economy.totalSpent)) / 1e18;
+  const earnedNum = Number(BigInt(economy.totalEarned)) / 100;
+
+  return (
+    <div className="space-y-6">
+      <Card className="border-border">
+        <CardHeader className="pb-3">
+          <h2 className="font-semibold text-sm flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-primary" />
+            Economy
+          </h2>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide">Balance</div>
+              <div className="text-xl font-bold">{balanceNum.toFixed(4)} tFIL</div>
+              <div className="mt-1 h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full bg-primary rounded-full"
+                  style={{ width: `${Math.min(100, (balanceNum / 0.005) * 100)}%` }}
+                />
+              </div>
+            </div>
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide">Revenue</div>
+              <div className="text-xl font-bold">${earnedNum.toFixed(2)}</div>
+            </div>
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide">Storage Cost</div>
+              <div className="text-xl font-bold">{spentNum.toFixed(4)} tFIL</div>
+            </div>
+            <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide">Status</div>
+              <div
+                className={`text-sm font-semibold ${
+                  economy.status === "healthy"
+                    ? "text-emerald-500"
+                    : economy.status === "at-risk"
+                      ? "text-amber-500"
+                      : "text-zinc-400"
+                }`}
+              >
+                {economy.status === "healthy" ? "Healthy" : economy.status === "at-risk" ? "At Risk" : "Wound Down"}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function ArtifactsTab({ agentId }: { agentId: string }) {
+  const [data, setData] = useState<{ listings: Array<{ id: string; contentCid: string; priceUsdc: string; category: string }> } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`/api/data-listings?agentId=${agentId}`)
+      .then((r) => r.json())
+      .then(setData)
+      .finally(() => setLoading(false));
+  }, [agentId]);
+
+  if (loading) {
+    return (
+      <Card className="border-border">
+        <CardContent className="pt-6 text-center text-sm text-muted-foreground">
+          Loading artifacts…
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const listings = data?.listings ?? [];
+  if (listings.length === 0) {
+    return (
+      <Card className="border-border">
+        <CardContent className="pt-6 text-center text-sm text-muted-foreground">
+          No data artifacts listed by this agent yet.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card className="border-border">
+        <CardHeader className="pb-3">
+          <h2 className="font-semibold text-sm flex items-center gap-2">
+            <Database className="h-4 w-4 text-primary" />
+            Data Artifacts ({listings.length})
+          </h2>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {listings.map((l) => (
+              <div
+                key={l.id}
+                className="flex items-center justify-between rounded-lg border border-border p-4"
+              >
+                <div className="min-w-0">
+                  <code className="text-xs font-mono text-muted-foreground truncate block">
+                    {l.contentCid.slice(0, 20)}…
+                  </code>
+                  <span className="text-xs text-muted-foreground">{l.category || "—"}</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-sm font-semibold">
+                    ${(Number(l.priceUsdc) / 1e6).toFixed(2)}
+                  </span>
+                  <Button asChild size="sm" variant="outline">
+                    <Link href={`/marketplace?listing=${l.id}`}>Buy</Link>
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function ActivityTab({ agentId }: { agentId: string }) {
+  const [data, setData] = useState<{ reports: Array<{ runId: string; createdAt: string; reportUrl: string; summary: string }> } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`/api/agents/${agentId}/activity`)
+      .then((r) => r.json())
+      .then(setData)
+      .finally(() => setLoading(false));
+  }, [agentId]);
+
+  if (loading) {
+    return (
+      <Card className="border-border">
+        <CardContent className="pt-6 text-center text-sm text-muted-foreground">
+          Loading activity…
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const reports = data?.reports ?? [];
+  if (reports.length === 0) {
+    return (
+      <Card className="border-border">
+        <CardContent className="pt-6 text-center text-sm text-muted-foreground">
+          No completed runs for this agent yet.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  function timeAgo(iso: string) {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60_000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card className="border-border">
+        <CardHeader className="pb-3">
+          <h2 className="font-semibold text-sm flex items-center gap-2">
+            <Zap className="h-4 w-4 text-primary" />
+            Recent Runs ({reports.length})
+          </h2>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {reports.map((r) => (
+              <div
+                key={r.runId}
+                className="flex items-center justify-between rounded-lg border border-border p-4"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm truncate">{r.summary || r.runId}</p>
+                  <span className="text-[10px] text-muted-foreground">{timeAgo(r.createdAt)}</span>
+                </div>
+                <a
+                  href={r.reportUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 text-xs font-medium text-primary hover:underline flex items-center gap-1"
+                >
+                  View <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function ScoreTab({ agent }: { agent: AgentDetail }) {
   const cs = computeCreditScore(agent);
   const { breakdown, score, tier, label, listingFeeBps, escrowFree, insurancePool } = cs;
@@ -481,7 +716,7 @@ function ScoreTab({ agent }: { agent: AgentDetail }) {
 
 // ── page ─────────────────────────────────────────────────────────────────────
 
-type Tab = "overview" | "invoke" | "raw" | "score";
+type Tab = "overview" | "invoke" | "score" | "economy" | "artifacts" | "activity" | "raw";
 
 export default function AgentDetailPage() {
   const params = useParams<{ network: string; id: string }>();
@@ -540,11 +775,11 @@ export default function AgentDetailPage() {
     return (
       <div className="container px-4 py-12 md:px-6">
         <Link
-          href={`/agents?network=${networkId}`}
+          href={`/marketplace?network=${networkId}`}
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-8"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Agents
+          Back to Marketplace
         </Link>
         <div className="flex flex-col items-center gap-3 py-16 text-center">
           <h1
@@ -569,11 +804,11 @@ export default function AgentDetailPage() {
     <div className="container px-4 py-8 md:px-6 max-w-5xl">
       {/* Back */}
       <Link
-        href={`/agents?network=${networkId}`}
+        href={`/marketplace?network=${networkId}`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-8"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to Agents
+        Back to Marketplace
       </Link>
 
       {/* Header */}
@@ -628,6 +863,13 @@ export default function AgentDetailPage() {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {networkId === "filecoinCalibration" && (
+            <Button asChild variant="outline" size="sm" className="rounded-full">
+              <Link href={`/?focus=${id}`}>
+                View in World
+              </Link>
+            </Button>
+          )}
           <Button asChild variant="outline" size="sm" className="rounded-full">
             <Link href={`/agents/update?id=${id}&network=${networkId}`}>
               Update URI
@@ -643,8 +885,8 @@ export default function AgentDetailPage() {
       </div>
 
       {/* Tabs */}
-      <div className="mb-6 flex gap-6 border-b border-border">
-        {(["overview", "invoke", "score", "raw"] as Tab[]).map((t) => (
+      <div className="mb-6 flex flex-wrap gap-6 border-b border-border">
+        {(["overview", "invoke", "score", "economy", "artifacts", "activity", "raw"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -654,7 +896,19 @@ export default function AgentDetailPage() {
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            {t === "raw" ? "Raw Metadata" : t === "invoke" ? "Invoke" : t === "score" ? "Score" : "Overview"}
+            {t === "raw"
+              ? "Raw Metadata"
+              : t === "invoke"
+                ? "Invoke"
+                : t === "score"
+                  ? "Score"
+                  : t === "economy"
+                    ? "Economy"
+                    : t === "artifacts"
+                      ? "Artifacts"
+                      : t === "activity"
+                        ? "Activity"
+                        : "Overview"}
           </button>
         ))}
       </div>
@@ -826,6 +1080,12 @@ export default function AgentDetailPage() {
       )}
 
       {tab === "score" && <ScoreTab agent={agent} />}
+
+      {tab === "economy" && <EconomyTab agentId={agent.agentId} networkId={networkId} />}
+
+      {tab === "artifacts" && <ArtifactsTab agentId={agent.agentId} />}
+
+      {tab === "activity" && <ActivityTab agentId={agent.agentId} />}
 
       {tab === "raw" && <RawMetadataCard agentURI={agent.agentURI} metadata={metadata} />}
     </div>

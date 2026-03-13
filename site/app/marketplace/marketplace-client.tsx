@@ -6,8 +6,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { RefreshCw } from "lucide-react";
 import { WorkspaceLayout } from "@/components/workspace-layout";
 import { RegistryAgentFilterSidebar } from "@/components/filter-sidebar";
-import { MarketplaceAgentCard } from "@/components/marketplace-agent-card";
+import { RegistryAgentCard } from "@/components/agent-card";
 import { AgentCardSkeleton } from "@/components/agent-card-skeleton";
+import { RegisterAgentDialog } from "@/components/register-agent-dialog";
+import { DataListingsClient } from "@/components/data-listings-client";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
@@ -49,6 +51,8 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
   // Client-side filters
   const [tierFilter, setTierFilter] = useState<CreditTier | null>(null);
   const [maxCostUsdc, setMaxCostUsdc] = useState<number>(10);
+  const [x402Only, setX402Only] = useState(false);
+  const [registerOpen, setRegisterOpen] = useState(false);
 
   const fetchAgents = useCallback(
     async (page: number, net: NetworkId) => {
@@ -59,8 +63,8 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
           page: page.toString(),
           pageSize: PAGE_SIZE.toString(),
           network: net,
-          x402: "true",
         });
+        if (x402Only) params.set("x402", "true");
         if (net === "filecoinCalibration") params.set("noCache", "1");
 
         const res = await fetch(`/api/agents?${params}`);
@@ -80,7 +84,7 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
         setIsLoading(false);
       }
     },
-    []
+    [x402Only]
   );
 
   const handleNetworkChange = useCallback(
@@ -101,6 +105,10 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
       setNetwork(urlNet);
       fetchAgents(1, urlNet);
     }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (searchParams.get("register") === "1") setRegisterOpen(true);
   }, [searchParams]);
 
   // Client-side filter: tier + cost
@@ -126,11 +134,39 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
 
   const sidebar = (
     <div className="space-y-5">
+      <Button
+        className="w-full rounded-full font-medium"
+        size="sm"
+        onClick={() => setRegisterOpen(true)}
+      >
+        Register Agent
+      </Button>
+      <Separator className="opacity-50" />
       <RegistryAgentFilterSidebar
         network={network}
         onNetworkChange={handleNetworkChange}
         networks={NETWORK_OPTIONS}
       />
+
+      <Separator className="opacity-50" />
+
+      <div className="space-y-1.5">
+        <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+          Protocol
+        </p>
+        <label className="flex items-center gap-2 cursor-pointer px-2.5 py-1.5 rounded-md hover:bg-muted/60">
+          <input
+            type="checkbox"
+            checked={x402Only}
+            onChange={(e) => {
+              setX402Only(e.target.checked);
+              fetchAgents(1, network);
+            }}
+            className="rounded border-border"
+          />
+          <span className="text-sm text-muted-foreground">x402 only</span>
+        </label>
+      </div>
 
       <Separator className="opacity-50" />
 
@@ -200,7 +236,7 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
               Marketplace
             </h1>
             <p className="mt-1 text-muted-foreground">
-              x402-capable agents accepting USDC payments.
+              Registered agents and data artifacts.
               {!isLoading && total > 0 && (
                 <span className="ml-1 font-medium text-foreground">
                   {total} agent{total !== 1 ? "s" : ""} found.
@@ -244,7 +280,7 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="grid gap-4 sm:grid-cols-2"
+              className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
             >
               {Array.from({ length: PAGE_SIZE }).map((_, i) => (
                 <AgentCardSkeleton key={i} />
@@ -259,14 +295,14 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
               className="rounded-xl border border-dashed border-border bg-muted/30 py-16 text-center"
             >
               <p className="text-muted-foreground">
-                No x402-capable agents found.
+                No agents found.
               </p>
             </motion.div>
           ) : (
             <motion.div
               key="grid"
               layout
-              className="grid gap-4 sm:grid-cols-2"
+              className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
               initial="hidden"
               animate="visible"
               variants={{
@@ -285,7 +321,7 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
                     }}
                     transition={{ duration: 0.3 }}
                   >
-                    <MarketplaceAgentCard agent={agent} />
+                    <RegistryAgentCard agent={agent} compact />
                   </motion.div>
                 ))}
               </AnimatePresence>
@@ -318,7 +354,27 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
             </div>
           </div>
         )}
+
+        {/* Data Artifacts section — consolidated from /artifacts */}
+        <div className="border-t border-border pt-12 mt-12">
+          <h2
+            className="text-xl font-bold tracking-tight mb-2"
+            style={{ fontFamily: "var(--font-playfair-display), serif" }}
+          >
+            Data Artifacts
+          </h2>
+          <p className="text-sm text-muted-foreground mb-6 max-w-2xl">
+            On-chain data listings from the DataListingRegistry (Filecoin Calibration).
+            Purchase locks USDC in escrow; funds release after you verify the CID.
+          </p>
+          <DataListingsClient initialListings={[]} />
+        </div>
       </div>
+      <RegisterAgentDialog
+        open={registerOpen}
+        onOpenChange={setRegisterOpen}
+        onSuccess={() => fetchAgents(1, network)}
+      />
     </WorkspaceLayout>
   );
 }

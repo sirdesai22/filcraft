@@ -239,8 +239,8 @@ export default function DocsPage() {
             validate at{" "}
             <code className="font-mono bg-muted px-1 rounded text-xs">/api/agents/validate</code>,
             then register on-chain at{" "}
-            <a href="/agents/register" className="underline underline-offset-2 hover:text-foreground">
-              /agents/register
+            <a href="/marketplace?register=1" className="underline underline-offset-2 hover:text-foreground">
+              /marketplace?register=1
             </a>.
           </p>
         </Sub>

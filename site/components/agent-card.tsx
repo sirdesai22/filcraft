@@ -168,9 +168,10 @@ export function HealthDot({ agentId, networkId }: { agentId: string; networkId: 
 
 interface RegistryAgentCardProps {
   agent: RegistryAgent;
+  compact?: boolean;
 }
 
-export function RegistryAgentCard({ agent }: RegistryAgentCardProps) {
+export function RegistryAgentCard({ agent, compact }: RegistryAgentCardProps) {
   const name = agent.metadata?.name ?? `Agent #${agent.agentId}`;
   const description = agent.metadata?.description;
   const image = agent.metadata?.image;
@@ -212,10 +213,11 @@ export function RegistryAgentCard({ agent }: RegistryAgentCardProps) {
         </div>
 
         {/* Portrait frame */}
-        <div className="relative mx-2 mt-2">
+        <div className={cn("relative mt-2", compact ? "mx-1.5" : "mx-2")}>
           <div
             className={cn(
               "relative aspect-square overflow-hidden rounded-sm",
+              compact && "max-w-[80px] mx-auto",
               "border border-amber-800/50 dark:border-amber-600/40",
               "bg-gradient-to-br from-amber-200/50 to-stone-300/50 dark:from-amber-900/50 dark:to-stone-800/50",
               "shadow-[inset_0_1px_4px_rgba(0,0,0,0.1)]"
@@ -242,7 +244,7 @@ export function RegistryAgentCard({ agent }: RegistryAgentCardProps) {
           <div
             className={cn(
               "absolute -bottom-1 left-1/2 -translate-x-1/2",
-              "rounded px-1.5 py-0.5 text-[9px] font-bold tracking-wider",
+              "rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wider",
               "bg-amber-800/90 text-amber-100 dark:bg-amber-700/90"
             )}
           >
@@ -251,39 +253,49 @@ export function RegistryAgentCard({ agent }: RegistryAgentCardProps) {
         </div>
 
         {/* Name banner */}
-        <div className="mt-2 px-2">
+        <div className={cn("mt-2", compact ? "px-1.5" : "px-2")}>
           <h3
             className={cn(
-              "text-center font-display text-sm font-bold tracking-wide text-amber-900 dark:text-amber-100",
-              "line-clamp-2"
+              "text-center font-display text-base font-bold tracking-wide text-amber-900 dark:text-amber-100",
+              "line-clamp-2 leading-snug"
             )}
             style={{ fontFamily: "var(--font-playfair-display), serif" }}
           >
             {name}
           </h3>
-          <a
-            href={getExplorerAddressUrl(networkId, agent.owner)}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="mt-0.5 block text-center font-mono text-[9px] text-amber-700/80 hover:text-amber-900 dark:text-amber-300/70 dark:hover:text-amber-100 transition-colors"
+          <span
+            role="link"
+            tabIndex={0}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              window.open(getExplorerAddressUrl(networkId, agent.owner), "_blank", "noopener,noreferrer");
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                e.stopPropagation();
+                window.open(getExplorerAddressUrl(networkId, agent.owner), "_blank", "noopener,noreferrer");
+              }
+            }}
+            className="mt-0.5 block cursor-pointer text-center font-mono text-xs text-amber-700/90 hover:text-amber-900 dark:text-amber-300/90 dark:hover:text-amber-100 transition-colors"
             title={`Owner: ${agent.owner}`}
           >
             Owner: {truncateAddress(agent.owner)}
-          </a>
+          </span>
         </div>
 
         {/* Divider */}
-        <div className="mx-2 mt-2 flex items-center gap-1">
+        <div className={cn("mt-2 flex items-center gap-1", compact ? "mx-1.5" : "mx-2")}>
           <div className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-700/40 to-transparent dark:via-amber-500/30" />
           <span className="text-[8px] text-amber-600/60 dark:text-amber-400/40">◆</span>
           <div className="h-px flex-1 bg-gradient-to-r from-transparent via-amber-700/40 to-transparent dark:via-amber-500/30" />
         </div>
 
         {/* Abilities / protocols */}
-        <div className="flex-1 px-2 py-2">
+        <div className={cn("flex-1 py-2", compact ? "px-1.5" : "px-2")}>
           {description && (
-            <p className="line-clamp-2 text-[11px] leading-snug text-amber-900/80 dark:text-amber-200/80">
+            <p className="line-clamp-2 text-xs leading-relaxed text-amber-900/90 dark:text-amber-200/90">
               {description}
             </p>
           )}
@@ -292,18 +304,18 @@ export function RegistryAgentCard({ agent }: RegistryAgentCardProps) {
               <span
                 key={p}
                 className={cn(
-                  "rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider",
+                  "rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
                   PROTOCOL_COLORS[p] ?? PROTOCOL_COLORS.CUSTOM
                 )}
               >
                 {p}
               </span>
             ))}
-            <span className="rounded border border-amber-700/40 bg-amber-900/20 px-1.5 py-0.5 text-[9px] font-medium text-amber-800 dark:border-amber-500/30 dark:bg-amber-800/20 dark:text-amber-200">
+            <span className="rounded border border-amber-700/40 bg-amber-900/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:border-amber-500/30 dark:bg-amber-800/20 dark:text-amber-200">
               {network.name}
             </span>
             {x402 && (
-              <span className="rounded border border-violet-600/50 bg-violet-900/40 px-1.5 py-0.5 text-[9px] font-semibold text-violet-200">
+              <span className="rounded border border-violet-600/50 bg-violet-900/40 px-1.5 py-0.5 text-[10px] font-semibold text-violet-200">
                 x402
               </span>
             )}
@@ -313,11 +325,12 @@ export function RegistryAgentCard({ agent }: RegistryAgentCardProps) {
         {/* Footer */}
         <div
           className={cn(
-            "flex items-center justify-between border-t border-amber-800/30 px-2 py-1.5 dark:border-amber-600/20",
+            "flex items-center justify-between border-t border-amber-800/30 py-1.5 dark:border-amber-600/20",
+            compact ? "px-1.5" : "px-2",
             "bg-amber-900/5 dark:bg-amber-950/30"
           )}
         >
-          <span className="text-[10px] font-medium text-amber-800 dark:text-amber-200">
+          <span className="text-xs font-medium text-amber-800 dark:text-amber-200">
             View Details →
           </span>
           <span
@@ -335,7 +348,7 @@ export function RegistryAgentCard({ agent }: RegistryAgentCardProps) {
                 window.open(explorerHref, "_blank", "noopener,noreferrer");
               }
             }}
-            className="cursor-pointer text-[9px] text-amber-700/70 hover:text-amber-900 dark:text-amber-300/70 dark:hover:text-amber-100"
+            className="cursor-pointer text-xs text-amber-700/80 hover:text-amber-900 dark:text-amber-300/80 dark:hover:text-amber-100"
           >
             {network.explorerName} ↗
           </span>
