@@ -1069,8 +1069,8 @@ function initWorld(
   type DataStreamItem = {
     points: { geometry: { attributes: { position: { count: number; array: Float32Array; needsUpdate?: boolean } } }; material: { opacity?: number } };
     phases: number[];
-    start: THREE.Vector3;
-    end: THREE.Vector3;
+    start: { x: number; y: number; z: number };
+    end: { x: number; y: number; z: number };
   };
   const dataStreams: DataStreamItem[] = [];
   CAMPFIRE_CONFIG.forEach((cfg) => {
