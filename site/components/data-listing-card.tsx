@@ -95,8 +95,13 @@ export function DataListingCard({ listing }: { listing: DataListing }) {
         {/* Producer + listing ID */}
         <div className="flex items-center justify-between text-[11px] text-muted-foreground">
           <span>
-            Producer:{" "}
-            <span className="font-mono">{addrShort(listing.producer)}</span>
+            Produced by:{" "}
+            <a
+              href={`/agents/filecoinCalibration/${listing.agentId}`}
+              className="font-medium text-primary hover:underline"
+            >
+              Agent #{listing.agentId}
+            </a>
           </span>
           <span>#{listing.id}</span>
         </div>

@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type {
   AgentEconomyAccount,
   EconomyEvent,
@@ -60,8 +61,8 @@ const AGENT_CONFIG: Record<
 // Campfire positions and network labels — agents spawn at their chain's fire
 const CAMPFIRE_CONFIG = [
   { x: 0, z: 0, label: "Filecoin Calibration", chainId: "314159", networkId: "filecoinCalibration" },
-  { x: -20, z: 15, label: "Ethereum Sepolia", chainId: "11155111", networkId: "sepolia" },
-  { x: 18, z: -8, label: "Base Sepolia", chainId: "84532", networkId: "baseSepolia" },
+  { x: -10, z: 7.5, label: "Ethereum Sepolia", chainId: "11155111", networkId: "sepolia" },
+  { x: 9, z: -4, label: "Base Sepolia", chainId: "84532", networkId: "baseSepolia" },
 ];
 const NETWORK_TO_FIRE = Object.fromEntries(CAMPFIRE_CONFIG.map((c) => [c.networkId, [c.x, c.z] as [number, number]]));
 
@@ -102,8 +103,37 @@ export function AetheriaWorld({
   const [data, setData] = useState<DashboardData>(initialData);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [showAllAgents, setShowAllAgents] = useState(false);
+  const [scoreboardExpanded, setScoreboardExpanded] = useState(true);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [agentExtra, setAgentExtra] = useState<{
+    creditScore?: number;
+    tier?: string;
+    artifactCount?: number;
+  } | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!selectedAgentId) {
+      setAgentExtra(null);
+      return;
+    }
+    let cancelled = false;
+    Promise.all([
+      fetch(`/api/agents/${selectedAgentId}/score?network=${DEFAULT_NETWORK}`).then((r) => (r.ok ? r.json() : null)),
+      fetch(`/api/data-listings?agentId=${selectedAgentId}`).then((r) => (r.ok ? r.json() : { total: 0 })),
+    ]).then(([scoreRes, listingsRes]) => {
+      if (cancelled) return;
+      setAgentExtra({
+        creditScore: scoreRes?.score,
+        tier: scoreRes?.label,
+        artifactCount: listingsRes?.total ?? 0,
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAgentId]);
 
   const refresh = useCallback(async () => {
     try {
@@ -132,7 +162,7 @@ export function AetheriaWorld({
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const loadThreeAndInit = (): Promise<unknown> => {
+    const loadThree = (): Promise<unknown> => {
       return new Promise((resolve) => {
         if (typeof window !== "undefined" && (window as unknown as { THREE?: unknown }).THREE) {
           resolve((window as unknown as { THREE: unknown }).THREE);
@@ -148,19 +178,57 @@ export function AetheriaWorld({
       });
     };
 
+    const loadGLTFLoader = (): Promise<unknown> => {
+      return new Promise((resolve) => {
+        if (typeof window !== "undefined" && (window as unknown as { THREE?: { GLTFLoader?: unknown } }).THREE?.GLTFLoader) {
+          resolve(undefined);
+          return;
+        }
+        const script = document.createElement("script");
+        script.src = "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js";
+        script.async = true;
+        script.onload = () => resolve(undefined);
+        document.head.appendChild(script);
+      });
+    };
+
+    const loadRobotModel = (THREE: { GLTFLoader: new () => { load: (url: string, onLoad: (gltf: unknown) => void, onProgress?: unknown, onError?: (err: unknown) => void) => void } }): Promise<unknown> => {
+      return new Promise((resolve, reject) => {
+        const loader = new THREE.GLTFLoader();
+        loader.load(
+          "/models/RobotExpressive.glb",
+          (gltf) => resolve(gltf),
+          undefined,
+          (err) => reject(err)
+        );
+      });
+    };
+
     let cancelled = false;
     let rafId: number;
 
-    loadThreeAndInit().then((THREE) => {
-      if (cancelled) return;
-      initWorld(THREE, containerRef.current!, dataRef, setSelectedAgentId);
-      setLoading(false);
-      rafId = requestAnimationFrame(function loop() {
+    loadThree()
+      .then((THREE) => {
+        if (cancelled) return Promise.reject(new Error("cancelled"));
+        return loadGLTFLoader().then(() => ({ THREE }));
+      })
+      .then(({ THREE }) => {
+        if (cancelled) return Promise.reject(new Error("cancelled"));
+        return loadRobotModel(THREE as Parameters<typeof loadRobotModel>[0]).then((gltf) => ({ THREE, gltf }));
+      })
+      .then(({ THREE, gltf }) => {
         if (cancelled) return;
-        (containerRef.current as unknown as { __aetheriaLoop?: () => void })?.__aetheriaLoop?.();
-        rafId = requestAnimationFrame(loop);
+        initWorld(THREE, containerRef.current!, dataRef, setSelectedAgentId, gltf as { scene: unknown; animations: { name: string }[] }, () => router.push("/marketplace"));
+        setLoading(false);
+        rafId = requestAnimationFrame(function loop() {
+          if (cancelled) return;
+          (containerRef.current as unknown as { __aetheriaLoop?: () => void })?.__aetheriaLoop?.();
+          rafId = requestAnimationFrame(loop);
+        });
+      })
+      .catch((err: unknown) => {
+        if ((err as Error)?.message !== "cancelled") console.error(err);
       });
-    });
 
     return () => {
       cancelled = true;
@@ -461,6 +529,20 @@ export function AetheriaWorld({
                         </span>
                         {selectedRow.economy.windDown && <span className="text-zinc-500 ml-1">(stopped)</span>}
                       </div>
+                      {agentExtra?.tier && (
+                        <div className="text-[10px] mt-0.5">
+                          <span className="text-[#a89060]">Credit: </span>
+                          <span className="text-[#f5d96a] font-semibold">{agentExtra.tier}</span>
+                          {agentExtra.creditScore != null && (
+                            <span className="text-[#7a8a6a] ml-1">({agentExtra.creditScore})</span>
+                          )}
+                        </div>
+                      )}
+                      {agentExtra?.artifactCount != null && (
+                        <div className="text-[10px] mt-0.5">
+                          <span className="text-[#a89060]">{agentExtra.artifactCount} artifact{agentExtra.artifactCount !== 1 ? "s" : ""} on marketplace</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -542,15 +624,29 @@ export function AetheriaWorld({
 
 // ── Three.js world init (runs in useEffect) ────────────────────────────────────
 
+// Agent color config: active (healthy) vs inactive (unhealthy/wound-down)
+const AGENT_COLORS_ACTIVE: Record<string, { primary: number; glow: number }> = {
+  Worker: { primary: 0xf97316, glow: 0xfde68a },
+  Shaman: { primary: 0x7c3aed, glow: 0xe879f9 },
+  Warrior: { primary: 0x059669, glow: 0x6ee7b7 },
+};
+const AGENT_COLORS_INACTIVE: Record<string, { primary: number; glow: number }> = {
+  Worker: { primary: 0x6b5a3a, glow: 0x4b4030 },
+  Shaman: { primary: 0x3a2a4a, glow: 0x2a2030 },
+  Warrior: { primary: 0x2a3a2a, glow: 0x202a20 },
+};
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- THREE loaded from CDN, no @types/three
 function initWorld(
   THREE: any,
   container: HTMLDivElement,
   dataRef: React.MutableRefObject<DashboardData>,
-  setSelectedAgentId: (id: string | null) => void
+  setSelectedAgentId: (id: string | null) => void,
+  gltf: { scene: any; animations: any[] },
+  onStorageDepotClick: () => void
 ) {
   const initialData = dataRef.current;
-  const WORLD_SIZE = 120;
+  const WORLD_SIZE = 60;
   const H = (x: number, z: number) =>
     Math.sin(x * 0.05) * Math.cos(z * 0.07) * 2 +
     Math.sin(x * 0.12 + z * 0.08) * 1.5 +
@@ -572,7 +668,7 @@ function initWorld(
   renderer.toneMappingExposure = 0.85;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x1a1520, 0.012);
+  scene.fog = new THREE.FogExp2(0x1a1520, 0.024);
   scene.background = new THREE.Color(0x0d0a15);
   const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 500);
 
@@ -580,8 +676,8 @@ function initWorld(
   const orbit = {
     target: new THREE.Vector3(0, 0, 0),
     smooth: new THREE.Vector3(0, 0, 0),
-    dist: 45,
-    tDist: 45,
+    dist: 28,
+    tDist: 28,
     phi: Math.PI * 0.3,
     tPhi: Math.PI * 0.3,
     theta: Math.PI * 0.25,
@@ -646,14 +742,20 @@ function initWorld(
     "wheel",
     (e) => {
       e.preventDefault();
-      orbit.tDist = Math.max(8, Math.min(90, orbit.tDist * (1 + e.deltaY * 0.001)));
+      orbit.tDist = Math.max(6, Math.min(50, orbit.tDist * (1 + e.deltaY * 0.001)));
     },
     { passive: false }
   );
 
   const keys: Record<string, boolean> = {};
-  window.addEventListener("keydown", (e) => (keys[e.key.toLowerCase()] = true));
-  window.addEventListener("keyup", (e) => (keys[e.key.toLowerCase()] = false));
+  window.addEventListener("keydown", (e) => {
+    const k = e.key?.toLowerCase?.();
+    if (k) keys[k] = true;
+  });
+  window.addEventListener("keyup", (e) => {
+    const k = e.key?.toLowerCase?.();
+    if (k) keys[k] = false;
+  });
 
   function processKeys(dt: number) {
     const p = 20 * dt;
@@ -692,11 +794,11 @@ function initWorld(
   const dirLight = new THREE.DirectionalLight(0xffeedd, 1.3);
   dirLight.position.set(30, 50, 20);
   dirLight.castShadow = true;
-  dirLight.shadow.mapSize.set(4096, 4096);
-  dirLight.shadow.camera.left = -60;
-  dirLight.shadow.camera.right = 60;
-  dirLight.shadow.camera.top = 60;
-  dirLight.shadow.camera.bottom = -60;
+  dirLight.shadow.mapSize.set(2048, 2048);
+  dirLight.shadow.camera.left = -35;
+  dirLight.shadow.camera.right = 35;
+  dirLight.shadow.camera.top = 35;
+  dirLight.shadow.camera.bottom = -35;
   dirLight.shadow.bias = -0.0001;
   scene.add(dirLight);
   const ml = new THREE.DirectionalLight(0x4466aa, 0.35);
@@ -704,13 +806,13 @@ function initWorld(
   scene.add(ml);
 
   // Terrain — higher resolution, smoother
-  const terrainGeo = new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE, 120, 120);
+  const terrainGeo = new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE, 80, 80);
   terrainGeo.rotateX(-Math.PI / 2);
   const tv = terrainGeo.attributes.position;
   for (let i = 0; i < tv.count; i++) tv.setY(i, H(tv.getX(i), tv.getZ(i)));
   terrainGeo.computeVertexNormals();
   const terrainMat = new THREE.MeshStandardMaterial({
-    color: 0x2a4a1a,
+    color: 0x1a2a1a,
     roughness: 0.85,
     metalness: 0.05,
   });
@@ -718,36 +820,38 @@ function initWorld(
   terrain.receiveShadow = true;
   scene.add(terrain);
 
-  // Rocks — scattered boulders
-  for (let i = 0; i < 45; i++) {
+  // Rocks — 12 blue-grey crystalline boulders (sci-fi)
+  for (let i = 0; i < 12; i++) {
     const x = (Math.random() - 0.5) * WORLD_SIZE * 0.82;
     const z = (Math.random() - 0.5) * WORLD_SIZE * 0.82;
-    if (Math.abs(x) < 6 && Math.abs(z) < 6) continue;
+    if (Math.abs(x) < 8 && Math.abs(z) < 8) continue;
+    if (Math.abs(x) < 6 && Math.abs(z - 17.5) < 6) continue;
     const rock = new THREE.Mesh(
-      new THREE.DodecahedronGeometry(0.5 + Math.random() * 0.9, 1),
+      new THREE.IcosahedronGeometry(0.6 + Math.random() * 0.7, 0),
       new THREE.MeshStandardMaterial({
-        color: 0x555555 + Math.floor(Math.random() * 0x222222),
-        roughness: 0.95,
+        color: 0x3a4a6a,
+        roughness: 0.9,
+        metalness: 0.15,
         flatShading: true,
       })
     );
-    rock.position.set(x, H(x, z) + 0.25, z);
-    rock.rotation.set(Math.random() * 0.5, Math.random() * Math.PI * 2, Math.random() * 0.3);
-    rock.scale.y = 0.5 + Math.random() * 0.6;
+    rock.position.set(x, H(x, z) + 0.2, z);
+    rock.rotation.set(Math.random() * 0.4, Math.random() * Math.PI * 2, Math.random() * 0.2);
+    rock.scale.y = 0.6 + Math.random() * 0.5;
     rock.castShadow = true;
     scene.add(rock);
   }
 
-  // Trees — more variety, higher poly
-  for (let i = 0; i < 65; i++) {
+  // Trees — 18 teal-blue-green (alien/tech flora)
+  const foliageColors = [0x1a4a3a, 0x0a3a2a, 0x1a3a4a, 0x0a2a3a];
+  for (let i = 0; i < 18; i++) {
     const x = (Math.random() - 0.5) * WORLD_SIZE * 0.85;
     const z = (Math.random() - 0.5) * WORLD_SIZE * 0.85;
-    if (Math.abs(x) < 10 && Math.abs(z) < 10) continue;
-    // Keep clear of storage depot at (0, 35)
-    if (Math.abs(x) < 12 && Math.abs(z - 35) < 10) continue;
+    if (Math.abs(x) < 6 && Math.abs(z) < 6) continue;
+    if (Math.abs(x) < 6 && Math.abs(z - 17.5) < 5) continue;
     const treeG = new THREE.Group();
-    const h = 2.2 + Math.random() * 3.5;
-    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a3520, roughness: 1 });
+    const h = 2.2 + Math.random() * 3;
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x2a3a2a, roughness: 1 });
     const tr = new THREE.Mesh(
       new THREE.CylinderGeometry(0.18, 0.28, h, 8),
       trunkMat
@@ -755,7 +859,6 @@ function initWorld(
     tr.position.y = h / 2;
     tr.castShadow = true;
     treeG.add(tr);
-    const foliageColors = [0x1a5a1a, 0x2a6a2a, 0x1a4a1a, 0x2a5a2a];
     foliageColors.forEach((c, idx) => {
       const cone = new THREE.Mesh(
         new THREE.ConeGeometry(1.9 - idx * 0.35, 2.2, 10),
@@ -770,27 +873,8 @@ function initWorld(
     scene.add(treeG);
   }
 
-  // Bushes — low foliage clusters
-  for (let i = 0; i < 35; i++) {
-    const x = (Math.random() - 0.5) * WORLD_SIZE * 0.8;
-    const z = (Math.random() - 0.5) * WORLD_SIZE * 0.8;
-    if (Math.abs(x) < 12 && Math.abs(z) < 12) continue;
-    if (Math.abs(x) < 12 && Math.abs(z - 35) < 10) continue;
-    const bush = new THREE.Mesh(
-      new THREE.SphereGeometry(0.4 + Math.random() * 0.5, 8, 6),
-      new THREE.MeshStandardMaterial({
-        color: 0x1a5a1a + Math.floor(Math.random() * 0x111111),
-        roughness: 0.95,
-      })
-    );
-    bush.position.set(x, H(x, z) + 0.2, z);
-    bush.scale.y = 0.6 + Math.random() * 0.4;
-    bush.castShadow = true;
-    scene.add(bush);
-  }
-
   // Water — pond
-  const waterGeo = new THREE.PlaneGeometry(28, 22, 32, 32);
+  const waterGeo = new THREE.PlaneGeometry(14, 11, 24, 24);
   waterGeo.rotateX(-Math.PI / 2);
   const wv = waterGeo.attributes.position;
   for (let i = 0; i < wv.count; i++) {
@@ -809,7 +893,7 @@ function initWorld(
       metalness: 0.35,
     })
   );
-  water.position.set(22, 0, -18);
+  water.position.set(11, 0, -9);
   water.receiveShadow = true;
   scene.add(water);
 
@@ -827,7 +911,7 @@ function initWorld(
   pGeo.setAttribute("position", new THREE.BufferAttribute(pPos, 3));
   const particles = new THREE.Points(
     pGeo,
-    new THREE.PointsMaterial({ color: 0xffdd44, size: 0.18, transparent: true, opacity: 0.7 })
+    new THREE.PointsMaterial({ color: 0x0090ff, size: 0.18, transparent: true, opacity: 0.5 })
   );
   scene.add(particles);
   (scene as { userData: { particles?: typeof particles; pVel?: typeof pVel } }).userData.particles = particles;
@@ -906,149 +990,194 @@ function initWorld(
     g.add(ls);
   });
 
-  // ── Storage Depot (Filecoin Onchain Cloud) at (0, 35) ────────────────────────
-  const STORAGE_POS = { x: 0, z: 35 };
+  // ── Storage Depot (Filecoin Onchain Cloud) at (0, 17.5) — tech data-server look ──
+  const FIL_BLUE = 0x0090ff;
+  const STORAGE_POS = { x: 0, z: 17.5 };
   const storageGroup = new THREE.Group();
   const ty = H(STORAGE_POS.x, STORAGE_POS.z);
 
-  const woodDarkMat = new THREE.MeshStandardMaterial({ color: 0x4a3520, roughness: 0.9, flatShading: true });
-  const woodFloorMat = new THREE.MeshStandardMaterial({ color: 0x5a4a30, roughness: 0.9, flatShading: true });
-  const roofMat2 = new THREE.MeshStandardMaterial({ color: 0x362010, roughness: 0.95, flatShading: true });
+  // Materials — Filecoin data-centre
+  const matFloor = new THREE.MeshStandardMaterial({ color: 0x0a1520, metalness: 0.9, roughness: 0.2, flatShading: true });
+  const matWall = new THREE.MeshStandardMaterial({ color: 0x0d1e30, metalness: 0.8, roughness: 0.3, flatShading: true });
+  const matRoof = new THREE.MeshStandardMaterial({ color: 0x071020, metalness: 0.95, roughness: 0.15, flatShading: true });
+  const matAccent = new THREE.MeshStandardMaterial({ color: 0x1a3a5a, metalness: 0.7, roughness: 0.4, flatShading: true });
+  const matGlow = new THREE.MeshStandardMaterial({ color: FIL_BLUE, emissive: FIL_BLUE, emissiveIntensity: 1.2, roughness: 0.3, metalness: 0.2 });
 
-  // Platform
-  const platform = new THREE.Mesh(new THREE.BoxGeometry(18, 0.4, 12), woodFloorMat);
-  platform.position.y = 0.2;
-  platform.receiveShadow = true;
-  platform.castShadow = true;
-  storageGroup.add(platform);
+  const POST_H = 3.2;
 
-  // 6 vertical posts: x in {-7, 0, 7}, z in {-5, 5}
-  const POST_H = 5.5;
-  const postXs = [-7, 0, 7];
-  const postZs = [-5, 5];
-  postXs.forEach((px) => {
-    postZs.forEach((pz) => {
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.35, POST_H, 8), woodDarkMat);
-      post.position.set(px, POST_H / 2 + 0.4, pz);
-      post.castShadow = true;
-      storageGroup.add(post);
-    });
-  });
+  // 1. Floor slab
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(10, 0.3, 7), matFloor);
+  floor.position.y = 0.15;
+  floor.receiveShadow = true;
+  floor.castShadow = true;
+  storageGroup.add(floor);
 
-  // Top longitudinal beams (along X, connecting posts at same Z)
-  postZs.forEach((pz) => {
-    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.2, 14, 6), woodDarkMat);
-    beam.rotation.z = Math.PI / 2; // horizontal along X
-    beam.position.set(0, POST_H + 0.4, pz);
-    beam.castShadow = true;
-    storageGroup.add(beam);
-  });
+  // 2. Four walls
+  const backWall = new THREE.Mesh(new THREE.BoxGeometry(10, 3.5, 0.25), matWall);
+  backWall.position.set(0, POST_H / 2 + 0.15, -3);
+  backWall.castShadow = true;
+  backWall.receiveShadow = true;
+  storageGroup.add(backWall);
 
-  // Top lateral beams (along Z, connecting posts at same X)
-  postXs.forEach((px) => {
-    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.2, 10, 6), woodDarkMat);
-    beam.rotation.x = Math.PI / 2; // horizontal along Z
-    beam.position.set(px, POST_H + 0.4, 0);
-    beam.castShadow = true;
-    storageGroup.add(beam);
-  });
+  const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.25, 3.5, 7), matWall);
+  leftWall.position.set(-5, POST_H / 2 + 0.15, 0);
+  leftWall.castShadow = true;
+  leftWall.receiveShadow = true;
+  storageGroup.add(leftWall);
 
-  // Flat roof panel
-  const roofPanel = new THREE.Mesh(new THREE.BoxGeometry(16, 0.25, 11), roofMat2);
-  roofPanel.position.set(0, POST_H + 0.65, 0);
-  roofPanel.castShadow = true;
-  roofPanel.receiveShadow = true;
-  storageGroup.add(roofPanel);
+  const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.25, 3.5, 7), matWall);
+  rightWall.position.set(5, POST_H / 2 + 0.15, 0);
+  rightWall.castShadow = true;
+  rightWall.receiveShadow = true;
+  storageGroup.add(rightWall);
 
-  // Back wall planks (solid back wall to suggest a storage building)
-  for (let row = 0; row < 5; row++) {
-    const plank = new THREE.Mesh(
-      new THREE.BoxGeometry(14, 0.8, 0.2),
-      new THREE.MeshStandardMaterial({ color: 0x4a3a22 + row * 0x050500, roughness: 0.9, flatShading: true })
-    );
-    plank.position.set(0, 0.65 + row * 0.85, -5);
-    plank.castShadow = true;
-    plank.receiveShadow = true;
-    storageGroup.add(plank);
-  }
+  // Front wall with doorway — two columns + lintel
+  const frontColL = new THREE.Mesh(new THREE.BoxGeometry(2.5, 3.5, 0.25), matWall);
+  frontColL.position.set(-3.75, POST_H / 2 + 0.15, 3);
+  frontColL.castShadow = true;
+  storageGroup.add(frontColL);
+  const frontColR = new THREE.Mesh(new THREE.BoxGeometry(2.5, 3.5, 0.25), matWall);
+  frontColR.position.set(3.75, POST_H / 2 + 0.15, 3);
+  frontColR.castShadow = true;
+  storageGroup.add(frontColR);
+  const frontLintel = new THREE.Mesh(new THREE.BoxGeometry(10, 0.6, 0.25), matWall);
+  frontLintel.position.set(0, POST_H - 0.3, 3);
+  frontLintel.castShadow = true;
+  storageGroup.add(frontLintel);
 
-  // ── Artifact tablets (reports/artifacts stored on Filecoin) ────────────────────
+  // 3. Roof slab + rooftop ridge strip
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(10.5, 0.35, 7.5), matRoof);
+  roof.position.set(0, POST_H + 0.5, 0);
+  roof.castShadow = true;
+  roof.receiveShadow = true;
+  storageGroup.add(roof);
+  const ridgeStrip = new THREE.Mesh(new THREE.BoxGeometry(9, 0.08, 0.3), matGlow);
+  ridgeStrip.position.set(0, POST_H + 0.68, 0);
+  storageGroup.add(ridgeStrip);
+
+  // 4. Filecoin arch at entrance
+  const archPillarL = new THREE.Mesh(new THREE.BoxGeometry(0.4, 4, 0.4), matGlow);
+  archPillarL.position.set(-1.8, 2.15, 3.3);
+  archPillarL.castShadow = true;
+  storageGroup.add(archPillarL);
+  const archPillarR = new THREE.Mesh(new THREE.BoxGeometry(0.4, 4, 0.4), matGlow);
+  archPillarR.position.set(1.8, 2.15, 3.3);
+  archPillarR.castShadow = true;
+  storageGroup.add(archPillarR);
+  const archBar = new THREE.Mesh(new THREE.BoxGeometry(4, 0.4, 0.4), matGlow);
+  archBar.position.set(0, 4.15, 3.3);
+  archBar.castShadow = true;
+  storageGroup.add(archBar);
+
+  // 5. Server racks inside + artifact tablets
   const MAX_ARTIFACT_TABLETS = 30;
   const MIN_ARTIFACT_TABLETS = 6;
-  const TABLET_W = 1.6;
-  const TABLET_H = 0.25;
-  const TABLET_D = 0.9;
-  const AGENT_COLORS: Record<string, number> = {
-    "12": 0x4a7ac4, // SEO Agent — blue
-    "13": 0x8a4ac4, // Investor Finder — purple
-    "14": 0x4ac48a, // Competitor Analyser — green
+  const TABLET_AGENT_COLORS: Record<string, number> = {
+    "12": 0x4a7ac4,
+    "13": 0x8a4ac4,
+    "14": 0x4ac48a,
   };
   const DEFAULT_TABLET_COLOR = 0x8a8a8a;
-
-  // 3 shelf planks inside the shed
-  const shelfMat = new THREE.MeshStandardMaterial({ color: 0x5a4a30, roughness: 0.9, flatShading: true });
-  for (let s = 0; s < 3; s++) {
-    const shelf = new THREE.Mesh(new THREE.BoxGeometry(12, 0.15, 0.8), shelfMat);
-    shelf.position.set(0, 0.55 + s * 1.2, -4.2);
-    shelf.castShadow = true;
-    shelf.receiveShadow = true;
-    storageGroup.add(shelf);
-  }
-
+  const rackMat = new THREE.MeshStandardMaterial({ color: 0x0a1420, metalness: 0.9, roughness: 0.2, flatShading: true });
+  const rackGlowMat = new THREE.MeshStandardMaterial({ color: FIL_BLUE, emissive: FIL_BLUE, emissiveIntensity: 1, roughness: 0.3, metalness: 0.2 });
   const tabletGroup = new THREE.Group();
   const artifactTablets: { mesh: unknown }[] = [];
   const agentIds = initialData.agentRows.map((r) => r.agentId);
-  for (let i = 0; i < MAX_ARTIFACT_TABLETS; i++) {
-    const agentId = agentIds[i % agentIds.length] ?? "12";
-    const color = AGENT_COLORS[agentId] ?? DEFAULT_TABLET_COLOR;
-    const tablet = new THREE.Mesh(
-      new THREE.BoxGeometry(TABLET_W, TABLET_H, TABLET_D),
-      new THREE.MeshStandardMaterial({
-        color,
-        roughness: 0.6,
-        metalness: 0.15,
-        flatShading: true,
-      })
-    );
-    tablet.rotation.x = Math.PI / 2 - 0.15; // upright, leaning back slightly
-    tablet.rotation.y = (i % 5) * 0.08 - 0.16; // slight stagger
-    const shelfIdx = Math.floor(i / 10);
-    const col = (i % 10) % 5;
-    const row = Math.floor((i % 10) / 5);
-    const px = -4 + col * 2.2 + row * 0.3;
-    const py = 0.5 + shelfIdx * 1.2 + (i % 3) * 0.05;
-    const pz = -4.1 - row * 0.5;
-    tablet.position.set(px, py, pz);
-    tablet.castShadow = true;
-    tabletGroup.add(tablet);
-    artifactTablets.push({ mesh: tablet });
-  }
+  const rackXs = [-3, 0, 3];
+  rackXs.forEach((rx, rackIdx) => {
+    const rack = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.5, 0.6), rackMat);
+    rack.position.set(rx, 1.55, -2.5);
+    rack.castShadow = true;
+    storageGroup.add(rack);
+    const rackFace = new THREE.Mesh(new THREE.BoxGeometry(1, 2.3, 0.05), rackGlowMat);
+    rackFace.position.set(rx, 1.5, -2.2);
+    storageGroup.add(rackFace);
+    for (let i = 0; i < 10; i++) {
+      const agentId = agentIds[(rackIdx * 10 + i) % agentIds.length] ?? "12";
+      const color = TABLET_AGENT_COLORS[agentId] ?? DEFAULT_TABLET_COLOR;
+      const tablet = new THREE.Mesh(
+        new THREE.BoxGeometry(0.3, 0.2, 0.05),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.3, flatShading: true })
+      );
+      const col = i % 5;
+      const row = Math.floor(i / 5);
+      tablet.position.set(rx - 0.4 + col * 0.22, 0.5 + row * 0.5, -2.18);
+      tablet.rotation.y = (i % 3) * 0.02;
+      tabletGroup.add(tablet);
+      artifactTablets.push({ mesh: tablet });
+    }
+  });
   storageGroup.add(tabletGroup);
   (storageGroup as { userData: { artifactTablets: typeof artifactTablets; minTablets: number } }).userData.artifactTablets = artifactTablets;
   (storageGroup as { userData: { minTablets: number } }).userData.minTablets = MIN_ARTIFACT_TABLETS;
 
-  // ── Filecoin beacon at depot entrance ────────────────────────────────────────
-  const beaconPost = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.3, 2.5, 8), woodDarkMat);
-  beaconPost.position.set(5, 1.65, 0);
-  beaconPost.castShadow = true;
-  storageGroup.add(beaconPost);
-  const beaconSphere = new THREE.Mesh(
-    new THREE.SphereGeometry(0.6, 16, 12),
+  // 6. Blue LED floor strips (runway lights toward entrance)
+  for (let i = 0; i < 2; i++) {
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(4, 0.05, 0.1), matGlow);
+    strip.position.set((i - 0.5) * 1.5, 0.2, 1.5);
+    storageGroup.add(strip);
+  }
+
+  // 7. Filecoin logo sign — backlit panel on lintel
+  const logoPanel = new THREE.Mesh(
+    new THREE.BoxGeometry(4, 0.9, 0.15),
+    new THREE.MeshStandardMaterial({ color: 0x001a30, emissive: FIL_BLUE, emissiveIntensity: 0.5 })
+  );
+  logoPanel.position.set(0, POST_H - 0.5, 2.88);
+  storageGroup.add(logoPanel);
+  const filLogoCanvas = document.createElement("canvas");
+  filLogoCanvas.width = 256;
+  filLogoCanvas.height = 64;
+  const filCtx = filLogoCanvas.getContext("2d")!;
+  filCtx.fillStyle = "#0090ff";
+  filCtx.fillRect(0, 0, 256, 64);
+  filCtx.fillStyle = "#ffffff";
+  filCtx.font = "bold 28px system-ui, sans-serif";
+  filCtx.textAlign = "center";
+  filCtx.fillText("⨎ Filecoin", 128, 40);
+  const filLogoSprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(filLogoCanvas), transparent: true, depthTest: false })
+  );
+  filLogoSprite.position.set(0, POST_H - 0.5, 2.95);
+  filLogoSprite.scale.set(2, 0.5, 1);
+  storageGroup.add(filLogoSprite);
+
+  // 8. Lighting — interior PointLight + arch SpotLight
+  const interiorLight = new THREE.PointLight(FIL_BLUE, 3, 18);
+  interiorLight.position.set(0, POST_H - 0.5, 0);
+  storageGroup.add(interiorLight);
+  (storageGroup as { userData: { beaconLight?: { intensity: number } } }).userData.beaconLight = interiorLight;
+
+  const archSpot = new THREE.SpotLight(FIL_BLUE, 4, 25, Math.PI / 6);
+  archSpot.position.set(0, 4, 3.5);
+  archSpot.target.position.set(0, 0, 10);
+  archSpot.castShadow = true;
+  storageGroup.add(archSpot);
+  storageGroup.add(archSpot.target);
+
+  // 9. Storage fill-meter (mounted on right inner wall)
+  const METER_MAX_TFIL = 0.05;
+  const meterPedestal = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5, 0.3, 0.5),
+    new THREE.MeshStandardMaterial({ color: 0x1a2a3a, roughness: 0.9, flatShading: true })
+  );
+  meterPedestal.position.set(4.5, 0.35, 0);
+  meterPedestal.castShadow = true;
+  storageGroup.add(meterPedestal);
+  const meterFill = new THREE.Mesh(
+    new THREE.BoxGeometry(0.35, 0.12, 0.35),
     new THREE.MeshStandardMaterial({
-      color: 0x0088cc,
-      emissive: 0x0088cc,
-      emissiveIntensity: 1.5,
-      roughness: 0.3,
-      metalness: 0.2,
+      color: FIL_BLUE,
+      emissive: FIL_BLUE,
+      emissiveIntensity: 0.8,
+      roughness: 0.4,
+      metalness: 0.3,
     })
   );
-  beaconSphere.position.set(5, 3.4, 0);
-  beaconSphere.castShadow = true;
-  storageGroup.add(beaconSphere);
-  const beaconLight = new THREE.PointLight(0x0088cc, 1.5, 25);
-  beaconLight.position.set(5, 3.4, 0);
-  storageGroup.add(beaconLight);
-  (storageGroup as { userData: { beaconLight?: { intensity: number } } }).userData.beaconLight = beaconLight;
+  meterFill.position.set(4.5, 0.5, 0);
+  meterFill.scale.y = 0.5;
+  storageGroup.add(meterFill);
+  (storageGroup as { userData: { meterFill?: { scale: { y: number }; position: { y: number } } } }).userData.meterFill = meterFill;
 
   const signCanvas = document.createElement("canvas");
   signCanvas.width = 512;
@@ -1057,52 +1186,54 @@ function initWorld(
   const signSprite = new THREE.Sprite(
     new THREE.SpriteMaterial({ map: signTex, transparent: true, depthTest: false })
   );
-  signSprite.position.y = 6;
-  signSprite.scale.set(8, 2, 1);
+  signSprite.position.set(0, POST_H - 0.3, 2.7);
+  signSprite.scale.set(3.5, 0.9, 1);
   storageGroup.add(signSprite);
   storageGroup.position.set(STORAGE_POS.x, ty, STORAGE_POS.z);
   scene.add(storageGroup);
 
-  // ── Data-stream particles (campfire → depot: "data flowing to Filecoin") ─────
-  const STREAM_PARTICLE_COUNT = 40;
-  const depotEnd = new THREE.Vector3(STORAGE_POS.x, ty + 2, STORAGE_POS.z);
-  type DataStreamItem = {
-    points: { geometry: { attributes: { position: { count: number; array: Float32Array; needsUpdate?: boolean } } }; material: { opacity?: number } };
-    phases: number[];
-    start: THREE.Vector3;
-    end: THREE.Vector3;
+  // ── Storage carriers (small robots walking depot ↔ campfire: data retrieval) ──
+  const depotStartPos = new THREE.Vector3(STORAGE_POS.x, ty + 0.5, STORAGE_POS.z);
+  type StorageCarrier = {
+    mesh: { position: { x: number; y: number; z: number; lerpVectors: (a: { x: number; y: number; z: number }, b: { x: number; y: number; z: number }, t: number) => void }; rotation: { y: number } };
+    mixer: { update: (dt: number) => void };
+    phase: number;
+    direction: 1 | -1;
+    startPos: { x: number; y: number; z: number };
+    endPos: { x: number; y: number; z: number };
   };
-  const dataStreams: DataStreamItem[] = [];
+  const storageCarriers: StorageCarrier[] = [];
+  const walkClipForCarrier = gltf.animations?.find((a: { name: string }) => a.name === "Walking") ?? null;
   CAMPFIRE_CONFIG.forEach((cfg) => {
-    const start = new THREE.Vector3(cfg.x, H(cfg.x, cfg.z) + 1.5, cfg.z);
-    const phases: number[] = [];
-    const posArray = new Float32Array(STREAM_PARTICLE_COUNT * 3);
-    for (let i = 0; i < STREAM_PARTICLE_COUNT; i++) {
-      phases.push(i / STREAM_PARTICLE_COUNT);
-      const t = phases[i];
-      const x = start.x + (depotEnd.x - start.x) * t;
-      const y = start.y + (depotEnd.y - start.y) * t;
-      const z = start.z + (depotEnd.z - start.z) * t;
-      posArray[i * 3] = x;
-      posArray[i * 3 + 1] = y;
-      posArray[i * 3 + 2] = z;
+    const endPos = new THREE.Vector3(cfg.x, H(cfg.x, cfg.z) + 0.5, cfg.z);
+    const clone = gltf.scene.clone(true);
+    clone.scale.setScalar(0.35);
+    clone.traverse((obj: { isMesh?: boolean; material?: { color?: { setHex: (h: number) => void } }; castShadow?: boolean }) => {
+      if (obj.isMesh && obj.material) {
+        const mat = Array.isArray(obj.material) ? obj.material[0] : obj.material;
+        if (mat?.color) mat.color.setHex(0x888888);
+        if (obj.castShadow !== undefined) obj.castShadow = true;
+      }
+    });
+    const mixer = new THREE.AnimationMixer(clone);
+    if (walkClipForCarrier) {
+      const action = mixer.clipAction(walkClipForCarrier);
+      action.reset().setLoop(THREE.LoopRepeat, Infinity).play();
     }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.BufferAttribute(posArray, 3));
-    const pts = new THREE.Points(
-      geo,
-      new THREE.PointsMaterial({
-        color: 0x44aaff,
-        size: 0.12,
-        transparent: true,
-        opacity: 0.7,
-        depthWrite: false,
-      })
-    );
-    scene.add(pts);
-    dataStreams.push({ points: pts, phases, start, end: depotEnd.clone() });
+    const g = new THREE.Group();
+    g.add(clone);
+    g.position.copy(depotStartPos);
+    scene.add(g);
+    storageCarriers.push({
+      mesh: g,
+      mixer,
+      phase: (storageCarriers.length / CAMPFIRE_CONFIG.length),
+      direction: 1,
+      startPos: depotStartPos.clone(),
+      endPos,
+    });
   });
-  (scene as { userData: { dataStreams?: DataStreamItem[] } }).userData.dataStreams = dataStreams;
+  (scene as { userData: { storageCarriers?: StorageCarrier[] } }).userData.storageCarriers = storageCarriers;
 
   function updateStorageSign() {
     const summary = dataRef.current.summary;
@@ -1130,13 +1261,20 @@ function initWorld(
 
     // Artifact tablets: count = sum of completedRuns across agents, min 6, max 30
     const totalRuns = dataRef.current.agentRows.reduce((s, r) => s + r.completedRuns, 0);
-    const ud = (storageGroup as { userData: { artifactTablets: { mesh: { visible: boolean } }[]; minTablets: number } }).userData;
+    const ud = (storageGroup as { userData: { artifactTablets: { mesh: { visible: boolean } }[]; minTablets: number; meterFill?: { scale: { y: number }; position: { y: number } } } }).userData;
     const minTablets = ud.minTablets ?? 6;
     const visibleCount = Math.min(MAX_ARTIFACT_TABLETS, Math.max(minTablets, totalRuns));
     if (ud.artifactTablets) {
       ud.artifactTablets.forEach((entry, i) => {
         (entry.mesh as { visible: boolean }).visible = i < visibleCount;
       });
+    }
+    // Fill-meter: scale.y 1..20 (height 0.2..4.0) based on tFIL
+    const tFilNum = Number(BigInt(summary.totalStorageCostWei)) / 1e18;
+    const meterScale = Math.min(20, Math.max(1, 1 + (tFilNum / METER_MAX_TFIL) * 19));
+    if (ud.meterFill) {
+      ud.meterFill.scale.y = meterScale;
+      ud.meterFill.position.y = 0.6 + (0.2 * meterScale) / 2; // bottom on pedestal top
     }
   }
   updateStorageSign();
@@ -1154,6 +1292,11 @@ function initWorld(
     size: number;
     row: AgentRow;
     cfg: (typeof AGENT_CONFIG)[string] | typeof DEFAULT_AGENT;
+    mixer: { clipAction: (clip: unknown) => { reset: () => { setLoop: (mode: number, reps: number) => { fadeIn: (d: number) => { play: () => void }; play: () => void }; fadeOut: (d: number) => void }; setEffectiveWeight: (w: number) => unknown; setEffectiveTimeScale: (s: number) => unknown }; update: (dt: number) => void } | null;
+    walkClip: { name: string } | null;
+    idleClip: { name: string } | null;
+    sittingClip: { name: string } | null;
+    activeMixerAction: { fadeOut: (d: number) => void; reset: () => { setEffectiveTimeScale: (s: number) => unknown; setEffectiveWeight: (w: number) => unknown; fadeIn: (d: number) => { play: () => void }; play: () => void }; play: () => void } | null;
   }
 
   const agentCreatures: AgentCreature[] = [];
@@ -1164,6 +1307,10 @@ function initWorld(
     list.push(row);
     agentsByNetwork.set(row.networkId, list);
   });
+  const idleClip = gltf.animations?.find((a: { name: string }) => a.name === "Idle") ?? null;
+  const walkClip = gltf.animations?.find((a: { name: string }) => a.name === "Walking") ?? null;
+  const sittingClip = gltf.animations?.find((a: { name: string }) => a.name === "Sitting") ?? null;
+
   initialData.agentRows.forEach((row) => {
     const cfg = AGENT_CONFIG[row.agentId] ?? { ...DEFAULT_AGENT, displayName: row.name };
     const [sx, sz] = NETWORK_TO_FIRE[row.networkId] ?? cfg.spawnNear;
@@ -1175,50 +1322,42 @@ function initWorld(
     const y = H(x, z);
     const size = 0.65;
     const displayName = cfg.displayName || row.name;
+
+    const isActive = row.economy.status === "healthy";
+    const colors: { primary: number; glow: number } = (isActive ? AGENT_COLORS_ACTIVE : AGENT_COLORS_INACTIVE)[cfg.type as keyof typeof AGENT_COLORS_ACTIVE] ?? AGENT_COLORS_ACTIVE.Worker;
+    const clipToPlay = isActive ? idleClip : sittingClip;
+
+    const clone = gltf.scene.clone(true);
+    clone.scale.setScalar(0.55);
+    clone.traverse((obj: { isMesh?: boolean; material?: { color?: { setHex: (h: number) => void }; metalness?: number; roughness?: number; emissive?: { setHex: (h: number) => void }; emissiveIntensity?: number }; name?: string }) => {
+      if (obj.isMesh && obj.material) {
+        const mat = Array.isArray(obj.material) ? obj.material[0] : obj.material;
+        if (mat && mat.color) {
+          mat.color.setHex(colors.primary);
+          mat.metalness = 0.6;
+          mat.roughness = 0.4;
+          const isEye = /eye|visor|glass|head_4/i.test(obj.name ?? "");
+          if (mat.emissive) {
+            mat.emissive.setHex(isEye ? colors.glow : 0x000000);
+            mat.emissiveIntensity = isEye ? 1.5 : isActive ? 0.35 : 0;
+          }
+        }
+      }
+    });
+    clone.traverse((obj: { castShadow?: boolean; receiveShadow?: boolean }) => {
+      if (obj.castShadow !== undefined) obj.castShadow = true;
+      if (obj.receiveShadow !== undefined) obj.receiveShadow = true;
+    });
+
+    const mixer = new THREE.AnimationMixer(clone);
+    let activeMixerAction: { fadeOut: (d: number) => void; reset: () => { setEffectiveTimeScale: (s: number) => unknown; setEffectiveWeight: (w: number) => unknown; fadeIn: (d: number) => { play: () => void }; play: () => void }; play: () => void } | null = null;
+    if (clipToPlay) {
+      activeMixerAction = mixer.clipAction(clipToPlay);
+      (activeMixerAction as any).reset().setLoop(THREE.LoopRepeat, Infinity).play();
+    }
+
     const g = new THREE.Group();
-    const bodyMat = new THREE.MeshStandardMaterial({
-      color: cfg.type === "Worker" ? 0x8a6a3a : cfg.type === "Shaman" ? 0x6a3a8a : 0x4a7a3a,
-      roughness: 0.65,
-      metalness: 0.05,
-    });
-    const body = new THREE.Mesh(
-      new THREE.SphereGeometry(size * 0.6, 16, 12),
-      bodyMat
-    );
-    body.position.y = size * 0.8;
-    body.scale.y = 1.2;
-    body.castShadow = true;
-    g.add(body);
-    const headMat = new THREE.MeshStandardMaterial({
-      color: cfg.type === "Worker" ? 0xc4a060 : cfg.type === "Shaman" ? 0xaa6adf : 0x8aba6a,
-      roughness: 0.55,
-      metalness: 0.02,
-    });
-    const head = new THREE.Mesh(
-      new THREE.SphereGeometry(size * 0.38, 14, 10),
-      headMat
-    );
-    head.position.y = size * 1.65;
-    head.castShadow = true;
-    g.add(head);
-    [-1, 1].forEach((side) => {
-      const eye = new THREE.Mesh(
-        new THREE.SphereGeometry(size * 0.06, 8, 6),
-        new THREE.MeshStandardMaterial({ color: 0xffff88, emissive: 0xffff44, emissiveIntensity: 0.4 })
-      );
-      eye.position.set(side * size * 0.18, size * 1.7, size * 0.28);
-      g.add(eye);
-    });
-    [-1, 1].forEach((side) => {
-      const leg = new THREE.Mesh(
-        new THREE.CylinderGeometry(size * 0.1, size * 0.12, size * 0.55, 6),
-        bodyMat
-      );
-      leg.position.set(side * size * 0.28, size * 0.28, 0);
-      g.add(leg);
-      if (side === -1) (g as { userData: { leftLeg?: unknown } }).userData.leftLeg = leg;
-      else (g as { userData: { rightLeg?: unknown } }).userData.rightLeg = leg;
-    });
+    g.add(clone);
     const lc = document.createElement("canvas");
     lc.width = 256;
     lc.height = 64;
@@ -1237,13 +1376,42 @@ function initWorld(
         depthTest: false,
       })
     );
-    ls.position.y = size * 2.6;
+    ls.position.y = 2.2; // above robot head (model scaled 0.55)
     ls.scale.set(3, 0.75, 1);
     g.add(ls);
+    // Healthy agent glow — emerald ring at feet
+    const healthGlow = new THREE.Mesh(
+      new THREE.RingGeometry(0.6, 0.95, 32).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({
+        color: 0x10b981,
+        transparent: true,
+        opacity: 0.7,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      })
+    );
+    healthGlow.position.y = 0.02;
+    healthGlow.visible = row.economy.status === "healthy";
+    g.add(healthGlow);
     g.position.set(x, y, z);
-    g.userData = { creature: { id: row.agentId, row, cfg } };
+    g.userData = { creature: { id: row.agentId, row, cfg }, healthGlow };
     scene.add(g);
-    agentCreatures.push({ id: row.agentId, mesh: g, x, z, y, facing: 0, size, row, cfg });
+    agentCreatures.push({
+      id: row.agentId,
+      mesh: g,
+      x,
+      z,
+      y,
+      facing: 0,
+      size,
+      row,
+      cfg,
+      mixer,
+      walkClip,
+      idleClip,
+      sittingClip,
+      activeMixerAction,
+    });
   });
 
   // Selection
@@ -1267,6 +1435,11 @@ function initWorld(
     mVec.x = (e.clientX / window.innerWidth) * 2 - 1;
     mVec.y = -(e.clientY / window.innerHeight) * 2 + 1;
     ray.setFromCamera(mVec, camera);
+    const storageHits = ray.intersectObject(storageGroup, true);
+    if (storageHits.length > 0) {
+      onStorageDepotClick();
+      return;
+    }
     const hits = ray.intersectObjects(agentCreatures.map((c) => c.mesh), true);
     if (hits.length) {
       let o: unknown = hits[0].object;
@@ -1283,6 +1456,15 @@ function initWorld(
     }
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- THREE.js from CDN
+  function fadeToAction(mixer: any, prevAction: any, targetClip: any, duration: number): any {
+    if (!mixer || !targetClip) return prevAction;
+    const newAction = mixer.clipAction(targetClip);
+    if (prevAction && prevAction !== newAction) prevAction.fadeOut(duration);
+    newAction.reset().setEffectiveTimeScale(1).setEffectiveWeight(1).fadeIn(duration).play();
+    return newAction;
+  }
+
   // Game loop
   let lt = performance.now();
   function loop() {
@@ -1294,14 +1476,26 @@ function initWorld(
     const b = WORLD_SIZE * 0.45;
     agentCreatures.forEach((c) => {
       c.mesh.position.x = c.x;
-      c.mesh.position.y = c.y + Math.sin(now * 0.003 + parseInt(c.id || "0") * 2) * 0.08;
+      c.mesh.position.y = c.y;
       c.mesh.position.z = c.z;
       c.mesh.rotation.y = c.facing;
-      const ud = (c.mesh as { userData?: { leftLeg?: { rotation: { x: number } }; rightLeg?: { rotation: { x: number } } } }).userData;
-      if (ud?.leftLeg && ud?.rightLeg) {
-        const sw = Math.sin(now * 0.008 + parseInt(c.id || "0")) * 0.35;
-        ud.leftLeg.rotation.x = sw;
-        ud.rightLeg.rotation.x = -sw;
+      if (c.mixer) c.mixer.update(dt);
+      const ud = (c.mesh as { userData?: { healthGlow?: { visible: boolean } } }).userData;
+      const currentRow = dataRef.current.agentRows.find((r) => r.agentId === c.id);
+      if (ud?.healthGlow && currentRow) {
+        ud.healthGlow.visible = currentRow.economy.status === "healthy";
+      }
+      // Crossfade Idle <-> Sitting on status change
+      if (currentRow) {
+        const wasActive = c.row.economy.status === "healthy";
+        const nowActive = currentRow.economy.status === "healthy";
+        if (wasActive !== nowActive) {
+          const target = nowActive ? c.idleClip : c.sittingClip;
+          if (target) {
+            c.activeMixerAction = fadeToAction(c.mixer, c.activeMixerAction, target, 0.4);
+          }
+          c.row = currentRow;
+        }
       }
     });
     if (selectedCreature) {
@@ -1326,22 +1520,21 @@ function initWorld(
         fp.needsUpdate = true;
       }
     });
-    // Data streams: particles flow from campfires toward depot
-    const dsUd = scene.userData as { dataStreams?: { points: { geometry: { attributes: { position: { count: number; array: Float32Array; needsUpdate?: boolean } } } }; phases: number[]; start: { x: number; y: number; z: number }; end: { x: number; y: number; z: number } }[] };
-    if (dsUd.dataStreams) {
-      const speed = 0.15;
-      dsUd.dataStreams.forEach((stream) => {
-        const pp = stream.points.geometry.attributes.position;
-        for (let i = 0; i < stream.phases.length; i++) {
-          stream.phases[i] += dt * speed;
-          if (stream.phases[i] > 1) stream.phases[i] -= 1;
-          const t = stream.phases[i];
-          const wobble = Math.sin(now * 0.003 + i * 0.5) * 0.4;
-          pp.array[i * 3] = stream.start.x + (stream.end.x - stream.start.x) * t + Math.cos(i) * wobble;
-          pp.array[i * 3 + 1] = stream.start.y + (stream.end.y - stream.start.y) * t + Math.sin(i * 0.7) * wobble * 0.5;
-          pp.array[i * 3 + 2] = stream.start.z + (stream.end.z - stream.start.z) * t + Math.sin(i * 0.3) * wobble;
+    // Storage carriers: small robots walk depot <-> campfire
+    const carriersUd = scene.userData as { storageCarriers?: { mesh: { position: { lerpVectors: (a: { x: number; y: number; z: number }, b: { x: number; y: number; z: number }, t: number) => void }; rotation: { y: number } }; mixer: { update: (dt: number) => void }; phase: number; direction: 1 | -1; startPos: { x: number; y: number; z: number }; endPos: { x: number; y: number; z: number } }[] };
+    if (carriersUd.storageCarriers) {
+      carriersUd.storageCarriers.forEach((carrier) => {
+        carrier.phase += dt * 0.25;
+        if (carrier.phase >= 1) {
+          carrier.phase = 0;
+          carrier.direction = (carrier.direction === 1 ? -1 : 1) as 1 | -1;
         }
-        pp.needsUpdate = true;
+        const t = carrier.direction === 1 ? carrier.phase : 1 - carrier.phase;
+        carrier.mesh.position.lerpVectors(carrier.startPos, carrier.endPos, t);
+        const dx = carrier.endPos.x - carrier.startPos.x;
+        const dz = carrier.endPos.z - carrier.startPos.z;
+        carrier.mesh.rotation.y = carrier.direction === 1 ? Math.atan2(dx, dz) : Math.atan2(-dx, -dz);
+        carrier.mixer.update(dt);
       });
     }
     const sceneUd = scene.userData as { particles?: { geometry: { attributes: { position: { count: number; array: Float32Array; needsUpdate?: boolean } } }; material: { opacity?: number } }; pVel?: { x: number; y: number; z: number }[] };
@@ -1370,6 +1563,8 @@ function initWorld(
       const stockEl = document.getElementById("stockpile-count");
       if (stockEl) stockEl.textContent = formatTFil(dataRef.current.summary.totalStorageCostWei);
     }
+    const sgUd = (storageGroup as { userData: { beaconLight?: { intensity: number } } }).userData;
+    if (sgUd.beaconLight) sgUd.beaconLight.intensity = 1.2 + Math.sin(now * 0.008) * 0.6;
     renderer.render(scene, camera);
   }
 

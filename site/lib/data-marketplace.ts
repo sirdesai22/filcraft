@@ -59,6 +59,7 @@ function createClient() {
 
 export async function fetchDataListings(options?: {
   category?: string;
+  agentId?: string;
 }): Promise<{ listings: DataListing[]; total: number }> {
   const client = createClient();
 
@@ -80,6 +81,7 @@ export async function fetchDataListings(options?: {
   const listings: DataListing[] = raw
     .filter((l) => l.active)
     .filter((l) => !options?.category || l.category === options.category)
+    .filter((l) => !options?.agentId || l.agentId.toString() === options.agentId)
     .map((l) => ({
       id: l.id.toString(),
       contentCid: l.contentCid,
