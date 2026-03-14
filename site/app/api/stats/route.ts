@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAgentsPage } from "@/lib/agents";
-import { fetchDataListings, DATA_LISTING_REGISTRY_ADDRESS, DATA_ESCROW_ADDRESS, MOCK_USDC_ADDRESS } from "@/lib/data-marketplace";
+import { fetchDataListings, DATA_LISTING_REGISTRY_ADDRESS, DATA_ESCROW_ADDRESS, USDC_ADDRESS } from "@/lib/data-marketplace";
 import { NETWORKS, NETWORK_IDS } from "@/lib/networks";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +27,7 @@ export async function GET() {
     contracts: {
       DataListingRegistry: DATA_LISTING_REGISTRY_ADDRESS,
       DataEscrow: DATA_ESCROW_ADDRESS,
-      MockUSDC: MOCK_USDC_ADDRESS,
+      USDC: USDC_ADDRESS,
     },
     mcpServer: "/api/mcp",
     agentCard: "/.well-known/agent-card.json",

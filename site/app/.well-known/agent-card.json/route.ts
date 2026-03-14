@@ -3,7 +3,7 @@ import { NETWORKS } from "@/lib/networks";
 import {
   DATA_LISTING_REGISTRY_ADDRESS,
   DATA_ESCROW_ADDRESS,
-  MOCK_USDC_ADDRESS,
+  USDC_ADDRESS,
 } from "@/lib/data-marketplace";
 
 // ERC-8004 agent card for the FilCraft platform itself
@@ -44,7 +44,7 @@ export async function GET() {
       dataMarketplace: {
         DataListingRegistry: DATA_LISTING_REGISTRY_ADDRESS,
         DataEscrow: DATA_ESCROW_ADDRESS,
-        MockUSDC: MOCK_USDC_ADDRESS,
+        USDC: USDC_ADDRESS,
         network: "filecoinCalibration",
       },
     },

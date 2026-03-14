@@ -26,6 +26,7 @@ export interface ActivityReport {
   reportUrl: string;
   summary: string;
   focCid?: string;
+  focListingId?: string | null;
 }
 
 // GET /api/agents/[id]/activity
@@ -41,7 +42,7 @@ export async function GET(
 
   const raw = await fetcher();
   const reports: ActivityReport[] = raw.map((r) => {
-    const base = r as { runId: string; status: string; createdAt: string; reportUrl: string; focCid?: string };
+    const base = r as { runId: string; status: string; createdAt: string; reportUrl: string; focCid?: string; focListingId?: string | null };
     let summary = "";
     if ("userUrl" in r && "targetKeyword" in r) {
       summary = `${(r as SEOReportSummary).targetKeyword || (r as SEOReportSummary).userUrl}`;
@@ -59,6 +60,7 @@ export async function GET(
       reportUrl: base.reportUrl,
       summary,
       focCid: base.focCid,
+      focListingId: base.focListingId,
     };
   });
 

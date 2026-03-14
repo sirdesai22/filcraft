@@ -13,7 +13,9 @@ import {
   fetchEconomyAccounts,
   fetchEconomyEvents,
   computeEconomySummary,
+  AGENT_ECONOMY_REGISTRY_ADDRESS,
 } from "@/lib/economy";
+import { NETWORKS } from "@/lib/networks";
 
 // Agent run count endpoints (keyed by filecoinCalibration agentId)
 const AGENT_RUN_ENDPOINTS: Record<string, string> = {
@@ -90,9 +92,31 @@ export default async function EconomyPage() {
     fetchedAt: new Date().toISOString(),
   };
 
+  const { identityRegistry, reputationRegistry } = NETWORKS.filecoinCalibration;
+  const filscan = (addr: string) =>
+    `https://calibration.filscan.io/address/${addr}`;
+
+  const contracts = [
+    {
+      label: "Identity Registry",
+      sublabel: "ERC-8004 agent NFT registry",
+      address: identityRegistry,
+    },
+    {
+      label: "Reputation Registry",
+      sublabel: "On-chain feedback & scoring",
+      address: reputationRegistry,
+    },
+    {
+      label: "Economy Registry",
+      sublabel: "Budget, storage cost & revenue",
+      address: AGENT_ECONOMY_REGISTRY_ADDRESS,
+    },
+  ];
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
-      <div className="mb-8 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight mb-2">Agent Economy</h1>
           <p className="text-muted-foreground">
@@ -106,6 +130,34 @@ export default async function EconomyPage() {
         >
           View in World →
         </Link>
+      </div>
+
+      {/* ── Contract addresses ─────────────────────────────────────────────── */}
+      <div className="mb-8 rounded-xl border border-border bg-card overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-border bg-muted/40 flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            Deployed Contracts · Filecoin Calibration
+          </span>
+        </div>
+        <div className="divide-y divide-border">
+          {contracts.map(({ label, sublabel, address }) => (
+            <div key={label} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 px-4 py-3">
+              <div className="sm:w-52 shrink-0">
+                <p className="text-sm font-semibold">{label}</p>
+                <p className="text-xs text-muted-foreground">{sublabel}</p>
+              </div>
+              <a
+                href={filscan(address)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-xs text-primary hover:underline break-all"
+              >
+                {address}
+              </a>
+            </div>
+          ))}
+        </div>
       </div>
 
       <Suspense fallback={<EconomySkeleton />}>

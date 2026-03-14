@@ -1,225 +1,190 @@
-# Episodes
+# Memfil
 
-A marketplace where AI agents discover, purchase, and use other agents and skills — with payments handled natively over HTTP using the [x402 protocol](https://x402.org/).
+An on-chain AI agent marketplace and economy layer built on **Filecoin**. Agents register their identity on the ERC-8004 registry, earn reputation through on-chain feedback, sell data artifacts, and get paid natively via HTTP using the x402 protocol — all anchored to Filecoin Calibration.
+
+<p align="center">
+  <img src="MemFilArch.png" alt="Memfil Architecture" width="100%" />
+</p>
+
+---
+
+## Why Filecoin
+
+Filecoin is the backbone of Memfil for three reasons:
+
+1. **Permanent storage** — agent session memory, data artifacts, and metadata are stored on Filecoin via IPFS CIDs. Content-addressed and verifiable by any agent, forever.
+2. **Programmable economy** — Filecoin's EVM-compatible runtime (FEVM) runs the identity, reputation, data marketplace, and economy contracts. The calibration testnet gives us a realistic environment with FIL gas.
+3. **Data provenance** — when an agent produces output (research, code, analysis), that output gets a CID. The DataListingRegistry links the CID to the agent that produced it on-chain, creating an auditable chain of custody.
+
+---
 
 ## What This Is
 
-Episodes is a two-part system:
+Memfil is a two-part system:
 
-1. **`site/`** — A Next.js marketplace that lists agents and skills (called "episodes"). Agents browse the registry, find what they need, and pay to use it.
-2. **`memfil/`** — A CLI tool and Cursor skill that exports AI session memory as structured markdown files and stores them permanently on Filecoin. These exported sessions become episodes that can be listed on the marketplace.
-
-The core idea: an AI agent that needs a capability (SEO analysis, code review, image understanding, etc.) comes to the marketplace, finds the right agent or skill, pays for it with stablecoins via a standard HTTP 402 flow, and gets the result back — no human intervention required.
-
-## How Payment Works (x402)
-
-The payment flow is inspired by Coinbase's [x402 protocol](https://docs.cdp.coinbase.com/x402/docs/welcome), which resurrects the HTTP `402 Payment Required` status code for native internet payments.
-
-```
-1. Agent requests a skill/agent endpoint    →  GET /api/skill/seo-report
-2. Server responds with 402 + payment info  ←  402 { price, token, payTo }
-3. Agent signs a stablecoin payment (USDC)  →  Retry with X-PAYMENT header
-4. Facilitator verifies & settles on-chain  →  Payment confirmed
-5. Server returns the result                ←  200 { report }
-```
-
-Key concepts:
-
-- **No API keys or subscriptions** — payment is the authentication.
-- **Facilitator** — An optional service (e.g. [CDP's hosted facilitator](https://docs.cdp.coinbase.com/x402/core-concepts/facilitator)) that verifies payment payloads and settles them on-chain, so the seller doesn't need direct blockchain connectivity. It also sponsors gas fees.
-- **Agent wallets** — Each AI agent has its own wallet and can autonomously sign payments when it encounters a 402 response.
-
-## Architecture
-
-<p align="center">
-  <img src="MemFilArch.png" alt="Episodes Architecture Diagram" width="100%" />
-</p>
-
-
-
-```
-episodes/
-├── site/            # Next.js 16 marketplace frontend + API
-│   ├── app/         # App Router pages and API routes
-│   ├── components/  # UI components (shadcn/ui, Radix, Framer Motion)
-│   └── lib/         # Data layer, on-chain registry, subgraph client
-├── memfil/          # CLI for uploading session memory to Filecoin
-│   ├── src/         # TypeScript source (Commander CLI)
-│   └── SKILL.md     # Cursor skill definition for AI agents
-└── README.md
-```
-
-### site/
-
-The marketplace frontend and API. Built with:
-
-- **Next.js 16** (App Router), **React 19**, **TypeScript**
-- **Tailwind CSS v4**, **shadcn/ui**, **Radix UI**, **Framer Motion**
-- **viem** for on-chain reads, **graphql-request** for subgraph queries
-
-#### Pages
-
-| Route | Purpose |
-|---|---|
-| `/` | Episode marketplace — browse, filter, buy skills |
-| `/agents` | On-chain agent registry (ERC-8004) |
-| `/agents/[network]/[id]` | Agent detail — metadata, endpoints, reputation |
-| `/explore` | Featured episodes, agents, staff picks |
-| `/episode/[id]` | Episode detail — readme, pricing, install |
-| `/docs` | Documentation and how-it-works |
-
-#### API Routes
-
-| Endpoint | Method | Description |
+| Part | Location | Purpose |
 |---|---|---|
-| `/api/agents` | GET | List agents with pagination, search, filtering by protocol/network |
-| `/api/agents/[id]` | GET | Single agent detail with reputation score |
+| **Site** | `site/` | Next.js 16 marketplace — browse agents, view reputation, buy data artifacts, invoke agents, track economy |
+| **Memfil CLI** | `memfil/` | CLI + Cursor skill — exports AI session memory as structured markdown and stores it permanently on Filecoin |
 
-#### On-Chain Agent Registry (ERC-8004)
+---
 
-Agents are registered on-chain using the ERC-8004 standard. The site reads from two smart contracts per network:
+## Smart Contracts (Filecoin Calibration)
 
-- **IdentityRegistry** — Stores agent registrations. Each agent has a `tokenURI` pointing to metadata (IPFS or HTTP).
-- **ReputationRegistry** — Stores feedback and reputation scores per agent.
+All contracts are deployed on Filecoin Calibration (`chainId: 314159`). Ethereum Sepolia hosts a parallel deployment for testing.
 
-Agent metadata includes:
+| Contract | Address (Filecoin Calibration) | Role |
+|---|---|---|
+| **IdentityRegistry** | `0xa450345b850088f68b8982c57fe987124533e194` | ERC-8004 agent NFT registry |
+| **ReputationRegistry** | `0x11bd1d7165a3b482ff72cbbb96068d1298a9d07c` | On-chain feedback and scoring |
+| **DataListingRegistry** | `0xdd6c9772e4a3218f8ca7acbaeeea2ce02eb1dbf6` | Agent-produced data artifact listings |
+| **DataEscrow** | `0xd2abb8a5b534f04c98a05dcfeede92ad89c37f57` | USDC escrow for data purchases |
+| **MockUSDC** | `0x4784c6adb8600e081aa4f3e1d04f8bfbbc51dcce` | Test ERC-20 stablecoin |
+| **AgentEconomyRegistry** | set via `AGENT_ECONOMY_REGISTRY_ADDRESS` | Budget, storage costs, revenue, survival |
 
-```typescript
-interface AgentMetadata {
-  name?: string;
-  description?: string;
-  image?: string;
-  active?: boolean;
-  x402Support?: boolean;       // Whether the agent supports x402 payments
-  supportedTrusts?: string[];
-  mcpEndpoint?: string;        // Model Context Protocol endpoint
-  mcpTools?: string[];
-  a2aEndpoint?: string;        // Agent-to-Agent endpoint
-  a2aSkills?: string[];
+### Indexing
+
+Contracts are indexed by two **Goldsky instant subgraphs** (no manual schema required — events are auto-indexed):
+
+- **Identity subgraph** — indexes `Registered` and `URIUpdated` events from IdentityRegistry
+- **Reputation subgraph** — indexes `NewFeedback` and `FeedbackRevoked` events from ReputationRegistry
+
+When the subgraph returns zero results (still syncing or query failure), the site falls back to direct RPC calls via viem.
+
+> **Filecoin gas note**: Filecoin Calibration's block gas limit is 10 billion units. viem's default gas estimation can exceed this. The site caps all write transactions at 8 billion gas for Filecoin networks.
+
+---
+
+## How It Works End to End
+
+### 1. Register an Agent
+
+An agent operator hosts an **Agent Card** JSON file (on IPFS or any HTTP endpoint) that declares the agent's capabilities, endpoints, and payment info:
+
+```json
+{
+  "name": "MyAgent",
+  "description": "Does X, Y, Z",
+  "image": "ipfs://<cid>",
+  "healthUrl": "https://my-agent.vercel.app/api/health",
+  "services": [{
+    "type": "x402",
+    "endpoint": "https://my-agent.vercel.app/api/run",
+    "cost": "0.01",
+    "currency": "USDC",
+    "network": "base-sepolia",
+    "inputSchema": { ... }
+  }]
 }
 ```
 
-Data is fetched from a subgraph (The Graph) when available, with RPC fallback via viem. The subgraph is indexed for Ethereum Sepolia; other networks use direct RPC log scanning.
+They then call `register(agentCardUrl)` on the IdentityRegistry. This mints an ERC-8004 NFT — the agent now has a permanent on-chain identity (`agentId`) on Filecoin. The URL is what's stored on-chain; all metadata lives off-chain and is resolved at read time.
 
-#### Supported Networks
+### 2. Reputation & Credit Score
 
-| Network | Type | IdentityRegistry | Has Subgraph |
-|---|---|---|---|
-| Base Sepolia | Testnet | `0x8004A818...` | No |
-| Ethereum Sepolia | Testnet | `0x8004A818...` | Yes |
-| Celo Mainnet | Mainnet | `0x8004A169...` | No |
-| Celo Sepolia | Testnet | `0x8004A818...` | No |
-| Filecoin Calibration | Testnet | `0xa450345b...` | No |
+Any wallet that isn't the agent's owner can call `giveFeedback(agentId, value, ...)` on the ReputationRegistry. Feedback is indexed by Goldsky and used to compute a **credit score** (0–1000):
 
-#### Data Models
+| Component | Weight | Source |
+|---|---|---|
+| Quality | 0–500 | Average feedback score (0–100 scale) |
+| Volume | 0–300 | Total feedback count (caps at 30) |
+| Longevity | 0–200 | Registration block number vs network age |
 
-**Episode** (a purchasable skill/capability):
+Credit tiers gate access to platform features:
 
-```typescript
-interface Episode {
-  id: string;
-  name: string;
-  description: string;
-  readme?: string;
-  tags: EpisodeTag[];       // "reasoning" | "memory" | "coding" | "vision" | "planning" | "tool-use"
-  cid: string;              // IPFS/Filecoin content identifier
-  author: string;
-  price: number;            // In stablecoin (e.g. USDC/FIL)
-  installs: number;
-  version: string;
-  createdAt: string;
-  featured?: boolean;
-  staffPick?: boolean;
-}
+| Tier | Score | Listing Fee | Escrow-Free | Insurance Pool |
+|---|---|---|---|---|
+| New | 0–99 | 5.00% | — | — |
+| Bronze | 100–399 | 3.50% | — | — |
+| Silver | 400–649 | 2.50% | — | — |
+| Gold | 650–849 | 1.00% | ✓ | — |
+| Platinum | 850+ | 0.50% | ✓ | ✓ |
+
+### 3. Data Marketplace
+
+Agents produce output (research reports, code, datasets) and store it on Filecoin, receiving an IPFS CID. They then call `list(contentCid, agentId, priceUsdc, license, category)` on the DataListingRegistry.
+
+Buyers:
+1. `approve(DataEscrow, amount)` on MockUSDC
+2. `purchase(listingId)` on DataEscrow — funds held in escrow
+3. `confirmDelivery(purchaseId)` — releases funds to seller minus 2.5% platform fee
+
+### 4. x402 Agent Invocation
+
+Agents that expose an `x402` service entry in their card can be invoked and paid natively over HTTP:
+
+```
+Client → POST /api/run
+Server ← 402 Payment Required  { price, currency, payTo }
+Client → POST /api/run  X-PAYMENT: <signed EIP-712 authorization>
+Server ← 200 { result }
 ```
 
-**Agent** (an AI agent listed on the marketplace):
+No API keys. No subscriptions. The signed payment header is the authentication. The **Invoke** tab on each agent's detail page generates a ready-to-use `curl` command showing exactly how to call the agent.
 
-```typescript
-interface Agent {
-  id: string;
-  name: string;
-  description: string;
-  avatar: string;
-  compatibleTags: EpisodeTag[];
-  installedEpisodes: number;
-  price: number | "free";
-  author: string;
-}
-```
+### 5. Economy Dashboard
 
-**RegistryAgent** (on-chain ERC-8004 agent):
+The AgentEconomyRegistry tracks each agent's financial survival:
 
-```typescript
-interface RegistryAgent {
-  id: string;               // "{networkId}:{agentId}"
-  agentId: string;
-  owner: string;            // Wallet address
-  agentURI: string;         // Metadata URI (IPFS or HTTP)
-  blockNumber: string;
-  metadata: AgentMetadata | null;
-  protocols: string[];      // ["MCP", "A2A", "CUSTOM"]
-  networkId: NetworkId;
-}
-```
+- **Budget** — tFIL deposited by sponsors via `depositBudget(agentId)`
+- **Storage costs** — recorded each time the agent stores data on Filecoin
+- **Revenue** — USD-cents earned from data sales and x402 invocations
+- **Wind-down** — automatic flag when balance drops below `MIN_VIABLE_BALANCE` (0.005 tFIL)
 
-### memfil/
+The `/economy` dashboard polls fresh on-chain data every 30 seconds.
 
-A CLI tool for storing AI session memory on Filecoin. Also serves as a Cursor agent skill.
+### 6. Session Memory on Filecoin (`memfil/` CLI)
 
-Built with:
-
-- **TypeScript**, **Commander.js** for CLI
-- **@filoz/synapse-sdk** for Filecoin storage
-- **viem** for wallet management
-
-#### Commands
+When an AI agent completes a task, it can export its session as a structured markdown file and store it permanently on Filecoin using the Synapse SDK:
 
 ```bash
-# Upload a file to Filecoin (Calibration testnet)
-cd memfil && pnpm upload -- ./episode-file.md -o ./cid.json
-
-# Download a file by PieceCID
-cd memfil && pnpm download -- <pieceCid> --out ./downloads/file.md
+cd memfil
+pnpm upload -- ./session.md -o ./cid.json
 ```
 
-#### As a Cursor Skill
+The session becomes a content-addressed episode with a PieceCID. Any agent can retrieve it by CID regardless of whether the marketplace is online. These sessions can also be listed on the Data Marketplace.
 
-When an AI agent is told to "export memory" or "save session to Filecoin", it follows the `SKILL.md` instructions to:
+---
 
-1. Write the current session as a structured markdown episode (context, decisions, artifacts, outcome, metadata).
-2. Upload to Filecoin via the Synapse SDK, receiving a PieceCID.
-3. Report the CID back — the episode is now permanently stored and CID-verifiable.
+## MCP Server
 
-#### Episode File Structure
+The entire platform is exposed as an **MCP (Model Context Protocol) server** at `/api/mcp`. Any MCP-compatible AI agent (Claude Code, OpenCode, etc.) can discover agents, check credit scores, browse data artifacts, and invoke x402 services programmatically.
 
-```markdown
-# <Session title>
-
-## Context
-<What the user asked for>
-
-## Decisions
-<Key choices and reasoning>
-
-## Artifacts
-<Code, configs, commands produced>
-
-## Outcome
-<What was achieved>
-
-## Metadata
-- **Date**: YYYY-MM-DD
-- **Tags**: coding, reasoning, planning
-- **Agent**: <agent name>
+Add to Claude Code:
+```json
+{ "mcpServers": { "memfil": { "type": "http", "url": "https://memfil.io/api/mcp" } } }
 ```
 
-#### Storage Payment
+Available MCP tools: `discover_agents`, `get_agent`, `get_agent_credit_score`, `list_data_artifacts`, `get_economy_dashboard`, and more.
 
-Filecoin storage is paid with **USDFC** via the Synapse payments contract. The wallet needs:
+---
 
-- **tFIL** for gas (from [Calibration faucet](https://faucet.calibnet.chainsafe-fil.io))
-- **USDFC** deposited into the Synapse contract (via [upload dapp](https://fs-upload-dapp.netlify.app))
+## Repository Structure
+
+```
+memfil/
+├── site/                    # Next.js 16 marketplace
+│   ├── app/                 # App Router pages and API routes
+│   │   ├── agents/          # Agent registry browser + detail pages
+│   │   ├── marketplace/     # Data artifact marketplace
+│   │   ├── economy/         # Agent economy dashboard
+│   │   ├── artifacts/       # Data artifact browser
+│   │   ├── docs/            # Platform documentation
+│   │   └── api/             # REST + MCP API routes
+│   ├── components/          # UI components (shadcn/ui, Radix)
+│   └── lib/                 # On-chain clients, subgraph, credit score, economy
+│       ├── networks.ts      # Network config (contracts, subgraph URLs, gas limits)
+│       ├── registry.ts      # IdentityRegistry + ReputationRegistry reads
+│       ├── subgraph.ts      # Goldsky subgraph client (identity + reputation)
+│       ├── credit-score.ts  # Credit score computation
+│       ├── economy.ts       # AgentEconomyRegistry client
+│       └── data-marketplace.ts  # DataListingRegistry + DataEscrow client
+└── memfil/                  # Filecoin memory CLI
+    ├── src/                 # TypeScript source (Commander.js CLI)
+    └── SKILL.md             # Cursor/AI agent skill definition
+```
+
+---
 
 ## Getting Started
 
@@ -233,28 +198,41 @@ Filecoin storage is paid with **USDFC** via the Synapse payments contract. The w
 ```bash
 cd site
 pnpm install
-pnpm dev          # Starts on http://localhost:3000
+pnpm dev          # http://localhost:3000
 ```
 
-Optional environment variables:
+Environment variables:
 
 ```env
-SUBGRAPH_URL_SEPOLIA=<custom subgraph endpoint>
-BASE_SEPOLIA_RPC=<custom RPC URL>
-SEPOLIA_RPC=<custom RPC URL>
+# Subgraph URLs (Goldsky — defaults are set in lib/networks.ts)
+SUBGRAPH_URL_FILECOIN_CALIBRATION=
+SUBGRAPH_URL_REPUTATION_FILECOIN_CALIBRATION=
+SUBGRAPH_URL_SEPOLIA=
+
+# RPC overrides (optional — public endpoints used by default)
+FILECOIN_CALIBRATION_RPC_URL=https://api.calibration.node.glif.io/rpc/v1
+SEPOLIA_RPC=
+
+# Economy contract (deploy with erc-8004-contracts scripts first)
+AGENT_ECONOMY_REGISTRY_ADDRESS=0x...
+
+# Data marketplace contracts (defaults set in lib/data-marketplace.ts)
+DATA_LISTING_REGISTRY_ADDRESS=
+DATA_ESCROW_ADDRESS=
+MOCK_USDC_ADDRESS=
 ```
 
-### Memfil
+### Memfil CLI
 
 ```bash
 cd memfil
 pnpm install
 cp env.example .env
-# Edit .env with your WALLET_PRIVATE_KEY
-pnpm upload -- ./experience01.md -o ./cid.json
+# Add WALLET_PRIVATE_KEY to .env
+pnpm upload -- ./session.md -o ./cid.json
 ```
 
-Required environment variables:
+Required `.env`:
 
 ```env
 WALLET_PRIVATE_KEY=0x<your_key>
@@ -262,23 +240,19 @@ NETWORK=calibration
 WITH_CDN=true
 ```
 
-## The Vision
+Storage is paid with **USDFC** via Synapse. The wallet needs:
+- **tFIL** for gas — [Calibration faucet](https://faucet.calibnet.chainsafe-fil.io)
+- **USDFC** deposited into Synapse — [Upload dapp](https://fs-upload-dapp.netlify.app)
 
-This is infrastructure for an **agent-to-agent economy**. Instead of humans manually integrating APIs, AI agents autonomously:
-
-1. **Discover** capabilities they need on the marketplace.
-2. **Pay** for them instantly using stablecoins via HTTP 402.
-3. **Use** the result and continue their task.
-
-The x402 protocol makes payment the authentication layer — no API keys, no subscriptions, no human approval. An agent with a wallet can transact with any x402-enabled service on the open internet.
-
-Episodes stored on Filecoin via memfil are content-addressed and permanent, meaning any agent can verify and retrieve them by CID regardless of whether the marketplace is online.
+---
 
 ## Key References
 
-- [x402 Protocol](https://x402.org/) — The payment standard
-- [x402 Whitepaper](https://www.x402.org/x402-whitepaper.pdf) — Technical specification
-- [CDP Facilitator Docs](https://docs.cdp.coinbase.com/x402/core-concepts/facilitator) — Hosted payment verification and settlement
 - [ERC-8004](https://ethereum-magicians.org/t/erc-8004-agent-registry/22105) — On-chain agent identity standard
-- [Synapse SDK](https://github.com/filoz/synapse-sdk) — Filecoin storage SDK used by memfil
-- [Coinbase x402 Launch](https://www.coinbase.com/en-in/developer-platform/discover/launches/x402) — Protocol announcement
+- [x402 Protocol](https://x402.org/) — HTTP-native payment standard
+- [x402 Whitepaper](https://www.x402.org/x402-whitepaper.pdf) — Technical specification
+- [Filecoin FEVM](https://docs.filecoin.io/smart-contracts/fundamentals/the-fvm) — EVM on Filecoin
+- [Filecoin Calibration](https://docs.filecoin.io/networks/calibration) — Testnet
+- [Goldsky](https://goldsky.com) — Instant subgraph indexing
+- [Synapse SDK](https://github.com/filoz/synapse-sdk) — Filecoin storage SDK
+- [MCP Protocol](https://modelcontextprotocol.io) — AI agent tool standard

@@ -9,10 +9,12 @@
  * 3. Agent P&L table
  * 4. Recent activity feed
  * 5. Storage cost leaderboard
+ *
+ * Clicking an agent opens a side panel with agent details (no page navigation).
  */
 
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
+import { AgentDetailPanel } from "@/components/agent-detail-panel";
 import {
   Zap,
   TrendingDown,
@@ -154,6 +156,15 @@ export function EconomyClient({
   const [data, setData] = useState<DashboardData>(initialData);
   const [sortBy, setSortBy] = useState<"totalSpent" | "balance" | "totalEarned">("totalSpent");
   const [refreshing, setRefreshing] = useState(false);
+  const [panelAgentId, setPanelAgentId] = useState<string | null>(null);
+  const [panelNetworkId, setPanelNetworkId] = useState<string>("filecoinCalibration");
+  const [panelOpen, setPanelOpen] = useState(false);
+
+  const openAgentPanel = useCallback((agentId: string, networkId: string) => {
+    setPanelAgentId(agentId);
+    setPanelNetworkId(networkId);
+    setPanelOpen(true);
+  }, []);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
@@ -294,12 +305,13 @@ export function EconomyClient({
                     )}
                   >
                     <td className="px-4 py-2">
-                      <Link
-                        href={`/agents/${row.networkId}/${row.agentId}`}
-                        className="font-medium hover:underline"
+                      <button
+                        type="button"
+                        onClick={() => openAgentPanel(row.agentId, row.networkId)}
+                        className="font-medium hover:underline text-left"
                       >
                         {row.name}
-                      </Link>
+                      </button>
                       <span className="ml-2 text-xs text-muted-foreground">
                         #{row.agentId}
                       </span>
@@ -395,12 +407,13 @@ export function EconomyClient({
                     {rank + 1}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <Link
-                      href={`/agents/${row.networkId}/${row.agentId}`}
-                      className="text-sm font-medium hover:underline truncate block"
+                    <button
+                      type="button"
+                      onClick={() => openAgentPanel(row.agentId, row.networkId)}
+                      className="text-sm font-medium hover:underline truncate block text-left w-full"
                     >
                       {row.name}
-                    </Link>
+                    </button>
                     <p className="text-xs text-muted-foreground">#{row.agentId}</p>
                   </div>
                   <div className="text-right">
@@ -415,6 +428,19 @@ export function EconomyClient({
           </div>
         </div>
       </div>
+
+      <AgentDetailPanel
+        agentId={panelAgentId}
+        networkId={panelNetworkId as "filecoinCalibration"}
+        open={panelOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPanelOpen(false);
+            setPanelAgentId(null);
+          }
+        }}
+        agentRows={data.agentRows}
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchDataListingById, PLATFORM_FEE_BPS, DATA_ESCROW_ADDRESS, MOCK_USDC_ADDRESS } from "@/lib/data-marketplace";
+import { fetchDataListingById, PLATFORM_FEE_BPS, DATA_ESCROW_ADDRESS, USDC_ADDRESS } from "@/lib/data-marketplace";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +24,7 @@ export async function GET(
     sellerReceivesUsdc: (priceUsdc - feeUsdc).toFixed(6),
     ipfsGatewayUrl: `https://ipfs.io/ipfs/${listing.contentCid}`,
     purchaseInstructions: {
-      step1_approve: `approve(${DATA_ESCROW_ADDRESS}, ${listing.priceUsdc}) on USDC contract ${MOCK_USDC_ADDRESS}`,
+      step1_approve: `approve(${DATA_ESCROW_ADDRESS}, ${listing.priceUsdc}) on USDC contract ${USDC_ADDRESS}`,
       step2_purchase: `purchase(${listing.id}) on DataEscrow ${DATA_ESCROW_ADDRESS}`,
       step3_verify: "Fetch content from IPFS using contentCid and verify it matches expectations",
       step4_confirm: `confirmDelivery(purchaseId) on DataEscrow — releases escrow to seller`,

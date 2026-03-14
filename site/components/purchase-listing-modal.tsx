@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   DATA_ESCROW_ADDRESS,
-  MOCK_USDC_ADDRESS,
+  USDC_ADDRESS,
   ESCROW_ABI,
   ERC20_ABI,
   PLATFORM_FEE_BPS,
@@ -52,7 +52,7 @@ export function PurchaseListingModal({ listing, onClose }: PurchaseListingModalP
     try {
       // Step 1: Approve USDC
       const approveTxHash = await writeContractAsync({
-        address: MOCK_USDC_ADDRESS,
+        address: USDC_ADDRESS,
         abi: ERC20_ABI,
         functionName: "approve",
         args: [DATA_ESCROW_ADDRESS, priceRaw],
@@ -75,21 +75,6 @@ export function PurchaseListingModal({ listing, onClose }: PurchaseListingModalP
       const msg = err instanceof Error ? err.message : String(err);
       setErrorMsg(msg.length > 120 ? msg.slice(0, 120) + "…" : msg);
       setStep("error");
-    }
-  }
-
-  async function handleMintUsdc() {
-    if (!address) return;
-    try {
-      await writeContractAsync({
-        address: MOCK_USDC_ADDRESS,
-        abi: ERC20_ABI,
-        functionName: "mint",
-        args: [address, priceRaw * 100n], // mint 100x buffer
-        chainId: filecoinCalibration.id,
-      });
-    } catch {
-      // ignore
     }
   }
 
@@ -171,14 +156,6 @@ export function PurchaseListingModal({ listing, onClose }: PurchaseListingModalP
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">
               Connected: {truncate(address!)}
-              <br />
-              Using MockUSDC (testnet). Need USDC?{" "}
-              <button
-                onClick={handleMintUsdc}
-                className="underline underline-offset-2 hover:text-foreground"
-              >
-                Mint test USDC
-              </button>
             </p>
             <p className="text-xs text-muted-foreground">
               Two transactions: approve USDC allowance, then lock in escrow.

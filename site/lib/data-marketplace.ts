@@ -9,8 +9,8 @@ export const DATA_ESCROW_ADDRESS =
   (process.env.DATA_ESCROW_ADDRESS as `0x${string}`) ||
   "0xd2abb8a5b534f04c98a05dcfeede92ad89c37f57";
 
-export const MOCK_USDC_ADDRESS =
-  (process.env.MOCK_USDC_ADDRESS as `0x${string}`) ||
+export const USDC_ADDRESS =
+  (process.env.USDC_ADDRESS as `0x${string}`) ||
   "0x4784c6adb8600e081aa4f3e1d04f8bfbbc51dcce";
 
 export const PLATFORM_FEE_BPS = 250; // 2.5%

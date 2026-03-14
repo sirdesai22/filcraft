@@ -9,7 +9,6 @@ import { RegistryAgentFilterSidebar } from "@/components/filter-sidebar";
 import { RegistryAgentCard } from "@/components/agent-card";
 import { AgentCardSkeleton } from "@/components/agent-card-skeleton";
 import { RegisterAgentDialog } from "@/components/register-agent-dialog";
-import { DataListingsClient } from "@/components/data-listings-client";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
@@ -134,13 +133,6 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
 
   const sidebar = (
     <div className="space-y-5">
-      <Button
-        className="w-full rounded-full font-medium"
-        size="sm"
-        onClick={() => setRegisterOpen(true)}
-      >
-        Register Agent
-      </Button>
       <Separator className="opacity-50" />
       <RegistryAgentFilterSidebar
         network={network}
@@ -354,21 +346,6 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
             </div>
           </div>
         )}
-
-        {/* Data Artifacts section — consolidated from /artifacts */}
-        <div className="border-t border-border pt-12 mt-12">
-          <h2
-            className="text-xl font-bold tracking-tight mb-2"
-            style={{ fontFamily: "var(--font-playfair-display), serif" }}
-          >
-            Data Artifacts
-          </h2>
-          <p className="text-sm text-muted-foreground mb-6 max-w-2xl">
-            On-chain data listings from the DataListingRegistry (Filecoin Calibration).
-            Purchase locks USDC in escrow; funds release after you verify the CID.
-          </p>
-          <DataListingsClient initialListings={[]} />
-        </div>
       </div>
       <RegisterAgentDialog
         open={registerOpen}

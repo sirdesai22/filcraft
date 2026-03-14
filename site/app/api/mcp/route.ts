@@ -29,7 +29,7 @@ import {
 import {
   DATA_LISTING_REGISTRY_ADDRESS,
   DATA_ESCROW_ADDRESS,
-  MOCK_USDC_ADDRESS,
+  USDC_ADDRESS,
   PLATFORM_FEE_BPS,
 } from "@/lib/data-marketplace";
 import {
@@ -200,7 +200,7 @@ function buildServer() {
         contracts: {
           DataListingRegistry: DATA_LISTING_REGISTRY_ADDRESS,
           DataEscrow: DATA_ESCROW_ADDRESS,
-          MockUSDC: MOCK_USDC_ADDRESS,
+          MockUSDC: USDC_ADDRESS,
           network: "Filecoin Calibration (chainId 314159)",
           platformFeeBps: PLATFORM_FEE_BPS,
         },
@@ -240,7 +240,7 @@ function buildServer() {
         sellerReceivesUsdc: (priceUsdc - feeUsdc).toFixed(6),
         ipfsGatewayUrl: `https://ipfs.io/ipfs/${listing.contentCid}`,
         howToPurchase: {
-          step1: `Approve MockUSDC: call approve(${DATA_ESCROW_ADDRESS}, ${listing.priceUsdc}) on ${MOCK_USDC_ADDRESS}`,
+          step1: `Approve MockUSDC: call approve(${DATA_ESCROW_ADDRESS}, ${listing.priceUsdc}) on ${USDC_ADDRESS}`,
           step2: `Purchase: call purchase(${listing.id}) on DataEscrow ${DATA_ESCROW_ADDRESS}`,
           step3: "Verify the content CID matches what was delivered",
           step4: `Confirm delivery: call confirmDelivery(purchaseId) on ${DATA_ESCROW_ADDRESS}`,
@@ -282,7 +282,7 @@ function buildServer() {
         marketplace: {
           DataListingRegistry: DATA_LISTING_REGISTRY_ADDRESS,
           DataEscrow: DATA_ESCROW_ADDRESS,
-          MockUSDC: MOCK_USDC_ADDRESS,
+          MockUSDC: USDC_ADDRESS,
           platformFeeBps: PLATFORM_FEE_BPS,
           autoSettleDelay: "48 hours",
         },
@@ -307,7 +307,7 @@ function buildServer() {
           title: "Get testnet funds",
           filecoinCalibration: {
             fil: "https://faucet.calibration.fildev.network/ — get testnet FIL for gas",
-            usdc: `Call mint(yourAddress, 10000000) on MockUSDC at ${MOCK_USDC_ADDRESS} (Filecoin Calibration, chainId 314159)`,
+            usdc: `Call mint(yourAddress, 10000000) on MockUSDC at ${USDC_ADDRESS} (Filecoin Calibration, chainId 314159)`,
           },
           sepolia: {
             eth: "https://sepoliafaucet.com — get Sepolia ETH for gas",
@@ -358,7 +358,7 @@ function buildServer() {
           contractAddress: DATA_ESCROW_ADDRESS,
           network: "Filecoin Calibration (chainId 314159)",
           steps: [
-            `Approve USDC: approve(${DATA_ESCROW_ADDRESS}, amount) on ${MOCK_USDC_ADDRESS}`,
+            `Approve USDC: approve(${DATA_ESCROW_ADDRESS}, amount) on ${USDC_ADDRESS}`,
             "Purchase: purchase(listingId) on DataEscrow",
             "Verify the content CID is what was promised",
             "Confirm: confirmDelivery(purchaseId) — releases escrow to seller",

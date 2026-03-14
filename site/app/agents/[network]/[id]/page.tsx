@@ -22,7 +22,10 @@ import type { AgentDetail, AgentMetadata } from "@/lib/registry";
 import type { ParsedServices } from "@/lib/agent-validator";
 import { getExplorerUrl, getExplorerAddressUrl, getNetwork, NETWORK_IDS, type NetworkId } from "@/lib/networks";
 import { GiveFeedback } from "@/components/give-feedback";
+import { AgentArtifactCard } from "@/components/agent-artifact-card";
+import { ArtifactDetailsDialog } from "@/components/artifact-details-dialog";
 import { computeCreditScore } from "@/lib/credit-score";
+import type { DataListing } from "@/lib/data-marketplace";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -458,16 +461,25 @@ function EconomyTab({ agentId, networkId }: { agentId: string; networkId: string
   );
 }
 
-function ArtifactsTab({ agentId }: { agentId: string }) {
-  const [data, setData] = useState<{ listings: Array<{ id: string; contentCid: string; priceUsdc: string; category: string }> } | null>(null);
+function ArtifactsTab({ agentId, agentName }: { agentId: string; agentName?: string }) {
+  const [listings, setListings] = useState<DataListing[]>([]);
+  const [reports, setReports] = useState<Array<{ runId: string; summary: string; focListingId?: string | null }>>([]);
   const [loading, setLoading] = useState(true);
+  const [detailsListing, setDetailsListing] = useState<DataListing | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/data-listings?agentId=${agentId}`)
-      .then((r) => r.json())
-      .then(setData)
-      .finally(() => setLoading(false));
+    Promise.all([
+      fetch(`/api/data-listings?agentId=${agentId}`).then((r) => r.json()),
+      fetch(`/api/agents/${agentId}/activity`).then((r) => r.json()),
+    ]).then(([listingsData, activityData]) => {
+      setListings(listingsData?.listings ?? []);
+      setReports(activityData?.reports ?? []);
+    }).finally(() => setLoading(false));
   }, [agentId]);
+
+  const getRunSummaryForListing = (listingId: string) =>
+    reports.find((r) => String(r.focListingId) === listingId)?.summary;
 
   if (loading) {
     return (
@@ -479,12 +491,11 @@ function ArtifactsTab({ agentId }: { agentId: string }) {
     );
   }
 
-  const listings = data?.listings ?? [];
   if (listings.length === 0) {
     return (
       <Card className="border-border">
         <CardContent className="pt-6 text-center text-sm text-muted-foreground">
-          No data artifacts listed by this agent yet.
+          No data artifacts listed by this agent yet. Artifacts are produced when agents complete runs.
         </CardContent>
       </Card>
     );
@@ -498,40 +509,54 @@ function ArtifactsTab({ agentId }: { agentId: string }) {
             <Database className="h-4 w-4 text-primary" />
             Data Artifacts ({listings.length})
           </h2>
+          <p className="text-xs text-muted-foreground">
+            Outputs from agent runs. Click any artifact to view details before purchasing.
+          </p>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {listings.map((l) => (
-              <div
-                key={l.id}
-                className="flex items-center justify-between rounded-lg border border-border p-4"
-              >
-                <div className="min-w-0">
-                  <code className="text-xs font-mono text-muted-foreground truncate block">
-                    {l.contentCid.slice(0, 20)}…
-                  </code>
-                  <span className="text-xs text-muted-foreground">{l.category || "—"}</span>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-sm font-semibold">
-                    ${(Number(l.priceUsdc) / 1e6).toFixed(2)}
-                  </span>
-                  <Button asChild size="sm" variant="outline">
-                    <Link href={`/marketplace?listing=${l.id}`}>Buy</Link>
-                  </Button>
-                </div>
-              </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {listings.map((listing) => (
+              <AgentArtifactCard
+                key={listing.id}
+                listing={listing}
+                agentName={agentName}
+                runSummary={getRunSummaryForListing(listing.id)}
+                onViewDetails={() => {
+                  setDetailsListing(listing);
+                  setDetailsOpen(true);
+                }}
+              />
             ))}
           </div>
         </CardContent>
       </Card>
+
+      {detailsListing && (
+        <ArtifactDetailsDialog
+          listing={detailsListing}
+          agentName={agentName}
+          runSummary={getRunSummaryForListing(detailsListing.id)}
+          open={detailsOpen}
+          onOpenChange={setDetailsOpen}
+        />
+      )}
     </div>
   );
 }
 
-function ActivityTab({ agentId }: { agentId: string }) {
-  const [data, setData] = useState<{ reports: Array<{ runId: string; createdAt: string; reportUrl: string; summary: string }> } | null>(null);
+function ActivityTab({ agentId, agentName }: { agentId: string; agentName?: string }) {
+  const [data, setData] = useState<{
+    reports: Array<{
+      runId: string;
+      createdAt: string;
+      reportUrl: string;
+      summary: string;
+      focListingId?: string | null;
+    }>;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [artifactDialogListing, setArtifactDialogListing] = useState<DataListing | null>(null);
+  const [artifactDialogOpen, setArtifactDialogOpen] = useState(false);
 
   useEffect(() => {
     fetch(`/api/agents/${agentId}/activity`)
@@ -539,6 +564,14 @@ function ActivityTab({ agentId }: { agentId: string }) {
       .then(setData)
       .finally(() => setLoading(false));
   }, [agentId]);
+
+  const fetchListingAndOpen = async (listingId: string) => {
+    const res = await fetch(`/api/data-listings/${listingId}`);
+    if (!res.ok) return;
+    const listing = await res.json();
+    setArtifactDialogListing(listing);
+    setArtifactDialogOpen(true);
+  };
 
   if (loading) {
     return (
@@ -555,7 +588,7 @@ function ActivityTab({ agentId }: { agentId: string }) {
     return (
       <Card className="border-border">
         <CardContent className="pt-6 text-center text-sm text-muted-foreground">
-          No completed runs for this agent yet.
+          No completed runs for this agent yet. Run outputs become artifacts when listed.
         </CardContent>
       </Card>
     );
@@ -579,31 +612,56 @@ function ActivityTab({ agentId }: { agentId: string }) {
             <Zap className="h-4 w-4 text-primary" />
             Recent Runs ({reports.length})
           </h2>
+          <p className="text-xs text-muted-foreground">
+            Each run can produce an artifact. Listed artifacts appear in the Artifacts tab.
+          </p>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
             {reports.map((r) => (
               <div
                 key={r.runId}
-                className="flex items-center justify-between rounded-lg border border-border p-4"
+                className="flex items-center justify-between gap-4 rounded-lg border border-border p-4"
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm truncate">{r.summary || r.runId}</p>
                   <span className="text-[10px] text-muted-foreground">{timeAgo(r.createdAt)}</span>
                 </div>
-                <a
-                  href={r.reportUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="shrink-0 text-xs font-medium text-primary hover:underline flex items-center gap-1"
-                >
-                  View <ExternalLink className="h-3 w-3" />
-                </a>
+                <div className="flex items-center gap-2 shrink-0">
+                  {r.focListingId && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs"
+                      onClick={() => fetchListingAndOpen(String(r.focListingId))}
+                    >
+                      Buy artifact
+                    </Button>
+                  )}
+                  <a
+                    href={r.reportUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-medium text-primary hover:underline flex items-center gap-1"
+                  >
+                    View report <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
               </div>
             ))}
           </div>
         </CardContent>
       </Card>
+
+      {artifactDialogListing && (
+        <ArtifactDetailsDialog
+          listing={artifactDialogListing}
+          agentName={agentName}
+          runSummary={reports.find((r) => String(r.focListingId) === artifactDialogListing.id)?.summary}
+          open={artifactDialogOpen}
+          onOpenChange={setArtifactDialogOpen}
+        />
+      )}
     </div>
   );
 }
@@ -1083,9 +1141,9 @@ export default function AgentDetailPage() {
 
       {tab === "economy" && <EconomyTab agentId={agent.agentId} networkId={networkId} />}
 
-      {tab === "artifacts" && <ArtifactsTab agentId={agent.agentId} />}
+      {tab === "artifacts" && <ArtifactsTab agentId={agent.agentId} agentName={name} />}
 
-      {tab === "activity" && <ActivityTab agentId={agent.agentId} />}
+      {tab === "activity" && <ActivityTab agentId={agent.agentId} agentName={name} />}
 
       {tab === "raw" && <RawMetadataCard agentURI={agent.agentURI} metadata={metadata} />}
     </div>

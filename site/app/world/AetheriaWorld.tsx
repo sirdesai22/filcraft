@@ -1417,7 +1417,7 @@ function initWorld(
     const clipToPlay = isActive ? pickRandomIdleAnim() : sittingClip;
 
     const clone = gltf.scene.clone(true);
-    clone.scale.setScalar(0.55);
+    clone.scale.setScalar(isActive ? 0.7 : 0.4);
     clone.traverse((obj: { isMesh?: boolean; material?: { color?: { setHex: (h: number) => void }; metalness?: number; roughness?: number; emissive?: { setHex: (h: number) => void }; emissiveIntensity?: number }; name?: string }) => {
       if (obj.isMesh && obj.material) {
         const mat = Array.isArray(obj.material) ? obj.material[0] : obj.material;
@@ -1428,7 +1428,7 @@ function initWorld(
           const isEye = /eye|visor|glass|head_4/i.test(obj.name ?? "");
           if (mat.emissive) {
             mat.emissive.setHex(isEye ? colors.glow : 0x000000);
-            mat.emissiveIntensity = isEye ? 1.5 : isActive ? 0.35 : 0;
+            mat.emissiveIntensity = isEye ? 1.5 : isActive ? 0.8 : 0;
           }
         }
       }
@@ -1447,16 +1447,34 @@ function initWorld(
 
     const g = new THREE.Group();
     g.add(clone);
+    const agentLight = new THREE.PointLight(colors.glow, isActive ? 1.5 : 0, 5);
+    agentLight.position.set(0, 1.2, 0);
+    g.add(agentLight);
+    const halo = new THREE.Mesh(
+      new THREE.TorusGeometry(0.55, 0.04, 8, 32),
+      new THREE.MeshStandardMaterial({
+        color: colors.glow,
+        emissive: colors.glow,
+        emissiveIntensity: 2.0,
+        transparent: true,
+        opacity: 0.85,
+      })
+    );
+    halo.position.y = 1.8;
+    halo.rotation.x = Math.PI / 2;
+    halo.name = "agentHalo";
+    halo.visible = isActive;
+    g.add(halo);
     const lc = document.createElement("canvas");
     lc.width = 256;
     lc.height = 64;
     const ctx = lc.getContext("2d")!;
     ctx.font = "bold 28px MedievalSharp";
-    ctx.fillStyle = "#f5d96a";
+    ctx.fillStyle = isActive ? "#ffffff" : "#555555";
     ctx.textAlign = "center";
     ctx.fillText(displayName, 128, 30);
     ctx.font = "16px MedievalSharp";
-    ctx.fillStyle = "#a89060";
+    ctx.fillStyle = isActive ? "#a89060" : "#3a3a3a";
     ctx.fillText(`#${row.agentId} · ${row.completedRuns} runs`, 128, 52);
     const ls = new THREE.Sprite(
       new THREE.SpriteMaterial({
@@ -1483,7 +1501,7 @@ function initWorld(
     healthGlow.visible = row.economy.status === "healthy";
     g.add(healthGlow);
     g.position.set(x, y, z);
-    g.userData = { creature: { id: row.agentId, row, cfg }, healthGlow };
+    g.userData = { creature: { id: row.agentId, row, cfg }, healthGlow, agentLight, halo };
     scene.add(g);
     agentCreatures.push({
       id: row.agentId,
@@ -1620,10 +1638,19 @@ function initWorld(
       c.mesh.position.z = c.z;
       c.mesh.rotation.y = c.facing;
       if (c.mixer) c.mixer.update(dt);
-      const ud = (c.mesh as { userData?: { healthGlow?: { visible: boolean } } }).userData;
+      const ud = (c.mesh as { userData?: { healthGlow?: { visible: boolean; material?: { opacity: number } }; agentLight?: { intensity: number }; halo?: { visible: boolean; rotation: { z: number } } } }).userData;
       const currentRow = dataRef.current.agentRows.find((r) => r.agentId === c.id);
+      const isHealthy = currentRow?.economy.status === "healthy";
       if (ud?.healthGlow && currentRow) {
-        ud.healthGlow.visible = currentRow.economy.status === "healthy";
+        ud.healthGlow.visible = isHealthy;
+        if (ud.healthGlow.visible && ud.healthGlow.material) {
+          ud.healthGlow.material.opacity = 0.4 + Math.sin(now * 0.003 + c.x) * 0.3;
+        }
+      }
+      if (ud?.agentLight) ud.agentLight.intensity = isHealthy ? 1.5 : 0;
+      if (ud?.halo) {
+        ud.halo.visible = isHealthy;
+        if (ud.halo.visible) ud.halo.rotation.z += dt * 1.2;
       }
       // Crossfade Idle <-> Sitting on status change
       if (currentRow) {
