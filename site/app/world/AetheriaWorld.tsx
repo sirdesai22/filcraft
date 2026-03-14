@@ -376,57 +376,8 @@ export function AetheriaWorld({
           </div>
         </div>
 
-        {/* Stats widget — top left */}
-        <div
-          className="absolute top-3 left-3 pointer-events-auto flex flex-col gap-[1px]"
-          style={{
-            background: "linear-gradient(160deg, rgba(6,4,1,0.96), rgba(16,10,2,0.95))",
-            border: "1px solid rgba(180,140,40,0.22)",
-            borderRadius: 3,
-            boxShadow: "0 0 0 1px rgba(180,140,40,0.05), 0 8px 32px rgba(0,0,0,0.8)",
-            minWidth: 180,
-          }}
-        >
-          {/* Widget header */}
-          <div style={{ padding: "7px 12px 5px", borderBottom: "1px solid rgba(90,74,42,0.3)", background: "linear-gradient(90deg, transparent, rgba(180,140,40,0.06), transparent)" }}>
-            <div style={{ fontFamily: "Cinzel, serif", fontSize: 8, letterSpacing: "0.25em", color: "rgba(245,217,106,0.55)", textAlign: "center" }}>
-              WORLD STATUS
-            </div>
-          </div>
-          {/* Stats */}
-          <div style={{ display: "flex", padding: "8px 0" }}>
-            {/* Agents */}
-            <div style={{ flex: 1, padding: "0 14px", borderRight: "1px solid rgba(90,74,42,0.4)", textAlign: "center" }}>
-              <div style={{ fontFamily: "Cinzel, serif", fontSize: 7, color: "#a89060", letterSpacing: "0.12em", marginBottom: 3 }}>AGENTS</div>
-              <div style={{ fontSize: 22, fontWeight: 700, color: "#f5d96a", lineHeight: 1, textShadow: "0 0 12px rgba(245,217,106,0.4)" }} id="pop-count">
-                {data.agentRows.length}
-              </div>
-              <div style={{ display: "flex", justifyContent: "center", gap: 5, marginTop: 5 }}>
-                <span style={{ fontSize: 9, color: "#10b981" }}>●&nbsp;{data.summary.activeAgents}</span>
-                <span style={{ fontSize: 9, color: "#f59e0b" }}>●&nbsp;{data.summary.atRiskAgents}</span>
-                <span style={{ fontSize: 9, color: "#6b7280" }}>●&nbsp;{data.summary.windDownCount}</span>
-              </div>
-            </div>
-            {/* Storage */}
-            <div style={{ flex: 1, padding: "0 14px", textAlign: "center" }}>
-              <div style={{ fontFamily: "Cinzel, serif", fontSize: 7, color: "#a89060", letterSpacing: "0.12em", marginBottom: 3 }}>STORAGE</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#e8a030", lineHeight: 1, textShadow: "0 0 10px rgba(232,160,48,0.3)" }} id="stockpile-count">
-                {formatTFil(data.summary.totalStorageCostWei)}
-              </div>
-              <div style={{ fontFamily: "Cinzel, serif", fontSize: 7, color: "#a89060", marginTop: 5, letterSpacing: "0.08em" }}>tFIL</div>
-            </div>
-          </div>
-          {/* View all button */}
-          <button
-            type="button"
-            onClick={() => setShowAllAgents(true)}
-            style={{ borderTop: "1px solid rgba(90,74,42,0.4)", padding: "6px 12px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "transparent", cursor: "pointer", transition: "background 0.2s", fontFamily: "Cinzel, serif", fontSize: 8, color: "#c0a050", letterSpacing: "0.12em", width: "100%" }}
-            onMouseEnter={e => (e.currentTarget.style.background = "rgba(245,217,106,0.07)")}
-            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-          >
-            <span style={{ fontSize: 10 }}>⚔</span> VIEW ALL AGENTS
-          </button>
-        </div>
+
+        
 
         {/* Scoreboard panel */}
         <div
@@ -438,6 +389,7 @@ export function AetheriaWorld({
             borderRadius: 3,
             boxShadow: "0 0 0 1px rgba(180,140,40,0.06), 0 12px 50px rgba(0,0,0,0.9), inset 0 1px 0 rgba(245,217,106,0.08)",
             maxHeight: "calc(100vh - 80px)",
+            fontSize: 17,
           }}
         >
           {/* Header */}
@@ -451,10 +403,10 @@ export function AetheriaWorld({
                 borderRight: h === "right" ? "1px solid rgba(245,217,106,0.5)" : undefined,
               }} />
             ))}
-            <div style={{ fontFamily: "Cinzel, serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.22em", textAlign: "center", color: "#f5d96a", textShadow: "0 0 18px rgba(245,217,106,0.5)" }}>
+            <div style={{ fontFamily: "Cinzel, serif", fontSize: 14, fontWeight: 700, letterSpacing: "0.22em", textAlign: "center", color: "#f5d96a", textShadow: "0 0 18px rgba(245,217,106,0.5)" }}>
               ⚔ AGENT ECONOMY ⚔
             </div>
-            <div style={{ fontFamily: "Cinzel, serif", fontSize: 7, letterSpacing: "0.35em", textAlign: "center", color: "rgba(245,217,106,0.35)", marginTop: 2 }}>
+            <div style={{ fontFamily: "Cinzel, serif", fontSize: 10, letterSpacing: "0.35em", textAlign: "center", color: "rgba(245,217,106,0.35)", marginTop: 2 }}>
               SCOREBOARD
             </div>
           </div>
@@ -487,11 +439,11 @@ export function AetheriaWorld({
                   >
                     {/* Top row: rank + status dot + name */}
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ width: 22, height: 22, borderRadius: 2, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: rankBg, border: `1px solid ${rankBorder}`, fontFamily: "Cinzel, serif", fontSize: 10, fontWeight: 700, color: rankColor, textShadow: idx === 0 ? "0 0 8px rgba(245,217,106,0.6)" : "none" }}>
+                      <div style={{ width: 22, height: 22, borderRadius: 2, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: rankBg, border: `1px solid ${rankBorder}`, fontFamily: "Cinzel, serif", fontSize: 13, fontWeight: 700, color: rankColor, textShadow: idx === 0 ? "0 0 8px rgba(245,217,106,0.6)" : "none" }}>
                         {rankLabel}
                       </div>
                       <div className={isHealthy ? "animate-pulse" : isAtRisk ? "animate-pulse" : ""} style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: statusColor, boxShadow: statusGlow, animationDuration: isAtRisk ? "0.9s" : "2s" }} />
-                      <div style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: "#e0cc98", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <div style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 600, color: "#e0cc98", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                         {cfg?.emoji ?? "🤖"} {row.name}
                       </div>
                     </div>
@@ -499,13 +451,13 @@ export function AetheriaWorld({
                     {/* Stats row */}
                     <div style={{ display: "flex", alignItems: "stretch", gap: 0, marginTop: 7, marginLeft: 30, background: "rgba(0,0,0,0.3)", borderRadius: 2, border: "1px solid rgba(60,45,15,0.5)", overflow: "hidden" }}>
                       {[
-                        { label: "RUNS", value: String(row.completedRuns), color: "#d4b96a" },
-                        { label: "EARNED", value: `$${formatUsd(row.economy.totalEarned)}`, color: "#10b981" },
-                        { label: "SPENT", value: `${formatTFil(row.economy.totalSpent)}`, color: "#e8a030" },
+                        { label: "RUNS", value: String(row.completedRuns), color: "#f0dc90" },
+                        { label: "EARNED", value: `$${formatUsd(row.economy.totalEarned)}`, color: "#34d399" },
+                        { label: "SPENT", value: `${formatTFil(row.economy.totalSpent)}`, color: "#f5b040" },
                       ].map((stat, si) => (
                         <div key={stat.label} style={{ flex: 1, padding: "4px 6px", borderLeft: si > 0 ? "1px solid rgba(60,45,15,0.5)" : undefined, textAlign: "center" }}>
-                          <div style={{ fontFamily: "Cinzel, serif", fontSize: 7, color: "#4a3a1a", letterSpacing: "0.1em", marginBottom: 2 }}>{stat.label}</div>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: stat.color, fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>{stat.value}</div>
+                          <div style={{ fontFamily: "Cinzel, serif", fontSize: 10, color: "#7d6b3d", letterSpacing: "0.1em", marginBottom: 2 }}>{stat.label}</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: stat.color, fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>{stat.value}</div>
                         </div>
                       ))}
                     </div>
@@ -519,14 +471,14 @@ export function AetheriaWorld({
             {/* Totals */}
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
               <div>
-                <div style={{ fontFamily: "Cinzel, serif", fontSize: 7, color: "#3a2a0a", letterSpacing: "0.12em", marginBottom: 2 }}>TOTAL STORAGE</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#e8a030", lineHeight: 1 }}>
-                  {formatTFil(data.summary.totalStorageCostWei)} <span style={{ fontSize: 9, color: "#6a5020" }}>tFIL</span>
+                <div style={{ fontFamily: "Cinzel, serif", fontSize: 10, color: "#3a2a0a", letterSpacing: "0.12em", marginBottom: 2 }}>TOTAL STORAGE</div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: "#e8a030", lineHeight: 1 }}>
+                  {formatTFil(data.summary.totalStorageCostWei)} <span style={{ fontSize: 12, color: "#6a5020" }}>tFIL</span>
                 </div>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontFamily: "Cinzel, serif", fontSize: 7, color: "#3a2a0a", letterSpacing: "0.12em", marginBottom: 2 }}>TOTAL REVENUE</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#10b981", lineHeight: 1 }}>
+                <div style={{ fontFamily: "Cinzel, serif", fontSize: 10, color: "#3a2a0a", letterSpacing: "0.12em", marginBottom: 2 }}>TOTAL REVENUE</div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: "#10b981", lineHeight: 1 }}>
                   ${formatUsd(data.summary.totalRevenueUsdCents)}
                 </div>
               </div>
@@ -541,7 +493,7 @@ export function AetheriaWorld({
               ].map((s) => (
                 <div key={s.label} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "4px 0", borderRadius: 2, background: s.bg, border: `1px solid ${s.border}` }}>
                   <div style={{ width: 5, height: 5, borderRadius: "50%", background: s.color, boxShadow: s.glow !== "none" ? `0 0 5px ${s.glow}` : undefined }} />
-                  <span style={{ fontFamily: "Cinzel, serif", fontSize: 8, color: s.color, letterSpacing: "0.05em" }}>{s.count} {s.label}</span>
+                  <span style={{ fontFamily: "Cinzel, serif", fontSize: 11, color: s.color, letterSpacing: "0.05em" }}>{s.count} {s.label}</span>
                 </div>
               ))}
             </div>
@@ -1450,7 +1402,7 @@ function initWorld(
   onFurnaceClick: () => void
 ) {
   const initialData = dataRef.current;
-  const WORLD_SIZE = 60;
+  const WORLD_SIZE = 120;
   const H = (x: number, z: number) =>
     Math.sin(x * 0.05) * Math.cos(z * 0.07) * 2 +
     Math.sin(x * 0.12 + z * 0.08) * 1.5 +
@@ -1472,16 +1424,16 @@ function initWorld(
   renderer.toneMappingExposure = 0.85;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x1a1520, 0.024);
+  scene.fog = new THREE.FogExp2(0x1a1520, 0.012);
   scene.background = new THREE.Color(0x0d0a15);
-  const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 500);
+  const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 800);
 
   // Orbit camera
   const orbit = {
     target: new THREE.Vector3(0, 0, 0),
     smooth: new THREE.Vector3(0, 0, 0),
-    dist: 28,
-    tDist: 28,
+    dist: 38,
+    tDist: 38,
     phi: Math.PI * 0.3,
     tPhi: Math.PI * 0.3,
     theta: Math.PI * 0.25,
@@ -1613,7 +1565,7 @@ function initWorld(
   scene.add(frontFill);
 
   // Terrain — higher resolution, smoother
-  const terrainGeo = new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE, 80, 80);
+  const terrainGeo = new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE, 140, 140);
   terrainGeo.rotateX(-Math.PI / 2);
   const tv = terrainGeo.attributes.position;
   for (let i = 0; i < tv.count; i++) tv.setY(i, H(tv.getX(i), tv.getZ(i)));
@@ -1649,35 +1601,56 @@ function initWorld(
     scene.add(rock);
   }
 
-  // Trees — 18 teal-blue-green (alien/tech flora)
-  const foliageColors = [0x1a4a3a, 0x0a3a2a, 0x1a3a4a, 0x0a2a3a];
-  for (let i = 0; i < 18; i++) {
-    const x = (Math.random() - 0.5) * WORLD_SIZE * 0.85;
-    const z = (Math.random() - 0.5) * WORLD_SIZE * 0.85;
-    if (Math.abs(x) < 6 && Math.abs(z) < 6) continue;
-    if (Math.abs(x) < 6 && Math.abs(z - 17.5) < 5) continue;
-    const treeG = new THREE.Group();
-    const h = 2.2 + Math.random() * 3;
-    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x2a3a2a, roughness: 1 });
-    const tr = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.18, 0.28, h, 8),
-      trunkMat
-    );
-    tr.position.y = h / 2;
-    tr.castShadow = true;
-    treeG.add(tr);
-    foliageColors.forEach((c, idx) => {
-      const cone = new THREE.Mesh(
-        new THREE.ConeGeometry(1.9 - idx * 0.35, 2.2, 10),
-        new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 })
-      );
-      cone.position.y = h + idx * 0.9;
-      cone.castShadow = true;
-      treeG.add(cone);
-    });
-    treeG.position.set(x, H(x, z), z);
-    treeG.rotation.y = Math.random() * Math.PI * 2;
-    scene.add(treeG);
+
+  // Perimeter treeline — dense ring of dark conifers around the terrain edge
+  {
+    const INNER_R = WORLD_SIZE * 0.38; // start of tree band (inner edge)
+    const OUTER_R = WORLD_SIZE * 0.50; // hard outer edge of terrain
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x1a120a, roughness: 1 });
+    const foliagePalette = [
+      [0x0d2a15, 0x0a2010, 0x122a12], // dark pine greens
+      [0x0a1f2a, 0x0d2535, 0x0a1a22], // dark teal-blue
+      [0x1a2a10, 0x162208, 0x1f2a14], // mossy
+    ];
+    const TREE_COUNT = 120;
+    for (let i = 0; i < TREE_COUNT; i++) {
+      // Polar coords — uniform distribution in the annular ring
+      const angle = (i / TREE_COUNT) * Math.PI * 2 + (Math.random() - 0.5) * (Math.PI * 2 / TREE_COUNT) * 2;
+      const r = INNER_R + Math.random() * (OUTER_R - INNER_R);
+      const x = Math.cos(angle) * r;
+      const z = Math.sin(angle) * r;
+
+      const palette = foliagePalette[i % foliagePalette.length];
+      const h = 3.5 + Math.random() * 5.5; // taller trees at perimeter
+      const treeG = new THREE.Group();
+
+      // Trunk
+      const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.26, h, 7), trunkMat);
+      tr.position.y = h / 2;
+      tr.castShadow = true;
+      treeG.add(tr);
+
+      // Stacked cones — 3 tiers for conifer silhouette
+      const tiers = 3 + Math.floor(Math.random() * 2);
+      for (let t = 0; t < tiers; t++) {
+        const coneR = (1.6 - t * 0.25) * (0.85 + Math.random() * 0.3);
+        const coneH = 2.0 + Math.random() * 0.8;
+        const cone = new THREE.Mesh(
+          new THREE.ConeGeometry(coneR, coneH, 8),
+          new THREE.MeshStandardMaterial({ color: palette[t % palette.length], roughness: 0.95 })
+        );
+        cone.position.y = h * 0.55 + t * (h * 0.18);
+        cone.castShadow = true;
+        treeG.add(cone);
+      }
+
+      treeG.position.set(x, H(x, z), z);
+      treeG.rotation.y = Math.random() * Math.PI * 2;
+      // Slight random lean
+      treeG.rotation.x = (Math.random() - 0.5) * 0.06;
+      treeG.rotation.z = (Math.random() - 0.5) * 0.06;
+      scene.add(treeG);
+    }
   }
 
   // Water — pond
@@ -1953,17 +1926,27 @@ function initWorld(
   const TARGET_FIL_HEIGHT = 2;
   const filScale = TARGET_FIL_HEIGHT / (filHeight || 1);
   filecoinScene.scale.setScalar(filScale);
-  filecoinScene.traverse((obj: { isMesh?: boolean; castShadow?: boolean; receiveShadow?: boolean; material?: any }) => {
+  const filecoinMaterials: any[] = [];
+  filecoinScene.traverse((obj: any) => {
     if (obj.isMesh) {
       obj.castShadow = true;
       obj.receiveShadow = true;
-      if (obj.material) {
-        const oldMat = Array.isArray(obj.material) ? obj.material[0] : obj.material;
-        obj.material = oldMat.clone();
-        obj.material.color.setHex(0x0090ff);
-        obj.material.emissive = new THREE.Color(0x003366);
-        obj.material.emissiveIntensity = 0.4;
-      }
+      const mats: any[] = Array.isArray(obj.material) ? obj.material : [obj.material];
+      mats.forEach((mat: any) => {
+        if (!mat) return;
+        const m = mat.clone();
+        m.color.setHex(0x1a8fff);
+        m.emissive = new THREE.Color(0x0055ff);
+        m.emissiveIntensity = 1.0;
+        m.toneMapped = false;
+        filecoinMaterials.push(m);
+        if (Array.isArray(obj.material)) {
+          const idx = (obj.material as any[]).indexOf(mat);
+          obj.material[idx] = m;
+        } else {
+          obj.material = m;
+        }
+      });
     }
   });
   const filecoinGroup = new THREE.Group();
@@ -1973,12 +1956,20 @@ function initWorld(
   filecoinGroup.position.set(STORAGE_POS.x, ty + filHoverBaseY, STORAGE_POS.z);
   scene.add(filecoinGroup);
 
+  // Blue glow lights around the filecoin
+  const filGlowCore = new THREE.PointLight(0x0077ff, 3, 10);
+  filGlowCore.position.set(STORAGE_POS.x, ty + filHoverBaseY, STORAGE_POS.z);
+  scene.add(filGlowCore);
+  const filGlowWide = new THREE.PointLight(0x0044cc, 1.5, 18);
+  filGlowWide.position.set(STORAGE_POS.x, ty + filHoverBaseY - 1, STORAGE_POS.z);
+  scene.add(filGlowWide);
+
   // ── 3D World Status card spinning above the castle ──
-  const STATUS_CARD_W = 3.5;
-  const STATUS_CARD_H = 2;
+  const STATUS_CARD_W = 4.5;
+  const STATUS_CARD_H = 2.6;
   const statusCardCanvas = document.createElement("canvas");
-  statusCardCanvas.width = 512;
-  statusCardCanvas.height = 292;
+  statusCardCanvas.width = 768;
+  statusCardCanvas.height = 438;
 
   function renderStatusCard() {
     const ctx = statusCardCanvas.getContext("2d")!;
@@ -2027,56 +2018,56 @@ function initWorld(
 
     // Header line
     ctx.fillStyle = "rgba(90,74,42,0.5)";
-    ctx.fillRect(20, 62, w - 40, 1);
+    ctx.fillRect(20, 93, w - 40, 1);
 
     // Header text
-    ctx.font = "bold 26px Cinzel, serif";
+    ctx.font = "bold 39px Cinzel, serif";
     ctx.fillStyle = "rgba(245,217,106,0.7)";
     ctx.textAlign = "center";
-    ctx.fillText("WORLD STATUS", w / 2, 44);
+    ctx.fillText("WORLD STATUS", w / 2, 66);
 
     // Divider between columns
     ctx.fillStyle = "rgba(90,74,42,0.5)";
-    ctx.fillRect(w / 2, 72, 1, 168);
+    ctx.fillRect(w / 2, 108, 1, 252);
 
     // Left column — AGENTS
-    ctx.font = "bold 21px Cinzel, serif";
+    ctx.font = "bold 32px Cinzel, serif";
     ctx.fillStyle = "#a89060";
-    ctx.fillText("AGENTS", w / 4, 96);
+    ctx.fillText("AGENTS", w / 4, 144);
 
-    ctx.font = "bold 68px MedievalSharp, cursive";
+    ctx.font = "bold 102px MedievalSharp, cursive";
     ctx.fillStyle = "#f5d96a";
     ctx.shadowColor = "rgba(245,217,106,0.5)";
     ctx.shadowBlur = 15;
-    ctx.fillText(String(d.agentRows.length), w / 4, 168);
+    ctx.fillText(String(d.agentRows.length), w / 4, 252);
     ctx.shadowBlur = 0;
 
     // Agent status dots
-    const dotY = 210;
-    ctx.font = "bold 22px sans-serif";
+    const dotY = 315;
+    ctx.font = "bold 33px sans-serif";
     ctx.fillStyle = "#10b981";
-    ctx.fillText(`● ${d.summary.activeAgents}`, w / 4 - 58, dotY);
+    ctx.fillText(`● ${d.summary.activeAgents}`, w / 4 - 87, dotY);
     ctx.fillStyle = "#f59e0b";
     ctx.fillText(`● ${d.summary.atRiskAgents}`, w / 4, dotY);
     ctx.fillStyle = "#6b7280";
-    ctx.fillText(`● ${d.summary.windDownCount}`, w / 4 + 58, dotY);
+    ctx.fillText(`● ${d.summary.windDownCount}`, w / 4 + 87, dotY);
 
     // Right column — STORAGE
-    ctx.font = "bold 21px Cinzel, serif";
+    ctx.font = "bold 32px Cinzel, serif";
     ctx.fillStyle = "#a89060";
     ctx.textAlign = "center";
-    ctx.fillText("STORAGE", (w * 3) / 4, 96);
+    ctx.fillText("STORAGE", (w * 3) / 4, 144);
 
-    ctx.font = "bold 48px MedievalSharp, cursive";
+    ctx.font = "bold 72px MedievalSharp, cursive";
     ctx.fillStyle = "#e8a030";
     ctx.shadowColor = "rgba(232,160,48,0.4)";
     ctx.shadowBlur = 12;
-    ctx.fillText(formatTFil(d.summary.totalStorageCostWei), (w * 3) / 4, 158);
+    ctx.fillText(formatTFil(d.summary.totalStorageCostWei), (w * 3) / 4, 237);
     ctx.shadowBlur = 0;
 
-    ctx.font = "bold 20px Cinzel, serif";
+    ctx.font = "bold 30px Cinzel, serif";
     ctx.fillStyle = "#a89060";
-    ctx.fillText("tFIL", (w * 3) / 4, 196);
+    ctx.fillText("tFIL", (w * 3) / 4, 294);
   }
 
   renderStatusCard();
@@ -2110,11 +2101,11 @@ function initWorld(
 
   // ── 3D Economy Board — stock-market style digital display ──────────────────
   const ECON_BOARD_POS = { x: -18, z: -12 };
-  const ECON_BOARD_W = 12;
-  const ECON_BOARD_H = 7;
+  const ECON_BOARD_W = 15;
+  const ECON_BOARD_H = 8.8;
   const econBoardCanvas = document.createElement("canvas");
-  econBoardCanvas.width = 1024;
-  econBoardCanvas.height = 600;
+  econBoardCanvas.width = 1280;
+  econBoardCanvas.height = 750;
 
   function renderEconBoard() {
     const ctx = econBoardCanvas.getContext("2d")!;
@@ -2129,10 +2120,10 @@ function initWorld(
     // Subtle grid lines (ledger style)
     ctx.strokeStyle = "rgba(245,217,106,0.06)";
     ctx.lineWidth = 1;
-    for (let y = 0; y < h; y += 30) {
+    for (let y = 0; y < h; y += 37) {
       ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
     }
-    for (let x = 0; x < w; x += 30) {
+    for (let x = 0; x < w; x += 37) {
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
     }
 
@@ -2156,23 +2147,23 @@ function initWorld(
     headerGrad.addColorStop(0.5, "rgba(245,217,106,0.2)");
     headerGrad.addColorStop(1, "rgba(245,217,106,0.1)");
     ctx.fillStyle = headerGrad;
-    ctx.fillRect(6, 6, w - 12, 44);
+    ctx.fillRect(6, 6, w - 12, 55);
 
-    ctx.font = "bold 28px Cinzel, serif";
+    ctx.font = "bold 35px Cinzel, serif";
     ctx.fillStyle = "#f5d96a";
     ctx.textAlign = "center";
     ctx.shadowColor = "rgba(245,217,106,0.6)";
     ctx.shadowBlur = 14;
-    ctx.fillText("FILCRAFT EXCHANGE", w / 2, 38);
+    ctx.fillText("FILCRAFT EXCHANGE", w / 2, 47);
     ctx.shadowBlur = 0;
 
     // Separator
     ctx.fillStyle = "rgba(245,217,106,0.3)";
-    ctx.fillRect(10, 54, w - 20, 1);
+    ctx.fillRect(10, 67, w - 20, 1);
 
     // ── Live Stats Ticker ──
-    const tickerY = 74;
-    ctx.font = "bold 13px monospace";
+    const tickerY = 92;
+    ctx.font = "bold 16px monospace";
     const stats = [
       { label: "HEALTHY", value: String(d.summary.activeAgents), color: "#10b981" },
       { label: "AT-RISK", value: String(d.summary.atRiskAgents), color: "#f59e0b" },
@@ -2182,34 +2173,34 @@ function initWorld(
     ];
     const tickerSpacing = (w - 40) / stats.length;
     stats.forEach((s, i) => {
-      const tx = 30 + i * tickerSpacing;
+      const tx = 37 + i * tickerSpacing;
       ctx.textAlign = "left";
       ctx.fillStyle = "rgba(160,140,100,0.7)";
-      ctx.font = "bold 13px monospace";
+      ctx.font = "bold 16px monospace";
       ctx.fillText(s.label, tx, tickerY - 2);
       ctx.fillStyle = s.color;
-      ctx.font = "bold 20px monospace";
+      ctx.font = "bold 25px monospace";
       ctx.shadowColor = s.color;
       ctx.shadowBlur = 8;
-      ctx.fillText(s.value, tx, tickerY + 20);
+      ctx.fillText(s.value, tx, tickerY + 25);
       ctx.shadowBlur = 0;
     });
 
     // Separator
     ctx.fillStyle = "rgba(245,217,106,0.2)";
-    ctx.fillRect(10, tickerY + 34, w - 20, 1);
+    ctx.fillRect(10, tickerY + 42, w - 20, 1);
 
     // ── Agent P&L Table ──
-    const tableY = tickerY + 48;
-    ctx.font = "bold 15px Cinzel, serif";
+    const tableY = tickerY + 60;
+    ctx.font = "bold 19px Cinzel, serif";
     ctx.fillStyle = "rgba(245,217,106,0.6)";
     ctx.textAlign = "left";
-    ctx.fillText("AGENT P&L", 20, tableY);
+    ctx.fillText("AGENT P&L", 25, tableY);
 
     // Column headers
-    const colX = { name: 20, runs: 240, revenue: 380, storage: 530, balance: 680, status: 840 };
-    const headerRowY = tableY + 22;
-    ctx.font = "bold 13px monospace";
+    const colX = { name: 25, runs: 300, revenue: 475, storage: 662, balance: 850, status: 1050 };
+    const headerRowY = tableY + 27;
+    ctx.font = "bold 16px monospace";
     ctx.fillStyle = "rgba(160,140,100,0.5)";
     ctx.textAlign = "left";
     ctx.fillText("AGENT", colX.name, headerRowY);
@@ -2223,31 +2214,31 @@ function initWorld(
 
     // Separator
     ctx.fillStyle = "rgba(245,217,106,0.15)";
-    ctx.fillRect(15, headerRowY + 8, w - 30, 1);
+    ctx.fillRect(15, headerRowY + 10, w - 30, 1);
 
     // Rows
     const sorted = [...d.agentRows].sort((a, b) => Number(BigInt(b.economy.totalSpent) - BigInt(a.economy.totalSpent)));
     sorted.forEach((row, idx) => {
-      const ry = headerRowY + 28 + idx * 32;
-      if (ry > h - 200) return; // don't overflow into activity section
+      const ry = headerRowY + 35 + idx * 40;
+      if (ry > h - 250) return; // don't overflow into activity section
       const statusCol = row.economy.status === "healthy" ? "#10b981" : row.economy.status === "at-risk" ? "#f59e0b" : "#6b7280";
       const statusLabel = row.economy.status === "healthy" ? "HEALTHY" : row.economy.status === "at-risk" ? "AT RISK" : "WOUND DN";
 
       // Alternating row stripes
       if (idx % 2 === 0) {
         ctx.fillStyle = "rgba(245,217,106,0.04)";
-        ctx.fillRect(15, ry - 18, w - 30, 30);
+        ctx.fillRect(15, ry - 22, w - 30, 37);
       }
 
-      ctx.font = "bold 15px monospace";
+      ctx.font = "bold 19px monospace";
       ctx.textAlign = "left";
       ctx.fillStyle = "#d4d4d8";
       ctx.fillText(row.name, colX.name, ry);
       ctx.fillStyle = "rgba(160,140,100,0.4)";
-      ctx.font = "12px monospace";
-      ctx.fillText(`#${row.agentId}`, colX.name + ctx.measureText(row.name).width + 10, ry);
+      ctx.font = "15px monospace";
+      ctx.fillText(`#${row.agentId}`, colX.name + ctx.measureText(row.name).width + 12, ry);
 
-      ctx.font = "bold 15px monospace";
+      ctx.font = "bold 19px monospace";
       ctx.textAlign = "right";
       ctx.fillStyle = row.completedRuns > 0 ? "#e4e4e7" : "#52525b";
       ctx.fillText(String(row.completedRuns), colX.runs, ry);
@@ -2265,27 +2256,27 @@ function initWorld(
       ctx.fillStyle = statusCol;
       ctx.shadowColor = statusCol;
       ctx.shadowBlur = 5;
-      ctx.font = "bold 13px monospace";
+      ctx.font = "bold 16px monospace";
       ctx.fillText(statusLabel, colX.status, ry);
       ctx.shadowBlur = 0;
     });
 
     // ── Bottom section: Activity + Leaderboard ──
-    const bottomY = h - 190;
+    const bottomY = h - 237;
 
     // Separator
     ctx.fillStyle = "rgba(245,217,106,0.2)";
     ctx.fillRect(10, bottomY - 10, w - 20, 1);
 
     // ── Recent Activity (left half) ──
-    ctx.font = "bold 15px Cinzel, serif";
+    ctx.font = "bold 19px Cinzel, serif";
     ctx.fillStyle = "rgba(245,217,106,0.6)";
     ctx.textAlign = "left";
-    ctx.fillText("RECENT ACTIVITY", 20, bottomY + 10);
+    ctx.fillText("RECENT ACTIVITY", 25, bottomY + 12);
 
     const recentEvents = d.events.slice(0, 5);
     recentEvents.forEach((ev, i) => {
-      const ey = bottomY + 32 + i * 28;
+      const ey = bottomY + 40 + i * 35;
       const evColor = ev.type === "BudgetDeposited" ? "#10b981"
         : ev.type === "StorageCostRecorded" ? "#f5d96a"
         : ev.type === "RevenueRecorded" ? "#a78bfa"
@@ -2296,66 +2287,66 @@ function initWorld(
       ctx.shadowColor = evColor;
       ctx.shadowBlur = 5;
       ctx.beginPath();
-      ctx.arc(28, ey - 5, 4, 0, Math.PI * 2);
+      ctx.arc(35, ey - 6, 5, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
 
-      ctx.font = "13px monospace";
+      ctx.font = "16px monospace";
       ctx.fillStyle = "#a1a1aa";
       ctx.textAlign = "left";
       const desc = eventDescription(ev);
-      ctx.fillText(desc.length > 48 ? desc.slice(0, 48) + "..." : desc, 44, ey);
+      ctx.fillText(desc.length > 60 ? desc.slice(0, 60) + "..." : desc, 55, ey);
 
       // Block number
-      ctx.font = "11px monospace";
+      ctx.font = "14px monospace";
       ctx.fillStyle = "rgba(100,100,120,0.5)";
-      ctx.fillText(`#${ev.blockNumber}`, 44 + Math.min(ctx.measureText(desc).width + 10, w / 2 - 80), ey);
+      ctx.fillText(`#${ev.blockNumber}`, 55 + Math.min(ctx.measureText(desc).width + 10, w / 2 - 100), ey);
     });
 
     // ── Storage Leaderboard (right half) ──
-    const lbX = w / 2 + 20;
-    ctx.font = "bold 15px Cinzel, serif";
+    const lbX = w / 2 + 25;
+    ctx.font = "bold 19px Cinzel, serif";
     ctx.fillStyle = "rgba(245,217,106,0.6)";
     ctx.textAlign = "left";
-    ctx.fillText("STORAGE LEADERBOARD", lbX, bottomY + 10);
+    ctx.fillText("STORAGE LEADERBOARD", lbX, bottomY + 12);
 
     const leaderboard = [...d.agentRows]
       .sort((a, b) => Number(BigInt(b.economy.totalSpent) - BigInt(a.economy.totalSpent)))
       .slice(0, 5);
     leaderboard.forEach((row, rank) => {
-      const ly = bottomY + 32 + rank * 28;
+      const ly = bottomY + 40 + rank * 35;
       const statusCol = row.economy.status === "healthy" ? "#10b981" : row.economy.status === "at-risk" ? "#f59e0b" : "#6b7280";
 
       // Rank
-      ctx.font = "bold 22px monospace";
+      ctx.font = "bold 27px monospace";
       ctx.fillStyle = "rgba(100,100,120,0.3)";
       ctx.textAlign = "left";
       ctx.fillText(String(rank + 1), lbX, ly + 2);
 
       // Name
-      ctx.font = "bold 15px monospace";
+      ctx.font = "bold 19px monospace";
       ctx.fillStyle = "#d4d4d8";
-      ctx.fillText(row.name, lbX + 32, ly);
+      ctx.fillText(row.name, lbX + 40, ly);
 
       // Cost + status
       ctx.textAlign = "right";
       ctx.fillStyle = statusCol;
-      ctx.font = "bold 15px monospace";
+      ctx.font = "bold 19px monospace";
       ctx.shadowColor = statusCol;
       ctx.shadowBlur = 5;
-      ctx.fillText(formatTFil(row.economy.totalSpent) + " tFIL", w - 20, ly);
+      ctx.fillText(formatTFil(row.economy.totalSpent) + " tFIL", w - 25, ly);
       ctx.shadowBlur = 0;
 
       ctx.fillStyle = "rgba(100,100,120,0.4)";
-      ctx.font = "11px monospace";
-      ctx.fillText(row.economy.status, w - 20, ly + 16);
+      ctx.font = "14px monospace";
+      ctx.fillText(row.economy.status, w - 25, ly + 20);
     });
 
     // ── Timestamp ──
-    ctx.font = "11px monospace";
+    ctx.font = "14px monospace";
     ctx.fillStyle = "rgba(100,100,120,0.4)";
     ctx.textAlign = "right";
-    ctx.fillText("LIVE  " + new Date(d.fetchedAt).toLocaleTimeString(), w - 15, h - 10);
+    ctx.fillText("LIVE  " + new Date(d.fetchedAt).toLocaleTimeString(), w - 18, h - 12);
 
     // Blinking dot
     if (Math.floor(Date.now() / 500) % 2 === 0) {
@@ -2363,7 +2354,7 @@ function initWorld(
       ctx.shadowColor = "#10b981";
       ctx.shadowBlur = 6;
       ctx.beginPath();
-      ctx.arc(w - ctx.measureText("LIVE  " + new Date(d.fetchedAt).toLocaleTimeString()).width - 22, h - 14, 3, 0, Math.PI * 2);
+      ctx.arc(w - ctx.measureText("LIVE  " + new Date(d.fetchedAt).toLocaleTimeString()).width - 26, h - 17, 4, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
     }
@@ -2471,8 +2462,21 @@ function initWorld(
   const TARGET_FURNACE_HEIGHT = 3;
   const furnaceScale = TARGET_FURNACE_HEIGHT / (furnaceHeight || 1);
   furnaceScene.scale.setScalar(furnaceScale);
-  furnaceScene.traverse((obj: { isMesh?: boolean; castShadow?: boolean; receiveShadow?: boolean }) => {
-    if (obj.isMesh) { obj.castShadow = true; obj.receiveShadow = true; }
+  const furnaceMaterials: { emissive: { setHex: (n: number) => void }; emissiveIntensity: number }[] = [];
+  furnaceScene.traverse((obj: any) => {
+    if (obj.isMesh) {
+      obj.castShadow = true;
+      obj.receiveShadow = true;
+      const mats: any[] = Array.isArray(obj.material) ? obj.material : [obj.material];
+      mats.forEach((mat: any) => {
+        if (mat && (mat.isMeshStandardMaterial || mat.isMeshPhongMaterial)) {
+          mat.emissive = new THREE.Color(0xff4400);
+          mat.emissiveIntensity = 2.5;
+          mat.toneMapped = false; // bypass tonemapping so it blooms brighter
+          furnaceMaterials.push(mat);
+        }
+      });
+    }
   });
   const furnaceGroup = new THREE.Group();
   furnaceGroup.add(furnaceScene);
@@ -2484,13 +2488,21 @@ function initWorld(
   furnaceGroup.rotation.y = Math.atan2(-FURNACE_POS.x, -FURNACE_POS.z); // face inward toward world center
   scene.add(furnaceGroup);
 
-  // Glow ring under the furnace
+  // Glow ring under the furnace — orange ember color
   const furnaceRing = new THREE.Mesh(
     new THREE.RingGeometry(1.8, 2.2, 48).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.4, side: THREE.DoubleSide })
+    new THREE.MeshBasicMaterial({ color: 0xff6010, transparent: true, opacity: 0.5, side: THREE.DoubleSide })
   );
   furnaceRing.position.set(FURNACE_POS.x, furnaceY + 0.05, FURNACE_POS.z);
   scene.add(furnaceRing);
+
+  // Inner heat disc — hot core beneath furnace
+  const furnaceHeatDisc = new THREE.Mesh(
+    new THREE.CircleGeometry(1.2, 32).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: 0xff2200, transparent: true, opacity: 0.25, side: THREE.DoubleSide })
+  );
+  furnaceHeatDisc.position.set(FURNACE_POS.x, furnaceY + 0.03, FURNACE_POS.z);
+  scene.add(furnaceHeatDisc);
 
   // Label above furnace
   const furnaceLabelCanvas = document.createElement("canvas");
@@ -2514,10 +2526,51 @@ function initWorld(
   furnaceLabelSprite.scale.set(6, 1.2, 1);
   scene.add(furnaceLabelSprite);
 
-  // Point light for the furnace
-  const furnaceLight = new THREE.PointLight(0x10b981, 2, 10);
+  // Primary fire light — bright orange, wide reach, casts shadows
+  const furnaceLight = new THREE.PointLight(0xff6010, 12, 30);
+  furnaceLight.castShadow = true;
   furnaceLight.position.set(FURNACE_POS.x, furnaceY + 2, FURNACE_POS.z);
   scene.add(furnaceLight);
+
+  // Inner core light — deep red-white, blazing intensity
+  const furnaceFireCore = new THREE.PointLight(0xff3300, 20, 10);
+  furnaceFireCore.position.set(FURNACE_POS.x, furnaceY + 1.2, FURNACE_POS.z);
+  scene.add(furnaceFireCore);
+
+  // Ambient heat fill — warm orange, fills the surrounding area
+  const furnaceHeatFill = new THREE.PointLight(0xff8800, 5, 25);
+  furnaceHeatFill.position.set(FURNACE_POS.x, furnaceY + 3, FURNACE_POS.z);
+  scene.add(furnaceHeatFill);
+
+  // Volumetric haze sphere — glowing orb inside the furnace opening
+  const furnaceGlowOrb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.7, 16, 16),
+    new THREE.MeshBasicMaterial({ color: 0xff5500, transparent: true, opacity: 0.35, depthWrite: false, side: THREE.FrontSide })
+  );
+  furnaceGlowOrb.position.set(FURNACE_POS.x, furnaceY + 1.2, FURNACE_POS.z);
+  scene.add(furnaceGlowOrb);
+
+  // ── Fire ember particles ──────────────────────────────────────────────────
+  const FIRE_COUNT = 80;
+  const firePos = new Float32Array(FIRE_COUNT * 3);
+  const fireSeed = new Float32Array(FIRE_COUNT);
+  const fireLife = new Float32Array(FIRE_COUNT);
+  for (let i = 0; i < FIRE_COUNT; i++) {
+    fireSeed[i] = Math.random();
+    fireLife[i] = Math.random();
+  }
+  const fireGeo = new THREE.BufferGeometry();
+  fireGeo.setAttribute("position", new THREE.BufferAttribute(firePos, 3));
+  const fireMat = new THREE.PointsMaterial({
+    color: 0xff8822,
+    size: 0.22,
+    transparent: true,
+    opacity: 0.9,
+    sizeAttenuation: true,
+    depthWrite: false,
+  });
+  const fireParticles = new THREE.Points(fireGeo, fireMat);
+  scene.add(fireParticles);
 
   // ── Data-stream particles (campfire → depot: "data flowing to Filecoin") ─────
   const STREAM_PARTICLE_COUNT = 40;
@@ -2840,6 +2893,63 @@ function initWorld(
     return newAction;
   }
 
+  // ── Explorer Robot — roams the terrain, visits the castle randomly ──────────
+  const explorerScene = gltf.scene.clone(true);
+  explorerScene.scale.setScalar(0.85);
+  explorerScene.traverse((obj: any) => {
+    if (obj.isMesh) { obj.castShadow = true; obj.receiveShadow = true; }
+  });
+  const explorerGroup = new THREE.Group();
+  explorerGroup.add(explorerScene);
+  const explorerStartX = -12;
+  const explorerStartZ = 5;
+  explorerGroup.position.set(explorerStartX, H(explorerStartX, explorerStartZ), explorerStartZ);
+  scene.add(explorerGroup);
+
+  // Soft white glow follows the explorer
+  const explorerLight = new THREE.PointLight(0xfff0d0, 1.2, 6);
+  explorerLight.position.set(explorerStartX, H(explorerStartX, explorerStartZ) + 1.5, explorerStartZ);
+  scene.add(explorerLight);
+
+  const explorerMixer = new THREE.AnimationMixer(explorerScene);
+  const explorerWalkClip = gltf.animations?.find((a: any) => a.name === "Walking") ?? null;
+  let explorerAction: any = null;
+  if (explorerWalkClip) {
+    // Start walking immediately
+    explorerAction = explorerMixer.clipAction(explorerWalkClip);
+    explorerAction.reset().setLoop(THREE.LoopRepeat, Infinity).play();
+  }
+
+  // State machine
+  const explorer = {
+    x: explorerStartX,
+    z: explorerStartZ,
+    facing: 0,
+    state: "walking" as "idle" | "walking",
+    target: null as { x: number; z: number; isCastle: boolean } | null,
+    timer: 0,
+  };
+
+  function pickExplorerTarget(): { x: number; z: number; isCastle: boolean } {
+    // 25% chance to head to the castle
+    if (Math.random() < 0.25) {
+      return {
+        x: STORAGE_POS.x + (Math.random() - 0.5) * 5,
+        z: STORAGE_POS.z + (Math.random() - 0.5) * 5,
+        isCastle: true,
+      };
+    }
+    const bound = WORLD_SIZE * 0.43;
+    return {
+      x: (Math.random() - 0.5) * 2 * bound,
+      z: (Math.random() - 0.5) * 2 * bound,
+      isCastle: false,
+    };
+  }
+
+  // Give an initial target so it starts moving right away
+  explorer.target = pickExplorerTarget();
+
   // Game loop
   let lt = performance.now();
   function loop() {
@@ -2848,24 +2958,17 @@ function initWorld(
     lt = now;
     processKeys(dt);
     updateCamera();
-    const b = WORLD_SIZE * 0.45;
-    const NPC_SPEED = 2.5;
-    const WANDER_RADIUS = 10;
-    const ARRIVE_DIST = 0.5;
+    const NPC_SPEED = 5.0;
+    const ARRIVE_DIST = 0.8;
     agentCreatures.forEach((c) => {
       // NPC wander AI
       c.wanderTimer -= dt;
       if (c.wanderState === "idle" && c.wanderTimer <= 0) {
-        // Pick a random target near home position
-        const angle = Math.random() * Math.PI * 2;
-        const dist = Math.random() * WANDER_RADIUS;
-        const tx = c.homeX + Math.cos(angle) * dist;
-        const tz = c.homeZ + Math.sin(angle) * dist;
-        // Clamp to world bounds
-        const bound = WORLD_SIZE * 0.45;
+        // Pick a fully random target anywhere on the map
+        const bound = WORLD_SIZE * 0.34;
         c.wanderTarget = {
-          x: Math.max(-bound, Math.min(bound, tx)),
-          z: Math.max(-bound, Math.min(bound, tz)),
+          x: (Math.random() - 0.5) * 2 * bound,
+          z: (Math.random() - 0.5) * 2 * bound,
         };
         c.wanderState = "walking";
         // Switch to walk animation
@@ -2880,7 +2983,7 @@ function initWorld(
           // Arrived — switch to idle, wait before next wander
           c.wanderTarget = null;
           c.wanderState = "idle";
-          c.wanderTimer = 2 + Math.random() * 4;
+          c.wanderTimer = 1 + Math.random() * 3;
           const randomIdle = pickRandomIdleAnim();
           if (randomIdle) {
             c.activeMixerAction = fadeToAction(c.mixer, c.activeMixerAction, randomIdle, 0.3);
@@ -2996,14 +3099,85 @@ function initWorld(
     const sgUd = (storageGroup as { userData: { beaconLight?: { intensity: number } } }).userData;
     if (sgUd.beaconLight) sgUd.beaconLight.intensity = 1.2 + Math.sin(now * 0.008) * 0.6;
 
-    // Furnace: static position, ring pulse + light flicker only
-    furnaceRing.material.opacity = 0.25 + Math.sin(now * 0.003) * 0.15;
-    furnaceRing.rotation.y = now * 0.0005;
-    furnaceLight.intensity = 1.5 + Math.sin(now * 0.004) * 0.5;
+    // Furnace: ring pulse + multi-frequency light flicker + emissive glow + ember particles
+    const fireFlicker1 = Math.sin(now * 0.007) * 0.5 + Math.sin(now * 0.019) * 0.3 + Math.sin(now * 0.043) * 0.2;
+    const fireFlicker2 = Math.sin(now * 0.011) * 0.4 + Math.sin(now * 0.031) * 0.35 + Math.sin(now * 0.057) * 0.25;
+    furnaceRing.material.opacity = 0.4 + fireFlicker1 * 0.2;
+    furnaceHeatDisc.material.opacity = 0.2 + Math.abs(fireFlicker2) * 0.18;
+    furnaceRing.rotation.y = now * 0.0006;
+    furnaceLight.intensity = 10 + fireFlicker1 * 4;
+    furnaceFireCore.intensity = 18 + fireFlicker2 * 8;
+    furnaceHeatFill.intensity = 4 + Math.abs(fireFlicker1) * 2;
+    // Glow orb pulse — throbs with fire
+    const orbScale = 0.9 + fireFlicker1 * 0.2 + Math.abs(fireFlicker2) * 0.15;
+    furnaceGlowOrb.scale.setScalar(orbScale);
+    (furnaceGlowOrb.material as any).opacity = 0.25 + Math.abs(fireFlicker1) * 0.2;
+    // Emissive pulse — deep, aggressive glow
+    const emissivePulse = 2.0 + fireFlicker1 * 0.8 + Math.abs(fireFlicker2) * 0.6;
+    furnaceMaterials.forEach((mat: any) => { mat.emissiveIntensity = emissivePulse; });
+    // Ember particles — rise, drift, fade out and respawn
+    const furnaceTopY = furnaceY + TARGET_FURNACE_HEIGHT * 0.75;
+    for (let i = 0; i < FIRE_COUNT; i++) {
+      fireLife[i] += dt * (0.5 + fireSeed[i] * 0.5);
+      if (fireLife[i] > 1) { fireLife[i] = 0; fireSeed[i] = Math.random(); }
+      const t = fireLife[i];
+      const angle = fireSeed[i] * Math.PI * 2 + now * 0.001 * (i % 3 === 0 ? 1 : -1);
+      const radius = (0.05 + fireSeed[i] * 0.4) * (1 - t * 0.6);
+      firePos[i * 3]     = FURNACE_POS.x + Math.cos(angle) * radius;
+      firePos[i * 3 + 1] = furnaceTopY + t * (2.5 + fireSeed[i] * 1.5);
+      firePos[i * 3 + 2] = FURNACE_POS.z + Math.sin(angle) * radius;
+    }
+    fireGeo.attributes.position.needsUpdate = true;
+    // Ember color shifts orange → yellow → fade
+    const emberHeat = 0.5 + Math.sin(now * 0.008) * 0.3;
+    fireMat.color.setRGB(1, 0.35 + emberHeat * 0.5, 0.02);
+    fireMat.opacity = 0.75 + emberHeat * 0.2;
 
-    // Filecoin model: hover bob + spin
+    // ── Explorer robot update ────────────────────────────────────────────────
+    const EXPLORER_SPEED = 5.5;
+    const EXPLORER_ARRIVE = 0.9;
+    if (explorer.state === "idle") {
+      explorer.timer -= dt;
+      if (explorer.timer <= 0) {
+        explorer.target = pickExplorerTarget();
+        explorer.state = "walking";
+        explorerAction = fadeToAction(explorerMixer, explorerAction, explorerWalkClip, 0.25);
+      }
+    } else if (explorer.state === "walking" && explorer.target) {
+      const edx = explorer.target.x - explorer.x;
+      const edz = explorer.target.z - explorer.z;
+      const edist = Math.sqrt(edx * edx + edz * edz);
+      if (edist < EXPLORER_ARRIVE) {
+        explorer.state = "idle";
+        // Castle visits are longer; random roam stops are shorter
+        explorer.timer = explorer.target.isCastle
+          ? 6 + Math.random() * 10
+          : 1.5 + Math.random() * 4;
+        explorer.target = null;
+        const idleAnim = pickRandomIdleAnim();
+        explorerAction = fadeToAction(explorerMixer, explorerAction, idleAnim, 0.3);
+      } else {
+        const enx = edx / edist;
+        const enz = edz / edist;
+        explorer.x += enx * EXPLORER_SPEED * dt;
+        explorer.z += enz * EXPLORER_SPEED * dt;
+        explorer.facing = Math.atan2(enx, enz);
+      }
+    }
+    explorerGroup.position.set(explorer.x, H(explorer.x, explorer.z), explorer.z);
+    explorerGroup.rotation.y = explorer.facing;
+    explorerLight.position.set(explorer.x, H(explorer.x, explorer.z) + 1.8, explorer.z);
+    explorerMixer.update(dt);
+
+    // Filecoin model: hover bob + spin + blue glow pulse
     filecoinGroup.rotation.y += dt * 1.2;
     filecoinGroup.position.y = ty + filHoverBaseY + Math.sin(now * 0.002) * 0.5;
+    const filPulse = 0.9 + Math.sin(now * 0.003) * 0.25 + Math.sin(now * 0.0071) * 0.12;
+    filecoinMaterials.forEach((mat: any) => { mat.emissiveIntensity = filPulse; });
+    filGlowCore.intensity = 2.5 + Math.sin(now * 0.003) * 0.8;
+    filGlowCore.position.y = ty + filHoverBaseY + Math.sin(now * 0.002) * 0.5;
+    filGlowWide.intensity = 1.2 + Math.sin(now * 0.002 + 1) * 0.4;
+    filGlowWide.position.y = ty + filHoverBaseY + Math.sin(now * 0.002) * 0.5 - 1;
 
     // 3D World Status card: slow spin + gentle hover
     statusCardGroup.rotation.y += dt * 0.6;

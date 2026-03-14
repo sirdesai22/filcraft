@@ -273,9 +273,9 @@ export function LoadingScreen({ onEnter }: { onEnter: () => void }) {
     return () => timers.forEach(clearTimeout);
   }, []);
 
-  // Stagger title letter reveal starting at phase 6
+  // Stagger title letter reveal — only when phase first becomes 6
   useEffect(() => {
-    if (phase < 6) return;
+    if (phase !== 6) return;
     let count = 0;
     const iv = setInterval(() => {
       count++;

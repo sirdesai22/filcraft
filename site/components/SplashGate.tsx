@@ -33,7 +33,7 @@ export function SplashGate({ children }: { children: React.ReactNode }) {
     const alreadyShown = (() => {
       try {
         const ts = Number(sessionStorage.getItem(SPLASH_KEY) ?? 0);
-        return ts > 0 && Date.now() - ts < 30_000;
+        return ts > 0 && Date.now() - ts < 120_000;
       } catch {
         return false;
       }
