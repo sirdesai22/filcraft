@@ -49,72 +49,54 @@
 }
 
 :root {
-  --radius: 0.75rem;
-  --background: #f0ede8;
-  --foreground: #1a1a1a;
-  --card: #ffffff;
-  --card-foreground: #1a1a1a;
-  --popover: #ffffff;
-  --popover-foreground: #1a1a1a;
-  --primary: #1a1a1a;
-  --primary-foreground: #ffffff;
-  --secondary: #e8e4dd;
-  --secondary-foreground: #1a1a1a;
-  --muted: #e8e4dd;
-  --muted-foreground: #6b6560;
-  --accent: #e8e4dd;
-  --accent-foreground: #1a1a1a;
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: #e0dcd5;
-  --input: #e0dcd5;
-  --ring: #1a1a1a;
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: #f5f2ec;
-  --sidebar-foreground: #1a1a1a;
-  --sidebar-primary: #1a1a1a;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e8e4dd;
-  --sidebar-accent-foreground: #1a1a1a;
-  --sidebar-border: #e0dcd5;
-  --sidebar-ring: #1a1a1a;
-}
+  --radius: 0.6rem;
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* ── FilCraft Dark Theme ───────────────────────────────────────────────── */
+  --background: #0a0804;
+  --foreground: #e8dcc8;
+
+  --card: #120d06;
+  --card-foreground: #e8dcc8;
+
+  --popover: #1a1208;
+  --popover-foreground: #e8dcc8;
+
+  /* Gold as primary */
+  --primary: #f5d96a;
+  --primary-foreground: #0a0804;
+
+  --secondary: #1a1208;
+  --secondary-foreground: #c8b890;
+
+  --muted: #1a1208;
+  --muted-foreground: #a89060;
+
+  --accent: #2a1f08;
+  --accent-foreground: #f5d96a;
+
+  --destructive: #dc2626;
+
+  /* Subtle warm border */
+  --border: #2a1f08;
+  --input: #1a1208;
+  --ring: #f5d96a;
+
+  /* Charts — warm palette */
+  --chart-1: #f5d96a;
+  --chart-2: #10b981;
+  --chart-3: #a78bfa;
+  --chart-4: #f59e0b;
+  --chart-5: #e8a030;
+
+  /* Sidebar */
+  --sidebar: #0f0a05;
+  --sidebar-foreground: #e8dcc8;
+  --sidebar-primary: #f5d96a;
+  --sidebar-primary-foreground: #0a0804;
+  --sidebar-accent: #1a1208;
+  --sidebar-accent-foreground: #f5d96a;
+  --sidebar-border: #2a1f08;
+  --sidebar-ring: #f5d96a;
 }
 
 @layer base {
@@ -124,30 +106,33 @@
   body {
     @apply bg-background text-foreground;
   }
+  ::selection {
+    background: rgba(245, 217, 106, 0.25);
+    color: #f5d96a;
+  }
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0a0804;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #2a1f08;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #a89060;
+  }
 }
 
-/* Parchment-style command block on memory detail page */
+/* Parchment-style command block */
 .parchment-command {
-  background: linear-gradient(
-    180deg,
-    #f5eedf 0%,
-    #ebe3d3 50%,
-    #e8dcc8 100%
-  );
-  border: 1px solid #a08b6a;
+  background: linear-gradient(180deg, #1e1608 0%, #19120a 50%, #150f07 100%);
+  border: 1px solid rgba(168, 144, 96, 0.35);
   box-shadow:
-    inset 0 0 60px rgba(139, 119, 91, 0.08),
-    2px 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.dark .parchment-command {
-  background: linear-gradient(
-    180deg,
-    #2a2318 0%,
-    #221d13 50%,
-    #1c180f 100%
-  );
-  border-color: #3d3222;
+    inset 0 0 40px rgba(245, 217, 106, 0.03),
+    0 2px 12px rgba(0, 0, 0, 0.4);
 }
 
 @keyframes loadBar {

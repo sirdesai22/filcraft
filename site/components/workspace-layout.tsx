@@ -12,7 +12,7 @@ export function WorkspaceLayout({ sidebar, children, className }: WorkspaceLayou
   return (
     <div className={cn("flex min-h-[calc(100vh-3.5rem)]", className)}>
       {/* Left sidebar */}
-      <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-56 shrink-0 overflow-y-auto border-r border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:block">
+      <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-56 shrink-0 overflow-y-auto border-r border-[rgba(168,144,96,0.15)] bg-[#0a0804] md:block">
         <div className="px-4 py-5">
           {sidebar}
         </div>

@@ -2005,13 +2005,13 @@ function initWorld(
     ctx.fill();
 
     // Border
-    ctx.strokeStyle = "rgba(180,140,40,0.45)";
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(180,140,40,0.55)";
+    ctx.lineWidth = 5;
     ctx.stroke();
 
     // Inner glow border
-    ctx.strokeStyle = "rgba(245,217,106,0.1)";
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(245,217,106,0.15)";
+    ctx.lineWidth = 2;
     ctx.beginPath();
     const m = 6;
     ctx.moveTo(r + m, m);
@@ -2027,56 +2027,56 @@ function initWorld(
 
     // Header line
     ctx.fillStyle = "rgba(90,74,42,0.5)";
-    ctx.fillRect(20, 55, w - 40, 1);
+    ctx.fillRect(20, 62, w - 40, 1);
 
     // Header text
-    ctx.font = "bold 20px Cinzel, serif";
+    ctx.font = "bold 26px Cinzel, serif";
     ctx.fillStyle = "rgba(245,217,106,0.7)";
     ctx.textAlign = "center";
-    ctx.fillText("WORLD STATUS", w / 2, 40);
+    ctx.fillText("WORLD STATUS", w / 2, 44);
 
     // Divider between columns
     ctx.fillStyle = "rgba(90,74,42,0.5)";
-    ctx.fillRect(w / 2, 70, 1, 150);
+    ctx.fillRect(w / 2, 72, 1, 168);
 
     // Left column — AGENTS
-    ctx.font = "bold 16px Cinzel, serif";
+    ctx.font = "bold 21px Cinzel, serif";
     ctx.fillStyle = "#a89060";
-    ctx.fillText("AGENTS", w / 4, 90);
+    ctx.fillText("AGENTS", w / 4, 96);
 
-    ctx.font = "bold 60px MedievalSharp, cursive";
+    ctx.font = "bold 68px MedievalSharp, cursive";
     ctx.fillStyle = "#f5d96a";
     ctx.shadowColor = "rgba(245,217,106,0.5)";
     ctx.shadowBlur = 15;
-    ctx.fillText(String(d.agentRows.length), w / 4, 160);
+    ctx.fillText(String(d.agentRows.length), w / 4, 168);
     ctx.shadowBlur = 0;
 
     // Agent status dots
-    const dotY = 195;
-    ctx.font = "bold 18px sans-serif";
+    const dotY = 210;
+    ctx.font = "bold 22px sans-serif";
     ctx.fillStyle = "#10b981";
-    ctx.fillText(`● ${d.summary.activeAgents}`, w / 4 - 55, dotY);
+    ctx.fillText(`● ${d.summary.activeAgents}`, w / 4 - 58, dotY);
     ctx.fillStyle = "#f59e0b";
     ctx.fillText(`● ${d.summary.atRiskAgents}`, w / 4, dotY);
     ctx.fillStyle = "#6b7280";
-    ctx.fillText(`● ${d.summary.windDownCount}`, w / 4 + 55, dotY);
+    ctx.fillText(`● ${d.summary.windDownCount}`, w / 4 + 58, dotY);
 
     // Right column — STORAGE
-    ctx.font = "bold 16px Cinzel, serif";
+    ctx.font = "bold 21px Cinzel, serif";
     ctx.fillStyle = "#a89060";
     ctx.textAlign = "center";
-    ctx.fillText("STORAGE", (w * 3) / 4, 90);
+    ctx.fillText("STORAGE", (w * 3) / 4, 96);
 
-    ctx.font = "bold 40px MedievalSharp, cursive";
+    ctx.font = "bold 48px MedievalSharp, cursive";
     ctx.fillStyle = "#e8a030";
     ctx.shadowColor = "rgba(232,160,48,0.4)";
     ctx.shadowBlur = 12;
-    ctx.fillText(formatTFil(d.summary.totalStorageCostWei), (w * 3) / 4, 150);
+    ctx.fillText(formatTFil(d.summary.totalStorageCostWei), (w * 3) / 4, 158);
     ctx.shadowBlur = 0;
 
-    ctx.font = "bold 16px Cinzel, serif";
+    ctx.font = "bold 20px Cinzel, serif";
     ctx.fillStyle = "#a89060";
-    ctx.fillText("tFIL", (w * 3) / 4, 185);
+    ctx.fillText("tFIL", (w * 3) / 4, 196);
   }
 
   renderStatusCard();
@@ -2143,12 +2143,12 @@ function initWorld(
     }
 
     // Border glow — gold
-    ctx.strokeStyle = "rgba(245,217,106,0.35)";
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(245,217,106,0.5)";
+    ctx.lineWidth = 5;
     ctx.strokeRect(2, 2, w - 4, h - 4);
-    ctx.strokeStyle = "rgba(168,144,96,0.25)";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(6, 6, w - 12, h - 12);
+    ctx.strokeStyle = "rgba(168,144,96,0.35)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(8, 8, w - 16, h - 16);
 
     // ── Header bar ──
     const headerGrad = ctx.createLinearGradient(0, 0, w, 0);
@@ -2158,12 +2158,12 @@ function initWorld(
     ctx.fillStyle = headerGrad;
     ctx.fillRect(6, 6, w - 12, 44);
 
-    ctx.font = "bold 22px Cinzel, serif";
+    ctx.font = "bold 28px Cinzel, serif";
     ctx.fillStyle = "#f5d96a";
     ctx.textAlign = "center";
     ctx.shadowColor = "rgba(245,217,106,0.6)";
-    ctx.shadowBlur = 12;
-    ctx.fillText("FILCRAFT EXCHANGE", w / 2, 36);
+    ctx.shadowBlur = 14;
+    ctx.fillText("FILCRAFT EXCHANGE", w / 2, 38);
     ctx.shadowBlur = 0;
 
     // Separator
@@ -2185,31 +2185,31 @@ function initWorld(
       const tx = 30 + i * tickerSpacing;
       ctx.textAlign = "left";
       ctx.fillStyle = "rgba(160,140,100,0.7)";
-      ctx.font = "bold 10px monospace";
+      ctx.font = "bold 13px monospace";
       ctx.fillText(s.label, tx, tickerY - 2);
       ctx.fillStyle = s.color;
-      ctx.font = "bold 16px monospace";
+      ctx.font = "bold 20px monospace";
       ctx.shadowColor = s.color;
-      ctx.shadowBlur = 6;
-      ctx.fillText(s.value, tx, tickerY + 16);
+      ctx.shadowBlur = 8;
+      ctx.fillText(s.value, tx, tickerY + 20);
       ctx.shadowBlur = 0;
     });
 
     // Separator
     ctx.fillStyle = "rgba(245,217,106,0.2)";
-    ctx.fillRect(10, tickerY + 28, w - 20, 1);
+    ctx.fillRect(10, tickerY + 34, w - 20, 1);
 
     // ── Agent P&L Table ──
-    const tableY = tickerY + 40;
-    ctx.font = "bold 11px Cinzel, serif";
+    const tableY = tickerY + 48;
+    ctx.font = "bold 15px Cinzel, serif";
     ctx.fillStyle = "rgba(245,217,106,0.6)";
     ctx.textAlign = "left";
     ctx.fillText("AGENT P&L", 20, tableY);
 
     // Column headers
-    const colX = { name: 20, runs: 240, revenue: 370, storage: 520, balance: 670, status: 830 };
-    const headerRowY = tableY + 20;
-    ctx.font = "bold 10px monospace";
+    const colX = { name: 20, runs: 240, revenue: 380, storage: 530, balance: 680, status: 840 };
+    const headerRowY = tableY + 22;
+    ctx.font = "bold 13px monospace";
     ctx.fillStyle = "rgba(160,140,100,0.5)";
     ctx.textAlign = "left";
     ctx.fillText("AGENT", colX.name, headerRowY);
@@ -2223,31 +2223,31 @@ function initWorld(
 
     // Separator
     ctx.fillStyle = "rgba(245,217,106,0.15)";
-    ctx.fillRect(15, headerRowY + 6, w - 30, 1);
+    ctx.fillRect(15, headerRowY + 8, w - 30, 1);
 
     // Rows
     const sorted = [...d.agentRows].sort((a, b) => Number(BigInt(b.economy.totalSpent) - BigInt(a.economy.totalSpent)));
     sorted.forEach((row, idx) => {
-      const ry = headerRowY + 24 + idx * 26;
-      if (ry > h - 180) return; // don't overflow into activity section
+      const ry = headerRowY + 28 + idx * 32;
+      if (ry > h - 200) return; // don't overflow into activity section
       const statusCol = row.economy.status === "healthy" ? "#10b981" : row.economy.status === "at-risk" ? "#f59e0b" : "#6b7280";
       const statusLabel = row.economy.status === "healthy" ? "HEALTHY" : row.economy.status === "at-risk" ? "AT RISK" : "WOUND DN";
 
-      // Row background on hover effect — alternating subtle stripes
+      // Alternating row stripes
       if (idx % 2 === 0) {
         ctx.fillStyle = "rgba(245,217,106,0.04)";
-        ctx.fillRect(15, ry - 14, w - 30, 24);
+        ctx.fillRect(15, ry - 18, w - 30, 30);
       }
 
-      ctx.font = "bold 12px monospace";
+      ctx.font = "bold 15px monospace";
       ctx.textAlign = "left";
       ctx.fillStyle = "#d4d4d8";
       ctx.fillText(row.name, colX.name, ry);
       ctx.fillStyle = "rgba(160,140,100,0.4)";
-      ctx.font = "10px monospace";
-      ctx.fillText(`#${row.agentId}`, colX.name + ctx.measureText(row.name).width + 8, ry);
+      ctx.font = "12px monospace";
+      ctx.fillText(`#${row.agentId}`, colX.name + ctx.measureText(row.name).width + 10, ry);
 
-      ctx.font = "bold 12px monospace";
+      ctx.font = "bold 15px monospace";
       ctx.textAlign = "right";
       ctx.fillStyle = row.completedRuns > 0 ? "#e4e4e7" : "#52525b";
       ctx.fillText(String(row.completedRuns), colX.runs, ry);
@@ -2264,28 +2264,28 @@ function initWorld(
       ctx.textAlign = "center";
       ctx.fillStyle = statusCol;
       ctx.shadowColor = statusCol;
-      ctx.shadowBlur = 4;
-      ctx.font = "bold 10px monospace";
+      ctx.shadowBlur = 5;
+      ctx.font = "bold 13px monospace";
       ctx.fillText(statusLabel, colX.status, ry);
       ctx.shadowBlur = 0;
     });
 
     // ── Bottom section: Activity + Leaderboard ──
-    const bottomY = h - 170;
+    const bottomY = h - 190;
 
     // Separator
     ctx.fillStyle = "rgba(245,217,106,0.2)";
     ctx.fillRect(10, bottomY - 10, w - 20, 1);
 
     // ── Recent Activity (left half) ──
-    ctx.font = "bold 11px Cinzel, serif";
+    ctx.font = "bold 15px Cinzel, serif";
     ctx.fillStyle = "rgba(245,217,106,0.6)";
     ctx.textAlign = "left";
-    ctx.fillText("RECENT ACTIVITY", 20, bottomY + 8);
+    ctx.fillText("RECENT ACTIVITY", 20, bottomY + 10);
 
     const recentEvents = d.events.slice(0, 5);
     recentEvents.forEach((ev, i) => {
-      const ey = bottomY + 28 + i * 24;
+      const ey = bottomY + 32 + i * 28;
       const evColor = ev.type === "BudgetDeposited" ? "#10b981"
         : ev.type === "StorageCostRecorded" ? "#f5d96a"
         : ev.type === "RevenueRecorded" ? "#a78bfa"
@@ -2294,65 +2294,65 @@ function initWorld(
       // Event indicator dot
       ctx.fillStyle = evColor;
       ctx.shadowColor = evColor;
-      ctx.shadowBlur = 4;
+      ctx.shadowBlur = 5;
       ctx.beginPath();
-      ctx.arc(28, ey - 4, 3, 0, Math.PI * 2);
+      ctx.arc(28, ey - 5, 4, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
 
-      ctx.font = "11px monospace";
+      ctx.font = "13px monospace";
       ctx.fillStyle = "#a1a1aa";
       ctx.textAlign = "left";
       const desc = eventDescription(ev);
-      ctx.fillText(desc.length > 50 ? desc.slice(0, 50) + "..." : desc, 40, ey);
+      ctx.fillText(desc.length > 48 ? desc.slice(0, 48) + "..." : desc, 44, ey);
 
       // Block number
-      ctx.font = "9px monospace";
+      ctx.font = "11px monospace";
       ctx.fillStyle = "rgba(100,100,120,0.5)";
-      ctx.fillText(`#${ev.blockNumber}`, 40 + Math.min(ctx.measureText(desc).width + 10, w / 2 - 80), ey);
+      ctx.fillText(`#${ev.blockNumber}`, 44 + Math.min(ctx.measureText(desc).width + 10, w / 2 - 80), ey);
     });
 
     // ── Storage Leaderboard (right half) ──
     const lbX = w / 2 + 20;
-    ctx.font = "bold 11px Cinzel, serif";
+    ctx.font = "bold 15px Cinzel, serif";
     ctx.fillStyle = "rgba(245,217,106,0.6)";
     ctx.textAlign = "left";
-    ctx.fillText("STORAGE LEADERBOARD", lbX, bottomY + 8);
+    ctx.fillText("STORAGE LEADERBOARD", lbX, bottomY + 10);
 
     const leaderboard = [...d.agentRows]
       .sort((a, b) => Number(BigInt(b.economy.totalSpent) - BigInt(a.economy.totalSpent)))
       .slice(0, 5);
     leaderboard.forEach((row, rank) => {
-      const ly = bottomY + 28 + rank * 24;
+      const ly = bottomY + 32 + rank * 28;
       const statusCol = row.economy.status === "healthy" ? "#10b981" : row.economy.status === "at-risk" ? "#f59e0b" : "#6b7280";
 
       // Rank
-      ctx.font = "bold 18px monospace";
+      ctx.font = "bold 22px monospace";
       ctx.fillStyle = "rgba(100,100,120,0.3)";
       ctx.textAlign = "left";
       ctx.fillText(String(rank + 1), lbX, ly + 2);
 
       // Name
-      ctx.font = "bold 12px monospace";
+      ctx.font = "bold 15px monospace";
       ctx.fillStyle = "#d4d4d8";
-      ctx.fillText(row.name, lbX + 28, ly);
+      ctx.fillText(row.name, lbX + 32, ly);
 
       // Cost + status
       ctx.textAlign = "right";
       ctx.fillStyle = statusCol;
-      ctx.font = "bold 12px monospace";
+      ctx.font = "bold 15px monospace";
       ctx.shadowColor = statusCol;
-      ctx.shadowBlur = 4;
+      ctx.shadowBlur = 5;
       ctx.fillText(formatTFil(row.economy.totalSpent) + " tFIL", w - 20, ly);
       ctx.shadowBlur = 0;
 
       ctx.fillStyle = "rgba(100,100,120,0.4)";
-      ctx.font = "9px monospace";
-      ctx.fillText(row.economy.status, w - 20, ly + 14);
+      ctx.font = "11px monospace";
+      ctx.fillText(row.economy.status, w - 20, ly + 16);
     });
 
     // ── Timestamp ──
-    ctx.font = "9px monospace";
+    ctx.font = "11px monospace";
     ctx.fillStyle = "rgba(100,100,120,0.4)";
     ctx.textAlign = "right";
     ctx.fillText("LIVE  " + new Date(d.fetchedAt).toLocaleTimeString(), w - 15, h - 10);
