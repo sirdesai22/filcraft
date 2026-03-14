@@ -21,9 +21,9 @@ const playfairDisplay = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Memfil",
+  title: "FilCraft",
   description:
-    "Plug memories into agents. Pay once. Run forever. Browse and install curated experience files and agents.",
+    "Agent-native marketplace for the Filecoin + Ethereum agent economy. Discover ERC-8004 agents, check credit scores, and buy data artifacts.",
 };
 
 export default function RootLayout({

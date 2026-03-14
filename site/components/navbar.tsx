@@ -50,7 +50,7 @@ export function Navbar() {
           className="font-display text-xl font-semibold tracking-tight text-foreground"
           style={{ fontFamily: "var(--font-playfair-display), serif" }}
         >
-          Memfil
+          FilCraft
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex">

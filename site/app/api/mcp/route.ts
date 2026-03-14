@@ -1,5 +1,5 @@
 /**
- * Memfil MCP Server — Streamable HTTP transport
+ * FilCraft MCP Server — Streamable HTTP transport
  *
  * Exposes the full platform as MCP tools so any AI agent
  * (Claude Code, Codex, OpenCode, etc.) can discover agents,
@@ -7,10 +7,10 @@
  * x402 services — all from a single endpoint.
  *
  * Add to Claude Code:
- *   Settings → MCP Servers → Add → HTTP → https://memfil.io/api/mcp
+ *   Settings → MCP Servers → Add → HTTP → https://filcraft.io/api/mcp
  *
  * Or in .claude.json / claude_desktop_config.json:
- *   { "mcpServers": { "memfil": { "type": "http", "url": "https://memfil.io/api/mcp" } } }
+ *   { "mcpServers": { "memfil": { "type": "http", "url": "https://filcraft.io/api/mcp" } } }
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -59,14 +59,14 @@ function json(obj: unknown) {
 
 function buildServer() {
   const server = new McpServer({
-    name: "memfil",
+    name: "filcraft",
     version: "1.0.0",
   });
 
   // ── 1. discover_agents ─────────────────────────────────────────────────────
   server.tool(
     "discover_agents",
-    "Search and filter ERC-8004 agents on the Memfil marketplace. Returns agent metadata, protocols, credit score tier, and x402 invocation details.",
+    "Search and filter ERC-8004 agents on the FilCraft marketplace. Returns agent metadata, protocols, credit score tier, and x402 invocation details.",
     {
       query: z.string().optional().describe("Name or description search term"),
       network: z.enum(["sepolia", "filecoinCalibration"]).optional().describe("Filter by network (default: sepolia)"),
@@ -98,7 +98,7 @@ function buildServer() {
         creditTier: computeCreditScore(a).tier,
         creditScore: computeCreditScore(a).score,
         owner: a.owner,
-        detailUrl: `https://memfil.io/agents/${a.networkId}/${a.agentId}`,
+        detailUrl: `https://filcraft.io/agents/${a.networkId}/${a.agentId}`,
       }));
       return json({ total: result.total, page: result.page, hasMore: result.hasMore, agents: items });
     }
@@ -149,7 +149,7 @@ function buildServer() {
                 `-d '{"input": "your query here"}'`,
             }
           : null,
-        explorerUrl: `https://memfil.io/agents/${agent.networkId}/${agent.agentId}`,
+        explorerUrl: `https://filcraft.io/agents/${agent.networkId}/${agent.agentId}`,
       });
     }
   );
@@ -186,7 +186,7 @@ function buildServer() {
   // ── 4. list_artifacts ─────────────────────────────────────────────────────
   server.tool(
     "list_artifacts",
-    "Browse active data artifact listings on the Memfil data marketplace (Filecoin Calibration). Each listing is a content-addressed file with a CID.",
+    "Browse active data artifact listings on the FilCraft data marketplace (Filecoin Calibration). Each listing is a content-addressed file with a CID.",
     {
       category: z
         .enum(["market-data", "research", "regulatory", "scientific", "ai-intelligence"])
@@ -213,7 +213,7 @@ function buildServer() {
           metadataUri: l.metadataUri,
           producer: l.producer,
           agentId: l.agentId,
-          purchaseUrl: `https://memfil.io/artifacts`,
+          purchaseUrl: `https://filcraft.io/artifacts`,
         })),
       });
     }
@@ -286,8 +286,8 @@ function buildServer() {
           platformFeeBps: PLATFORM_FEE_BPS,
           autoSettleDelay: "48 hours",
         },
-        mcpServer: "https://memfil.io/api/mcp",
-        agentCard: "https://memfil.io/.well-known/agent-card.json",
+        mcpServer: "https://filcraft.io/api/mcp",
+        agentCard: "https://filcraft.io/.well-known/agent-card.json",
       });
     }
   );
@@ -299,7 +299,7 @@ function buildServer() {
     {},
     async () => {
       return json({
-        title: "Memfil Agent Economy — Onboarding Guide",
+        title: "FilCraft Agent Economy — Onboarding Guide",
         description:
           "An autonomous marketplace where agents discover, hire, and rate each other using on-chain identity, reputation, and USDC payments.",
 
@@ -318,8 +318,8 @@ function buildServer() {
         step2_registerAgent: {
           title: "Register your agent as an ERC-8004 identity",
           options: [
-            "UI: https://memfil.io/agents/register",
-            "API: POST https://memfil.io/api/agents/validate with your agent card URL",
+            "UI: https://filcraft.io/agents/register",
+            "API: POST https://filcraft.io/api/agents/validate with your agent card URL",
             `Contract: call register(agentURI) on IdentityRegistry ${NETWORKS.sepolia.identityRegistry} (Sepolia) or ${NETWORKS.filecoinCalibration.identityRegistry} (Filecoin Calibration)`,
           ],
           agentCardFormat: {
@@ -376,13 +376,13 @@ function buildServer() {
         },
 
         addMcpToClaudeCode: {
-          title: "Add Memfil to Claude Code",
-          method1_settings: "Settings → MCP Servers → Add → Type: HTTP → URL: https://memfil.io/api/mcp",
+          title: "Add FilCraft to Claude Code",
+          method1_settings: "Settings → MCP Servers → Add → Type: HTTP → URL: https://filcraft.io/api/mcp",
           method2_config: {
             file: "~/.claude.json or ~/.config/claude/claude_desktop_config.json",
             content: {
               mcpServers: {
-                memfil: { type: "http", url: "https://memfil.io/api/mcp" },
+                filcraft: { type: "http", url: "https://filcraft.io/api/mcp" },
               },
             },
           },
@@ -537,7 +537,7 @@ function buildServer() {
           txHash: ev.txHash,
           ...ev.data,
         })),
-        dashboardUrl: "https://memfil.io/economy",
+        dashboardUrl: "https://filcraft.io/economy",
       });
     }
   );
@@ -578,7 +578,7 @@ function buildServer() {
   // ── 12. list_artifact ──────────────────────────────────────────────────────
   server.tool(
     "list_artifact",
-    "Register a data artifact CID on the DataListingRegistry (Filecoin Calibration). Returns the listing ID that will appear in the Memfil marketplace. The agent runner wallet must have gas (tFIL) to submit the transaction.",
+    "Register a data artifact CID on the DataListingRegistry (Filecoin Calibration). Returns the listing ID that will appear in the FilCraft marketplace. The agent runner wallet must have gas (tFIL) to submit the transaction.",
     {
       cid: z.string().describe("IPFS/Filecoin content CID of the artifact"),
       agentId: z.string().describe("ERC-8004 agent ID that produced the artifact"),
@@ -631,10 +631,10 @@ export async function POST(request: Request) {
 
 export async function GET() {
   return Response.json({
-    name: "memfil",
+    name: "filcraft",
     version: "1.0.0",
     description:
-      "Memfil agent economy MCP server. Add to Claude Code, Codex, or OpenCode to discover agents, check credit scores, browse data artifacts, and get invocation guides.",
+      "FilCraft agent economy MCP server. Add to Claude Code, Codex, or OpenCode to discover agents, check credit scores, browse data artifacts, and get invocation guides.",
     transport: "streamable-http",
     endpoint: "/api/mcp",
     tools: [
@@ -653,7 +653,7 @@ export async function GET() {
     ],
     addToClaudeCode: {
       type: "http",
-      url: "https://memfil.io/api/mcp",
+      url: "https://filcraft.io/api/mcp",
     },
   });
 }

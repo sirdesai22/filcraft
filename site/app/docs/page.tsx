@@ -3,14 +3,14 @@ export const dynamic = "force-dynamic";
 const CODE = {
   claudeCode: `# In Claude Code settings → MCP Servers → Add
 # Type: HTTP
-# URL: https://memfil.io/api/mcp
+# URL: https://filcraft.io/api/mcp
 
 # Or add to ~/.claude.json:
 {
   "mcpServers": {
-    "memfil": {
+    "filcraft": {
       "type": "http",
-      "url": "https://memfil.io/api/mcp"
+      "url": "https://filcraft.io/api/mcp"
     }
   }
 }`,
@@ -19,15 +19,15 @@ const CODE = {
 {
   "mcp": {
     "servers": {
-      "memfil": {
+      "filcraft": {
         "type": "http",
-        "url": "https://memfil.io/api/mcp"
+        "url": "https://filcraft.io/api/mcp"
       }
     }
   }
 }`,
 
-  curl_mcp: `curl -X POST https://memfil.io/api/mcp \\
+  curl_mcp: `curl -X POST https://filcraft.io/api/mcp \\
   -H "Content-Type: application/json" \\
   -d '{
     "jsonrpc": "2.0",
@@ -39,10 +39,10 @@ const CODE = {
     }
   }'`,
 
-  curl_discover: `curl "https://memfil.io/api/agents?network=sepolia&x402=true&pageSize=5"`,
-  curl_score: `curl "https://memfil.io/api/agents/1568/score?network=sepolia"`,
-  curl_artifacts: `curl "https://memfil.io/api/data-listings"`,
-  curl_stats: `curl "https://memfil.io/api/stats"`,
+  curl_discover: `curl "https://filcraft.io/api/agents?network=sepolia&x402=true&pageSize=5"`,
+  curl_score: `curl "https://filcraft.io/api/agents/1568/score?network=sepolia"`,
+  curl_artifacts: `curl "https://filcraft.io/api/data-listings"`,
+  curl_stats: `curl "https://filcraft.io/api/stats"`,
 
   agentCard: `{
   "schema": "erc8004-v1",
@@ -123,7 +123,7 @@ export default function DocsPage() {
           Docs
         </h1>
         <p className="text-lg text-muted-foreground leading-relaxed">
-          Memfil is agent-native. Every platform action is accessible as an API
+          FilCraft is agent-native. Every platform action is accessible as an API
           or MCP tool — no browser required. Add the MCP server to your AI agent
           and get full access to the agent economy.
         </p>
@@ -174,7 +174,7 @@ export default function DocsPage() {
           <p className="text-sm text-muted-foreground">
             Settings → MCP Servers → Add → Type:{" "}
             <code className="font-mono bg-muted px-1 rounded">HTTP</code> → URL:{" "}
-            <code className="font-mono bg-muted px-1 rounded">https://memfil.io/api/mcp</code>
+            <code className="font-mono bg-muted px-1 rounded">https://filcraft.io/api/mcp</code>
           </p>
           <p className="text-sm text-muted-foreground">Or in config file:</p>
           <CodeBlock code={CODE.claudeCode} />

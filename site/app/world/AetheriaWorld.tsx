@@ -159,6 +159,13 @@ export function AetheriaWorld({
     dataRef.current = data;
   }, [data]);
 
+  // Lock body scroll while world is mounted
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -192,15 +199,10 @@ export function AetheriaWorld({
       });
     };
 
-    const loadRobotModel = (THREE: { GLTFLoader: new () => { load: (url: string, onLoad: (gltf: unknown) => void, onProgress?: unknown, onError?: (err: unknown) => void) => void } }): Promise<unknown> => {
+    const loadModel = (THREE: { GLTFLoader: new () => { load: (url: string, onLoad: (gltf: unknown) => void, onProgress?: unknown, onError?: (err: unknown) => void) => void } }, path: string): Promise<unknown> => {
       return new Promise((resolve, reject) => {
         const loader = new THREE.GLTFLoader();
-        loader.load(
-          "/models/RobotExpressive.glb",
-          (gltf) => resolve(gltf),
-          undefined,
-          (err) => reject(err)
-        );
+        loader.load(path, (gltf) => resolve(gltf), undefined, (err) => reject(err));
       });
     };
 
@@ -214,11 +216,14 @@ export function AetheriaWorld({
       })
       .then(({ THREE }) => {
         if (cancelled) return Promise.reject(new Error("cancelled"));
-        return loadRobotModel(THREE as Parameters<typeof loadRobotModel>[0]).then((gltf) => ({ THREE, gltf }));
+        return Promise.all([
+          loadModel(THREE as Parameters<typeof loadModel>[0], "/models/RobotExpressive.glb"),
+          loadModel(THREE as Parameters<typeof loadModel>[0], "/models/CastleModel.glb"),
+        ]).then(([gltf, castleGltf]) => ({ THREE, gltf, castleGltf }));
       })
-      .then(({ THREE, gltf }) => {
+      .then(({ THREE, gltf, castleGltf }) => {
         if (cancelled) return;
-        initWorld(THREE, containerRef.current!, dataRef, setSelectedAgentId, gltf as { scene: any; animations: any[] }, () => router.push("/marketplace"));
+        initWorld(THREE, containerRef.current!, dataRef, setSelectedAgentId, gltf as { scene: any; animations: any[] }, castleGltf as { scene: any }, () => router.push("/marketplace"));
         setLoading(false);
         rafId = requestAnimationFrame(function loop() {
           if (cancelled) return;
@@ -239,16 +244,15 @@ export function AetheriaWorld({
 
   const selectedRow = selectedAgentId ? data.agentRows.find((r) => r.agentId === selectedAgentId) : null;
   const selectedCfg = selectedRow
-    ? (AGENT_CONFIG[selectedRow.agentId] ?? {
-        displayName: selectedRow.name,
-        emoji: "🤖",
-        type: "Agent",
-        spawnNear: [0, 0] as [number, number],
+    ? ({
+        ...(AGENT_CONFIG[selectedRow.agentId] ?? { emoji: "🤖", type: "Agent", spawnNear: [0, 0] as [number, number] }),
+        displayName: selectedRow.name, // always use real registry name
+
       })
     : null;
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-[#0a0a0f]">
+    <div className="relative w-full overflow-hidden bg-[#0a0a0f]" style={{ height: "calc(100vh - 56px)" }}>
       <link
         href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=MedievalSharp&display=swap"
         rel="stylesheet"
@@ -301,65 +305,183 @@ export function AetheriaWorld({
           </div>
         </div>
 
-        <div className="absolute top-3 left-3 flex items-center gap-2">
-          <div className="text-xs text-[#a89060] tracking-[1px]">
-            Agents: <span className="text-[#f5d96a] font-bold text-base" style={{ fontFamily: "Cinzel, serif" }} id="pop-count">{data.agentRows.length}</span>
-            {" · "}
-            Storage: <span className="text-[#e8a030]" id="stockpile-count">0</span> tFIL
+        {/* Stats widget — top left */}
+        <div
+          className="absolute top-3 left-3 pointer-events-auto flex flex-col gap-[1px]"
+          style={{
+            background: "linear-gradient(160deg, rgba(6,4,1,0.96), rgba(16,10,2,0.95))",
+            border: "1px solid rgba(180,140,40,0.22)",
+            borderRadius: 3,
+            boxShadow: "0 0 0 1px rgba(180,140,40,0.05), 0 8px 32px rgba(0,0,0,0.8)",
+            minWidth: 180,
+          }}
+        >
+          {/* Widget header */}
+          <div style={{ padding: "7px 12px 5px", borderBottom: "1px solid rgba(90,74,42,0.3)", background: "linear-gradient(90deg, transparent, rgba(180,140,40,0.06), transparent)" }}>
+            <div style={{ fontFamily: "Cinzel, serif", fontSize: 8, letterSpacing: "0.25em", color: "rgba(245,217,106,0.55)", textAlign: "center" }}>
+              WORLD STATUS
+            </div>
           </div>
+          {/* Stats */}
+          <div style={{ display: "flex", padding: "8px 0" }}>
+            {/* Agents */}
+            <div style={{ flex: 1, padding: "0 14px", borderRight: "1px solid rgba(90,74,42,0.4)", textAlign: "center" }}>
+              <div style={{ fontFamily: "Cinzel, serif", fontSize: 7, color: "#a89060", letterSpacing: "0.12em", marginBottom: 3 }}>AGENTS</div>
+              <div style={{ fontSize: 22, fontWeight: 700, color: "#f5d96a", lineHeight: 1, textShadow: "0 0 12px rgba(245,217,106,0.4)" }} id="pop-count">
+                {data.agentRows.length}
+              </div>
+              <div style={{ display: "flex", justifyContent: "center", gap: 5, marginTop: 5 }}>
+                <span style={{ fontSize: 9, color: "#10b981" }}>●&nbsp;{data.summary.activeAgents}</span>
+                <span style={{ fontSize: 9, color: "#f59e0b" }}>●&nbsp;{data.summary.atRiskAgents}</span>
+                <span style={{ fontSize: 9, color: "#6b7280" }}>●&nbsp;{data.summary.windDownCount}</span>
+              </div>
+            </div>
+            {/* Storage */}
+            <div style={{ flex: 1, padding: "0 14px", textAlign: "center" }}>
+              <div style={{ fontFamily: "Cinzel, serif", fontSize: 7, color: "#a89060", letterSpacing: "0.12em", marginBottom: 3 }}>STORAGE</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#e8a030", lineHeight: 1, textShadow: "0 0 10px rgba(232,160,48,0.3)" }} id="stockpile-count">
+                {formatTFil(data.summary.totalStorageCostWei)}
+              </div>
+              <div style={{ fontFamily: "Cinzel, serif", fontSize: 7, color: "#a89060", marginTop: 5, letterSpacing: "0.08em" }}>tFIL</div>
+            </div>
+          </div>
+          {/* View all button */}
           <button
             type="button"
             onClick={() => setShowAllAgents(true)}
-            className="w-7 h-7 rounded-full border border-[#5a4a2a] flex items-center justify-center text-[#a89060] hover:text-[#f5d96a] hover:border-[#f5d96a] transition-colors pointer-events-auto"
-            title="View all agents"
-            aria-label="View all agents"
+            style={{ borderTop: "1px solid rgba(90,74,42,0.4)", padding: "6px 12px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "transparent", cursor: "pointer", transition: "background 0.2s", fontFamily: "Cinzel, serif", fontSize: 8, color: "#c0a050", letterSpacing: "0.12em", width: "100%" }}
+            onMouseEnter={e => (e.currentTarget.style.background = "rgba(245,217,106,0.07)")}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
           >
-            ℹ
+            <span style={{ fontSize: 10 }}>⚔</span> VIEW ALL AGENTS
           </button>
         </div>
 
         {/* Scoreboard panel */}
         <div
           id="scoreboard-panel"
-          className="absolute top-12 right-12 w-[280px] pointer-events-auto rounded-md border border-[#5a4a2a] p-3"
+          className="absolute top-3 right-3 w-[300px] pointer-events-auto flex flex-col"
           style={{
-            background: "linear-gradient(135deg, rgba(20,15,10,0.95), rgba(30,25,15,0.92))",
-            boxShadow: "0 4px 30px rgba(0,0,0,0.6)",
+            background: "linear-gradient(160deg, rgba(6,4,1,0.98) 0%, rgba(16,10,2,0.97) 100%)",
+            border: "1px solid rgba(180,140,40,0.25)",
+            borderRadius: 3,
+            boxShadow: "0 0 0 1px rgba(180,140,40,0.06), 0 12px 50px rgba(0,0,0,0.9), inset 0 1px 0 rgba(245,217,106,0.08)",
+            maxHeight: "calc(100vh - 80px)",
           }}
         >
-          <div className="text-center text-[#f5d96a] font-bold text-sm mb-2 tracking-wider" style={{ fontFamily: "Cinzel, serif" }}>
-            AGENT ECONOMY SCOREBOARD
+          {/* Header */}
+          <div style={{ position: "relative", padding: "12px 16px 10px", borderBottom: "1px solid rgba(90,74,42,0.3)", background: "linear-gradient(90deg, transparent, rgba(180,140,40,0.07), transparent)" }}>
+            {/* Corner ornaments */}
+            {[["top","left"],["top","right"],["bottom","left"],["bottom","right"]].map(([v,h]) => (
+              <div key={v+h} style={{ position: "absolute", [v]: 5, [h]: 8, width: 7, height: 7,
+                borderTop: v === "top" ? "1px solid rgba(245,217,106,0.5)" : undefined,
+                borderBottom: v === "bottom" ? "1px solid rgba(245,217,106,0.5)" : undefined,
+                borderLeft: h === "left" ? "1px solid rgba(245,217,106,0.5)" : undefined,
+                borderRight: h === "right" ? "1px solid rgba(245,217,106,0.5)" : undefined,
+              }} />
+            ))}
+            <div style={{ fontFamily: "Cinzel, serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.22em", textAlign: "center", color: "#f5d96a", textShadow: "0 0 18px rgba(245,217,106,0.5)" }}>
+              ⚔ AGENT ECONOMY ⚔
+            </div>
+            <div style={{ fontFamily: "Cinzel, serif", fontSize: 7, letterSpacing: "0.35em", textAlign: "center", color: "rgba(245,217,106,0.35)", marginTop: 2 }}>
+              SCOREBOARD
+            </div>
           </div>
-          <div className="border-t border-[#5a4a2a]/50 pt-2 space-y-1 text-[10px]">
+
+          {/* Agent rows */}
+          <div style={{ padding: "4px 0", overflowY: "auto", flex: 1, minHeight: 0, scrollbarWidth: "none" }}
+            className="[&::-webkit-scrollbar]:hidden"
+          >
             {data.agentRows
               .sort((a, b) => Number(BigInt(b.economy.totalSpent) - BigInt(a.economy.totalSpent)))
-              .map((row) => {
+              .map((row, idx) => {
                 const cfg = AGENT_CONFIG[row.agentId];
+                const isHealthy = row.economy.status === "healthy";
+                const isAtRisk = row.economy.status === "at-risk";
+                const statusColor = isHealthy ? "#10b981" : isAtRisk ? "#f59e0b" : "#4b5563";
+                const statusGlow = isHealthy ? "0 0 7px rgba(16,185,129,0.9)" : isAtRisk ? "0 0 7px rgba(245,158,11,0.9)" : "none";
+                const rankLabel = ["Ⅰ","Ⅱ","Ⅲ","Ⅳ","Ⅴ"][idx] ?? `${idx+1}`;
+                const rankColor = idx === 0 ? "#f5d96a" : idx === 1 ? "#c0c0c0" : idx === 2 ? "#cd7f32" : "#4a3a1a";
+                const rankBg = idx === 0 ? "rgba(245,217,106,0.12)" : idx === 1 ? "rgba(192,192,192,0.08)" : idx === 2 ? "rgba(205,127,50,0.08)" : "rgba(40,30,10,0.4)";
+                const rankBorder = idx === 0 ? "rgba(245,217,106,0.35)" : idx === 1 ? "rgba(192,192,192,0.25)" : idx === 2 ? "rgba(205,127,50,0.25)" : "rgba(60,45,15,0.4)";
+
                 return (
-                  <div key={row.agentId} className="flex justify-between items-center text-[#c0b090]">
-                    <span>
-                      {cfg?.emoji ?? "🤖"} {cfg?.displayName ?? row.name}
-                    </span>
-                    <span className="tabular-nums">
-                      {row.completedRuns} runs · ${formatUsd(row.economy.totalEarned)} · {formatTFil(row.economy.totalSpent)} tFIL
-                    </span>
+                  <div
+                    key={row.agentId}
+                    style={{
+                      padding: "9px 14px",
+                      borderBottom: idx < data.agentRows.length - 1 ? "1px solid rgba(60,45,15,0.4)" : undefined,
+                      background: idx === 0 ? "linear-gradient(90deg, rgba(245,217,106,0.03), transparent 70%)" : "transparent",
+                    }}
+                  >
+                    {/* Top row: rank + status dot + name */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 22, height: 22, borderRadius: 2, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: rankBg, border: `1px solid ${rankBorder}`, fontFamily: "Cinzel, serif", fontSize: 10, fontWeight: 700, color: rankColor, textShadow: idx === 0 ? "0 0 8px rgba(245,217,106,0.6)" : "none" }}>
+                        {rankLabel}
+                      </div>
+                      <div className={isHealthy ? "animate-pulse" : isAtRisk ? "animate-pulse" : ""} style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: statusColor, boxShadow: statusGlow, animationDuration: isAtRisk ? "0.9s" : "2s" }} />
+                      <div style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, color: "#e0cc98", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {cfg?.emoji ?? "🤖"} {row.name}
+                      </div>
+                    </div>
+
+                    {/* Stats row */}
+                    <div style={{ display: "flex", alignItems: "stretch", gap: 0, marginTop: 7, marginLeft: 30, background: "rgba(0,0,0,0.3)", borderRadius: 2, border: "1px solid rgba(60,45,15,0.5)", overflow: "hidden" }}>
+                      {[
+                        { label: "RUNS", value: String(row.completedRuns), color: "#d4b96a" },
+                        { label: "EARNED", value: `$${formatUsd(row.economy.totalEarned)}`, color: "#10b981" },
+                        { label: "SPENT", value: `${formatTFil(row.economy.totalSpent)}`, color: "#e8a030" },
+                      ].map((stat, si) => (
+                        <div key={stat.label} style={{ flex: 1, padding: "4px 6px", borderLeft: si > 0 ? "1px solid rgba(60,45,15,0.5)" : undefined, textAlign: "center" }}>
+                          <div style={{ fontFamily: "Cinzel, serif", fontSize: 7, color: "#4a3a1a", letterSpacing: "0.1em", marginBottom: 2 }}>{stat.label}</div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: stat.color, fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>{stat.value}</div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 );
               })}
           </div>
-          <div className="border-t border-[#5a4a2a]/50 pt-2 mt-2 text-[10px] text-[#a89060]">
-            Total: {formatTFil(data.summary.totalStorageCostWei)} tFIL · ${formatUsd(data.summary.totalRevenueUsdCents)} revenue
-          </div>
-          <div className="flex gap-2 mt-1 text-[9px]">
-            <span className="text-emerald-500">Healthy: {data.summary.activeAgents}</span>
-            <span className="text-amber-500">At-Risk: {data.summary.atRiskAgents}</span>
-            <span className="text-zinc-400">Wound: {data.summary.windDownCount}</span>
-          </div>
-          {lastRefresh && (
-            <div className="text-[8px] text-[#504030] mt-1">
-              Refreshed {Math.round((Date.now() - lastRefresh.getTime()) / 1000)}s ago
+
+          {/* Footer */}
+          <div style={{ borderTop: "1px solid rgba(90,74,42,0.3)", padding: "10px 14px", background: "linear-gradient(90deg, transparent, rgba(180,140,40,0.04), transparent)" }}>
+            {/* Totals */}
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <div>
+                <div style={{ fontFamily: "Cinzel, serif", fontSize: 7, color: "#3a2a0a", letterSpacing: "0.12em", marginBottom: 2 }}>TOTAL STORAGE</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#e8a030", lineHeight: 1 }}>
+                  {formatTFil(data.summary.totalStorageCostWei)} <span style={{ fontSize: 9, color: "#6a5020" }}>tFIL</span>
+                </div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontFamily: "Cinzel, serif", fontSize: 7, color: "#3a2a0a", letterSpacing: "0.12em", marginBottom: 2 }}>TOTAL REVENUE</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#10b981", lineHeight: 1 }}>
+                  ${formatUsd(data.summary.totalRevenueUsdCents)}
+                </div>
+              </div>
             </div>
-          )}
+
+            {/* Status badges */}
+            <div style={{ display: "flex", gap: 5 }}>
+              {[
+                { count: data.summary.activeAgents, label: "ACTIVE", color: "#10b981", glow: "rgba(16,185,129,0.7)", bg: "rgba(16,185,129,0.08)", border: "rgba(16,185,129,0.2)" },
+                { count: data.summary.atRiskAgents, label: "AT RISK", color: "#f59e0b", glow: "rgba(245,158,11,0.7)", bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.2)" },
+                { count: data.summary.windDownCount, label: "WOUND", color: "#6b7280", glow: "none", bg: "rgba(107,114,128,0.08)", border: "rgba(107,114,128,0.2)" },
+              ].map((s) => (
+                <div key={s.label} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "4px 0", borderRadius: 2, background: s.bg, border: `1px solid ${s.border}` }}>
+                  <div style={{ width: 5, height: 5, borderRadius: "50%", background: s.color, boxShadow: s.glow !== "none" ? `0 0 5px ${s.glow}` : undefined }} />
+                  <span style={{ fontFamily: "Cinzel, serif", fontSize: 8, color: s.color, letterSpacing: "0.05em" }}>{s.count} {s.label}</span>
+                </div>
+              ))}
+            </div>
+
+            {lastRefresh && (
+              <div style={{ marginTop: 7, fontSize: 8, color: "#2a1a05", letterSpacing: "0.08em", display: "flex", alignItems: "center", gap: 4 }}>
+                <div className="animate-pulse" style={{ width: 4, height: 4, borderRadius: "50%", background: "#3a2a0a" }} />
+                LIVE · {Math.round((Date.now() - lastRefresh.getTime()) / 1000)}s ago
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Activity log */}
@@ -590,12 +712,12 @@ export function AetheriaWorld({
                     </p>
                   </div>
 
-                  {/* Link to Memfil */}
+                  {/* Link to FilCraft */}
                   <Link
                     href={`/agents/${selectedRow.networkId}/${selectedRow.agentId}`}
                     className="block w-full py-2 text-center rounded border border-[#5a4a2a] text-[#f5d96a] text-sm font-medium hover:bg-[#5a4a2a]/30 hover:border-[#f5d96a]/50 transition-colors"
                   >
-                    View on Memfil →
+                    View on FilCraft →
                   </Link>
                 </div>
               </div>
@@ -643,6 +765,7 @@ function initWorld(
   dataRef: React.MutableRefObject<DashboardData>,
   setSelectedAgentId: (id: string | null) => void,
   gltf: { scene: any; animations: any[] },
+  castleGltf: { scene: any },
   onStorageDepotClick: () => void
 ) {
   const initialData = dataRef.current;
@@ -996,78 +1119,24 @@ function initWorld(
   const storageGroup = new THREE.Group();
   const ty = H(STORAGE_POS.x, STORAGE_POS.z);
 
-  // Materials — Filecoin data-centre
-  const matFloor = new THREE.MeshStandardMaterial({ color: 0x0a1520, metalness: 0.9, roughness: 0.2, flatShading: true });
-  const matWall = new THREE.MeshStandardMaterial({ color: 0x0d1e30, metalness: 0.8, roughness: 0.3, flatShading: true });
-  const matRoof = new THREE.MeshStandardMaterial({ color: 0x071020, metalness: 0.95, roughness: 0.15, flatShading: true });
-  const matAccent = new THREE.MeshStandardMaterial({ color: 0x1a3a5a, metalness: 0.7, roughness: 0.4, flatShading: true });
   const matGlow = new THREE.MeshStandardMaterial({ color: FIL_BLUE, emissive: FIL_BLUE, emissiveIntensity: 1.2, roughness: 0.3, metalness: 0.2 });
 
-  const POST_H = 3.2;
+  // Castle model — scale to target height of ~8 units
+  const castleScene = castleGltf.scene.clone(true);
+  const castleBox = new THREE.Box3().setFromObject(castleScene);
+  const castleHeight = castleBox.max.y - castleBox.min.y;
+  const TARGET_CASTLE_HEIGHT = 8;
+  const castleScale = TARGET_CASTLE_HEIGHT / castleHeight;
+  castleScene.scale.setScalar(castleScale);
+  // Recompute box after scaling to sit flush on the ground
+  const castleBox2 = new THREE.Box3().setFromObject(castleScene);
+  castleScene.position.y = -castleBox2.min.y;
+  castleScene.traverse((obj: { isMesh?: boolean; castShadow?: boolean; receiveShadow?: boolean }) => {
+    if (obj.isMesh) { obj.castShadow = true; obj.receiveShadow = true; }
+  });
+  storageGroup.add(castleScene);
 
-  // 1. Floor slab
-  const floor = new THREE.Mesh(new THREE.BoxGeometry(10, 0.3, 7), matFloor);
-  floor.position.y = 0.15;
-  floor.receiveShadow = true;
-  floor.castShadow = true;
-  storageGroup.add(floor);
-
-  // 2. Four walls
-  const backWall = new THREE.Mesh(new THREE.BoxGeometry(10, 3.5, 0.25), matWall);
-  backWall.position.set(0, POST_H / 2 + 0.15, -3);
-  backWall.castShadow = true;
-  backWall.receiveShadow = true;
-  storageGroup.add(backWall);
-
-  const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.25, 3.5, 7), matWall);
-  leftWall.position.set(-5, POST_H / 2 + 0.15, 0);
-  leftWall.castShadow = true;
-  leftWall.receiveShadow = true;
-  storageGroup.add(leftWall);
-
-  const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.25, 3.5, 7), matWall);
-  rightWall.position.set(5, POST_H / 2 + 0.15, 0);
-  rightWall.castShadow = true;
-  rightWall.receiveShadow = true;
-  storageGroup.add(rightWall);
-
-  // Front wall with doorway — two columns + lintel
-  const frontColL = new THREE.Mesh(new THREE.BoxGeometry(2.5, 3.5, 0.25), matWall);
-  frontColL.position.set(-3.75, POST_H / 2 + 0.15, 3);
-  frontColL.castShadow = true;
-  storageGroup.add(frontColL);
-  const frontColR = new THREE.Mesh(new THREE.BoxGeometry(2.5, 3.5, 0.25), matWall);
-  frontColR.position.set(3.75, POST_H / 2 + 0.15, 3);
-  frontColR.castShadow = true;
-  storageGroup.add(frontColR);
-  const frontLintel = new THREE.Mesh(new THREE.BoxGeometry(10, 0.6, 0.25), matWall);
-  frontLintel.position.set(0, POST_H - 0.3, 3);
-  frontLintel.castShadow = true;
-  storageGroup.add(frontLintel);
-
-  // 3. Roof slab + rooftop ridge strip
-  const roof = new THREE.Mesh(new THREE.BoxGeometry(10.5, 0.35, 7.5), matRoof);
-  roof.position.set(0, POST_H + 0.5, 0);
-  roof.castShadow = true;
-  roof.receiveShadow = true;
-  storageGroup.add(roof);
-  const ridgeStrip = new THREE.Mesh(new THREE.BoxGeometry(9, 0.08, 0.3), matGlow);
-  ridgeStrip.position.set(0, POST_H + 0.68, 0);
-  storageGroup.add(ridgeStrip);
-
-  // 4. Filecoin arch at entrance
-  const archPillarL = new THREE.Mesh(new THREE.BoxGeometry(0.4, 4, 0.4), matGlow);
-  archPillarL.position.set(-1.8, 2.15, 3.3);
-  archPillarL.castShadow = true;
-  storageGroup.add(archPillarL);
-  const archPillarR = new THREE.Mesh(new THREE.BoxGeometry(0.4, 4, 0.4), matGlow);
-  archPillarR.position.set(1.8, 2.15, 3.3);
-  archPillarR.castShadow = true;
-  storageGroup.add(archPillarR);
-  const archBar = new THREE.Mesh(new THREE.BoxGeometry(4, 0.4, 0.4), matGlow);
-  archBar.position.set(0, 4.15, 3.3);
-  archBar.castShadow = true;
-  storageGroup.add(archBar);
+  const POST_H = TARGET_CASTLE_HEIGHT * 0.6; // reference height for overlay positioning
 
   // 5. Server racks inside + artifact tablets
   const MAX_ARTIFACT_TABLETS = 30;
@@ -1341,7 +1410,7 @@ function initWorld(
     const z = sz + Math.sin(angle) * FIRE_RING_RADIUS + (Math.random() - 0.5) * 1;
     const y = H(x, z);
     const size = 0.65;
-    const displayName = cfg.displayName || row.name;
+    const displayName = row.name || cfg.displayName;
 
     const isActive = row.economy.status === "healthy";
     const colors: { primary: number; glow: number } = (isActive ? AGENT_COLORS_ACTIVE : AGENT_COLORS_INACTIVE)[cfg.type as keyof typeof AGENT_COLORS_ACTIVE] ?? AGENT_COLORS_ACTIVE.Worker;
