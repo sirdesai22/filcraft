@@ -10,10 +10,8 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +24,8 @@ import { IDENTITY_REGISTRY_ABI } from "@/lib/identity-registry-abi";
 import { NETWORKS, DEFAULT_NETWORK, type NetworkId } from "@/lib/networks";
 import type { AgentCard, ParsedServices } from "@/lib/agent-validator";
 import { cn } from "@/lib/utils";
+
+const CINZEL = "var(--font-cinzel, Cinzel, serif)";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,6 +56,26 @@ const TX_EXPLORER_BASE: Record<NetworkId, string> = {
   baseSepolia: "https://sepolia.basescan.org/tx/",
 };
 
+// ── Step badge ────────────────────────────────────────────────────────────────
+
+function StepBadge({ n }: { n: number }) {
+  return (
+    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[rgba(245,217,106,0.15)] text-[10px] font-bold text-[#f5d96a]">
+      {n}
+    </span>
+  );
+}
+
+// ── Section card ──────────────────────────────────────────────────────────────
+
+function SectionCard({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={cn("rounded-lg border border-[rgba(168,144,96,0.2)] bg-[rgba(18,13,6,0.6)]", className)}>
+      {children}
+    </div>
+  );
+}
+
 // ── Network card ─────────────────────────────────────────────────────────────
 
 function NetworkCard({
@@ -76,21 +96,21 @@ function NetworkCard({
       className={cn(
         "flex flex-1 flex-col gap-2 rounded-lg border p-4 text-left transition-all",
         selected
-          ? "border-primary bg-primary/5 ring-1 ring-primary"
-          : "border-border bg-card hover:border-primary/40 hover:bg-muted/30"
+          ? "border-[rgba(245,217,106,0.4)] bg-[rgba(245,217,106,0.06)] ring-1 ring-[rgba(245,217,106,0.25)]"
+          : "border-[rgba(168,144,96,0.2)] bg-[rgba(18,13,6,0.4)] hover:border-[rgba(168,144,96,0.4)] hover:bg-[rgba(245,217,106,0.03)]"
       )}
     >
       <div className="flex items-center justify-between">
         <span className="text-lg">{isFilecoin ? "🌐" : "⟠"}</span>
-        {selected && <span className="h-2 w-2 rounded-full bg-primary" />}
+        {selected && <span className="h-2 w-2 rounded-full bg-[#f5d96a]" />}
       </div>
       <div>
-        <p className="font-semibold text-sm">{n.name}</p>
-        <p className="text-xs text-muted-foreground mt-0.5 font-mono">
+        <p className="font-semibold text-sm text-[#e8dcc8]">{n.name}</p>
+        <p className="text-xs text-[#a89060] mt-0.5 font-mono">
           {n.identityRegistry.slice(0, 10)}…
         </p>
       </div>
-      <p className="text-xs text-muted-foreground">{n.explorerName}</p>
+      <p className="text-xs text-[#a89060]/70">{n.explorerName}</p>
     </button>
   );
 }
@@ -120,7 +140,9 @@ function EndpointRow({
     <div
       className={cn(
         "rounded-lg border transition-colors",
-        enabled ? "border-primary/40 bg-primary/5" : "border-border bg-card"
+        enabled
+          ? "border-[rgba(245,217,106,0.3)] bg-[rgba(245,217,106,0.04)]"
+          : "border-[rgba(168,144,96,0.15)] bg-[rgba(18,13,6,0.4)]"
       )}
     >
       <button
@@ -131,19 +153,19 @@ function EndpointRow({
         <span className="text-lg shrink-0">{icon}</span>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">{label}</span>
+            <span className="text-sm font-medium text-[#e8dcc8]">{label}</span>
             {badge && (
-              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+              <span className="rounded-full bg-[rgba(168,144,96,0.15)] px-2 py-0.5 text-[10px] font-medium text-[#a89060]">
                 {badge}
               </span>
             )}
           </div>
-          <p className="text-xs text-muted-foreground">{description}</p>
+          <p className="text-xs text-[#a89060]">{description}</p>
         </div>
         <div
           className={cn(
             "relative h-5 w-9 shrink-0 rounded-full transition-colors",
-            enabled ? "bg-primary" : "bg-muted"
+            enabled ? "bg-[#c4a84a]" : "bg-[rgba(168,144,96,0.2)]"
           )}
         >
           <span
@@ -155,11 +177,35 @@ function EndpointRow({
         </div>
       </button>
       {enabled && children && (
-        <div className="border-t border-primary/20 px-4 pb-4 pt-3 space-y-3">
+        <div className="border-t border-[rgba(245,217,106,0.15)] px-4 pb-4 pt-3 space-y-3">
           {children}
         </div>
       )}
     </div>
+  );
+}
+
+// ── Themed input ──────────────────────────────────────────────────────────────
+
+function ThemedInput(props: React.ComponentProps<typeof Input>) {
+  return (
+    <Input
+      {...props}
+      className={cn(
+        "bg-[rgba(10,8,4,0.6)] border-[rgba(168,144,96,0.3)] text-[#e8dcc8] placeholder:text-[#a89060]/50 focus-visible:ring-[rgba(245,217,106,0.3)] focus-visible:border-[rgba(245,217,106,0.4)]",
+        props.className
+      )}
+    />
+  );
+}
+
+// ── Themed label ──────────────────────────────────────────────────────────────
+
+function ThemedLabel({ children, htmlFor }: { children: React.ReactNode; htmlFor?: string }) {
+  return (
+    <Label htmlFor={htmlFor} className="text-[#a89060] text-xs font-medium">
+      {children}
+    </Label>
   );
 }
 
@@ -315,62 +361,65 @@ export function RegisterAgentDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger ?? (
-          <Button size="sm" className="rounded-full">
+          <button
+            className="rounded-full border border-[rgba(245,217,106,0.4)] bg-[rgba(245,217,106,0.08)] px-4 py-1.5 text-sm font-semibold text-[#f5d96a] hover:bg-[rgba(245,217,106,0.14)] hover:border-[rgba(245,217,106,0.6)] transition-all"
+            style={{ fontFamily: CINZEL, letterSpacing: "0.05em" }}
+          >
             Register Agent
-          </Button>
+          </button>
         )}
       </DialogTrigger>
       <DialogContent
-        className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0"
+        className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0 border-[rgba(168,144,96,0.3)] bg-[#0d0a05]"
         showCloseButton={!isConfirmed}
       >
         {isConfirmed && txHash ? (
           <div className="p-6">
-            <Card className="border-emerald-500/30 bg-emerald-500/5">
-              <CardContent className="pt-6 space-y-3 text-center">
-                <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-500" />
-                <h2 className="font-semibold text-lg">Registration submitted!</h2>
-                <p className="text-sm text-muted-foreground">
-                  Your agent will appear in the directory once indexed on{" "}
-                  <span className="font-medium text-foreground">{networkConfig.name}</span>.
-                </p>
-                <div className="flex justify-center gap-3">
-                  <Button asChild variant="outline" size="sm">
-                    <a
-                      href={`${TX_EXPLORER_BASE[selectedNetworkId]}${txHash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      View on {networkConfig.explorerName}
-                    </a>
-                  </Button>
-                  <Button size="sm" onClick={handleClose}>
-                    Close
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-6 text-center space-y-3">
+              <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-400" />
+              <h2 className="font-semibold text-lg text-[#e8dcc8]" style={{ fontFamily: CINZEL }}>
+                Registration submitted!
+              </h2>
+              <p className="text-sm text-[#a89060]">
+                Your agent will appear in the directory once indexed on{" "}
+                <span className="font-medium text-[#e8dcc8]">{networkConfig.name}</span>.
+              </p>
+              <div className="flex justify-center gap-3 pt-1">
+                <a
+                  href={`${TX_EXPLORER_BASE[selectedNetworkId]}${txHash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded border border-[rgba(168,144,96,0.35)] px-4 py-1.5 text-xs text-[#a89060] hover:border-[rgba(245,217,106,0.4)] hover:text-[#f5d96a] transition-colors"
+                >
+                  View on {networkConfig.explorerName}
+                </a>
+                <button
+                  onClick={handleClose}
+                  className="rounded border border-[rgba(245,217,106,0.4)] bg-[rgba(245,217,106,0.08)] px-4 py-1.5 text-xs font-semibold text-[#f5d96a] hover:bg-[rgba(245,217,106,0.14)] transition-all"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         ) : (
           <>
-            <DialogHeader className="px-6 pt-6 pb-4 border-b border-border shrink-0">
-              <DialogTitle>Register Agent</DialogTitle>
-              <p className="text-sm text-muted-foreground">
+            <DialogHeader className="px-6 pt-6 pb-4 border-b border-[rgba(168,144,96,0.15)] shrink-0">
+              <DialogTitle className="text-[#f5d96a] tracking-widest" style={{ fontFamily: CINZEL }}>
+                Register Agent
+              </DialogTitle>
+              <p className="text-sm text-[#a89060]">
                 Register your ERC-8004 agent on-chain. The agent card URL is stored on-chain.
               </p>
             </DialogHeader>
-            <div className="px-6 py-6 space-y-6 overflow-y-auto">
+            <div className="px-6 py-6 space-y-4 overflow-y-auto">
               {/* Step 1: Network */}
-              <Card className="border-border">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                      1
-                    </span>
-                    <h2 className="font-semibold text-sm">Select network</h2>
+              <SectionCard>
+                <div className="px-4 pt-4 pb-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <StepBadge n={1} />
+                    <h2 className="font-semibold text-sm text-[#e8dcc8]">Select network</h2>
                   </div>
-                </CardHeader>
-                <CardContent>
                   <div className="flex gap-3">
                     {(Object.keys(NETWORKS) as NetworkId[]).map((id) => (
                       <NetworkCard
@@ -381,210 +430,203 @@ export function RegisterAgentDialog({
                       />
                     ))}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </SectionCard>
 
               {/* Step 2: Endpoints */}
-              <Card className="border-border">
-                <CardHeader className="pb-3">
+              <SectionCard>
+                <div className="px-4 pt-4 pb-3">
                   <button
                     type="button"
-                    className="flex w-full items-center justify-between"
+                    className="flex w-full items-center justify-between mb-3"
                     onClick={() => setEndpointsSectionOpen((v) => !v)}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                        2
-                      </span>
-                      <h2 className="font-semibold text-sm">Configure endpoints</h2>
+                      <StepBadge n={2} />
+                      <h2 className="font-semibold text-sm text-[#e8dcc8]">Configure endpoints</h2>
                       {activeEndpointCount > 0 && (
-                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                        <span className="rounded-full bg-[rgba(245,217,106,0.1)] px-2 py-0.5 text-[10px] font-semibold text-[#f5d96a]">
                           {activeEndpointCount} active
                         </span>
                       )}
                     </div>
                     {endpointsSectionOpen ? (
-                      <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                      <ChevronUp className="h-4 w-4 text-[#a89060]" />
                     ) : (
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      <ChevronDown className="h-4 w-4 text-[#a89060]" />
                     )}
                   </button>
-                </CardHeader>
-                {endpointsSectionOpen && (
-                  <CardContent className="space-y-2.5">
-                    <EndpointRow
-                      icon="💗"
-                      label="Health Check"
-                      description="Liveness endpoint returning { status: 'ok' }"
-                      enabled={endpoints.health.enabled}
-                      onToggle={() => toggleEndpoint("health")}
-                    >
-                      <div className="space-y-1">
-                        <Label className="text-xs">URL</Label>
-                        <Input
-                          placeholder="https://your-agent.vercel.app/api/health"
-                          value={endpoints.health.url}
-                          onChange={(e) => setEndpointField("health", "url", e.target.value)}
-                          className="h-8 text-xs font-mono"
-                        />
-                      </div>
-                    </EndpointRow>
-                    <EndpointRow
-                      icon="🔌"
-                      label="MCP"
-                      badge="Model Context Protocol"
-                      description="Exposes tools consumable by MCP-compatible agents"
-                      enabled={endpoints.mcp.enabled}
-                      onToggle={() => toggleEndpoint("mcp")}
-                    >
-                      <div className="space-y-1">
-                        <Label className="text-xs">Endpoint URL</Label>
-                        <Input
-                          placeholder="https://your-agent.vercel.app/mcp"
-                          value={endpoints.mcp.url}
-                          onChange={(e) => setEndpointField("mcp", "url", e.target.value)}
-                          className="h-8 text-xs font-mono"
-                        />
-                      </div>
-                    </EndpointRow>
-                    <EndpointRow
-                      icon="🔄"
-                      label="A2A"
-                      badge="Agent-to-Agent"
-                      description="Agent-to-Agent protocol"
-                      enabled={endpoints.a2a.enabled}
-                      onToggle={() => toggleEndpoint("a2a")}
-                    >
-                      <div className="space-y-1">
-                        <Label className="text-xs">Endpoint URL</Label>
-                        <Input
-                          placeholder="https://your-agent.vercel.app/a2a"
-                          value={endpoints.a2a.url}
-                          onChange={(e) => setEndpointField("a2a", "url", e.target.value)}
-                          className="h-8 text-xs font-mono"
-                        />
-                      </div>
-                    </EndpointRow>
-                    <EndpointRow
-                      icon="💳"
-                      label="x402 Payment"
-                      badge="ERC-8004"
-                      description="Paid service endpoint"
-                      enabled={endpoints.x402.enabled}
-                      onToggle={() => toggleEndpoint("x402")}
-                    >
-                      <div className="space-y-1">
-                        <Label className="text-xs">Service URL</Label>
-                        <Input
-                          placeholder="https://your-agent.vercel.app/api/run"
-                          value={endpoints.x402.url}
-                          onChange={(e) => setEndpointField("x402", "url", e.target.value)}
-                          className="h-8 text-xs font-mono"
-                        />
-                      </div>
-                    </EndpointRow>
-                    {customEndpoints.map((ep) => (
-                      <div
-                        key={ep.id}
-                        className="rounded-lg border border-dashed border-border p-4 space-y-3"
+                  {endpointsSectionOpen && (
+                    <div className="space-y-2.5">
+                      <EndpointRow
+                        icon="💗"
+                        label="Health Check"
+                        description="Liveness endpoint returning { status: 'ok' }"
+                        enabled={endpoints.health.enabled}
+                        onToggle={() => toggleEndpoint("health")}
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-muted-foreground">
-                            Custom endpoint
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => removeCustomEndpoint(ep.id)}
-                            className="text-muted-foreground hover:text-destructive transition-colors"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                        <div className="space-y-1">
+                          <ThemedLabel>URL</ThemedLabel>
+                          <ThemedInput
+                            placeholder="https://your-agent.vercel.app/api/health"
+                            value={endpoints.health.url}
+                            onChange={(e) => setEndpointField("health", "url", e.target.value)}
+                            className="h-8 text-xs font-mono"
+                          />
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1">
-                            <Label className="text-xs">Name</Label>
-                            <Input
-                              placeholder="e.g. webhook"
-                              value={ep.name}
-                              onChange={(e) => updateCustomEndpoint(ep.id, "name", e.target.value)}
-                              className="h-8 text-xs"
-                            />
+                      </EndpointRow>
+                      <EndpointRow
+                        icon="🔌"
+                        label="MCP"
+                        badge="Model Context Protocol"
+                        description="Exposes tools consumable by MCP-compatible agents"
+                        enabled={endpoints.mcp.enabled}
+                        onToggle={() => toggleEndpoint("mcp")}
+                      >
+                        <div className="space-y-1">
+                          <ThemedLabel>Endpoint URL</ThemedLabel>
+                          <ThemedInput
+                            placeholder="https://your-agent.vercel.app/mcp"
+                            value={endpoints.mcp.url}
+                            onChange={(e) => setEndpointField("mcp", "url", e.target.value)}
+                            className="h-8 text-xs font-mono"
+                          />
+                        </div>
+                      </EndpointRow>
+                      <EndpointRow
+                        icon="🔄"
+                        label="A2A"
+                        badge="Agent-to-Agent"
+                        description="Agent-to-Agent protocol"
+                        enabled={endpoints.a2a.enabled}
+                        onToggle={() => toggleEndpoint("a2a")}
+                      >
+                        <div className="space-y-1">
+                          <ThemedLabel>Endpoint URL</ThemedLabel>
+                          <ThemedInput
+                            placeholder="https://your-agent.vercel.app/a2a"
+                            value={endpoints.a2a.url}
+                            onChange={(e) => setEndpointField("a2a", "url", e.target.value)}
+                            className="h-8 text-xs font-mono"
+                          />
+                        </div>
+                      </EndpointRow>
+                      <EndpointRow
+                        icon="💳"
+                        label="x402 Payment"
+                        badge="ERC-8004"
+                        description="Paid service endpoint"
+                        enabled={endpoints.x402.enabled}
+                        onToggle={() => toggleEndpoint("x402")}
+                      >
+                        <div className="space-y-1">
+                          <ThemedLabel>Service URL</ThemedLabel>
+                          <ThemedInput
+                            placeholder="https://your-agent.vercel.app/api/run"
+                            value={endpoints.x402.url}
+                            onChange={(e) => setEndpointField("x402", "url", e.target.value)}
+                            className="h-8 text-xs font-mono"
+                          />
+                        </div>
+                      </EndpointRow>
+                      {customEndpoints.map((ep) => (
+                        <div
+                          key={ep.id}
+                          className="rounded-lg border border-dashed border-[rgba(168,144,96,0.25)] bg-[rgba(18,13,6,0.4)] p-4 space-y-3"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-[#a89060]">
+                              Custom endpoint
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeCustomEndpoint(ep.id)}
+                              className="text-[#a89060] hover:text-red-400 transition-colors"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
                           </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">URL</Label>
-                            <Input
-                              placeholder="https://..."
-                              value={ep.url}
-                              onChange={(e) => updateCustomEndpoint(ep.id, "url", e.target.value)}
-                              className="h-8 text-xs font-mono"
-                            />
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <ThemedLabel>Name</ThemedLabel>
+                              <ThemedInput
+                                placeholder="e.g. webhook"
+                                value={ep.name}
+                                onChange={(e) => updateCustomEndpoint(ep.id, "name", e.target.value)}
+                                className="h-8 text-xs"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <ThemedLabel>URL</ThemedLabel>
+                              <ThemedInput
+                                placeholder="https://..."
+                                value={ep.url}
+                                onChange={(e) => updateCustomEndpoint(ep.id, "url", e.target.value)}
+                                className="h-8 text-xs font-mono"
+                              />
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="w-full gap-1.5 text-xs border-dashed"
-                      onClick={addCustomEndpoint}
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      Add custom endpoint
-                    </Button>
-                  </CardContent>
-                )}
-              </Card>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={addCustomEndpoint}
+                        className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[rgba(168,144,96,0.25)] py-2 text-xs text-[#a89060] hover:border-[rgba(245,217,106,0.3)] hover:text-[#f5d96a] transition-colors"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Add custom endpoint
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </SectionCard>
 
               {/* Step 3: Verify */}
-              <Card className="border-border">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                      3
-                    </span>
-                    <h2 className="font-semibold text-sm">Enter agent URLs</h2>
+              <SectionCard>
+                <div className="px-4 pt-4 pb-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <StepBadge n={3} />
+                    <h2 className="font-semibold text-sm text-[#e8dcc8]">Enter agent URLs</h2>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="agentCardUrl">Agent Card URL</Label>
-                    <Input
-                      id="agentCardUrl"
-                      placeholder="https://your-agent.vercel.app/api/agent-card"
-                      value={agentCardUrl}
-                      onChange={(e) => {
-                        setAgentCardUrl(e.target.value);
-                        setValidation(null);
-                      }}
-                    />
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <ThemedLabel htmlFor="agentCardUrl">Agent Card URL</ThemedLabel>
+                      <ThemedInput
+                        id="agentCardUrl"
+                        placeholder="https://your-agent.vercel.app/api/agent-card"
+                        value={agentCardUrl}
+                        onChange={(e) => {
+                          setAgentCardUrl(e.target.value);
+                          setValidation(null);
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <ThemedLabel htmlFor="healthUrl">
+                        Health URL{" "}
+                        <span className="text-[#a89060]/60 font-normal">(optional)</span>
+                      </ThemedLabel>
+                      <ThemedInput
+                        id="healthUrl"
+                        placeholder={endpoints.health.url || "https://your-agent.vercel.app/api/health"}
+                        value={healthUrl}
+                        onChange={(e) => {
+                          setHealthUrl(e.target.value);
+                          setValidation(null);
+                        }}
+                      />
+                    </div>
+                    <button
+                      onClick={handleVerify}
+                      disabled={!agentCardUrl.trim() || validating}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg border border-[rgba(168,144,96,0.35)] bg-[rgba(168,144,96,0.06)] py-2 text-sm text-[#a89060] hover:border-[rgba(245,217,106,0.4)] hover:text-[#f5d96a] hover:bg-[rgba(245,217,106,0.05)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {validating && <Loader2 className="h-4 w-4 animate-spin" />}
+                      {validating ? "Verifying…" : "Verify Agent"}
+                    </button>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="healthUrl">
-                      Health URL{" "}
-                      <span className="text-muted-foreground font-normal">(optional)</span>
-                    </Label>
-                    <Input
-                      id="healthUrl"
-                      placeholder={endpoints.health.url || "https://your-agent.vercel.app/api/health"}
-                      value={healthUrl}
-                      onChange={(e) => {
-                        setHealthUrl(e.target.value);
-                        setValidation(null);
-                      }}
-                    />
-                  </div>
-                  <Button
-                    onClick={handleVerify}
-                    disabled={!agentCardUrl.trim() || validating}
-                    variant="outline"
-                    className="w-full"
-                  >
-                    {validating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {validating ? "Verifying…" : "Verify Agent"}
-                  </Button>
-                </CardContent>
-              </Card>
+                </div>
+              </SectionCard>
 
               {validation && (
                 <AgentVerificationPanel
@@ -596,37 +638,34 @@ export function RegisterAgentDialog({
               )}
 
               {validation && (
-                <Card className="border-border">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                        4
-                      </span>
-                      <h2 className="font-semibold text-sm">Register on-chain</h2>
+                <SectionCard>
+                  <div className="px-4 pt-4 pb-4">
+                    <div className="flex items-center gap-2 mb-4">
+                      <StepBadge n={4} />
+                      <h2 className="font-semibold text-sm text-[#e8dcc8]">Register on-chain</h2>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <Button
+                    <button
                       onClick={handleRegister}
                       disabled={!canRegister}
-                      className="w-full"
+                      className="flex w-full items-center justify-center gap-2 rounded-lg border border-[rgba(245,217,106,0.4)] bg-[rgba(245,217,106,0.09)] py-2.5 text-sm font-semibold text-[#f5d96a] hover:bg-[rgba(245,217,106,0.15)] hover:border-[rgba(245,217,106,0.6)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                      style={{ fontFamily: CINZEL, letterSpacing: "0.04em" }}
                     >
                       {isWriting || isConfirming ? (
                         <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <Loader2 className="h-4 w-4 animate-spin" />
                           {isConfirming ? "Confirming…" : "Waiting for wallet…"}
                         </>
                       ) : (
                         `Register on ${networkConfig.name}`
                       )}
-                    </Button>
+                    </button>
                     {writeError && (
-                      <p className="mt-2 text-xs text-red-600">
+                      <p className="mt-2 text-xs text-red-400">
                         {writeError.message?.split("\n")[0]}
                       </p>
                     )}
-                  </CardContent>
-                </Card>
+                  </div>
+                </SectionCard>
               )}
             </div>
           </>

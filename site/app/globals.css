@@ -99,6 +99,36 @@
   --sidebar-ring: #f5d96a;
 }
 
+/* Force FilCraft theme in dark mode (html.dark activates shadcn dark variants) */
+.dark {
+  --background: #0a0804;
+  --foreground: #e8dcc8;
+  --card: #120d06;
+  --card-foreground: #e8dcc8;
+  --popover: #1a1208;
+  --popover-foreground: #e8dcc8;
+  --primary: #f5d96a;
+  --primary-foreground: #0a0804;
+  --secondary: #1a1208;
+  --secondary-foreground: #c8b890;
+  --muted: #1a1208;
+  --muted-foreground: #a89060;
+  --accent: #2a1f08;
+  --accent-foreground: #f5d96a;
+  --destructive: #dc2626;
+  --border: #2a1f08;
+  --input: #1a1208;
+  --ring: #f5d96a;
+  --sidebar: #0f0a05;
+  --sidebar-foreground: #e8dcc8;
+  --sidebar-primary: #f5d96a;
+  --sidebar-primary-foreground: #0a0804;
+  --sidebar-accent: #1a1208;
+  --sidebar-accent-foreground: #f5d96a;
+  --sidebar-border: #2a1f08;
+  --sidebar-ring: #f5d96a;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
