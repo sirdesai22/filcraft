@@ -27,13 +27,13 @@ export function SplashGate({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<"checking" | "splash" | "done">("checking");
 
   useEffect(() => {
-    // Kick off model downloads immediately — animation gives us ~9 s to cache them
+    // Kick off model downloads immediately — animation gives us ~8 s to cache them
     preloadWorldAssets();
 
     const alreadyShown = (() => {
       try {
         const ts = Number(sessionStorage.getItem(SPLASH_KEY) ?? 0);
-        return ts > 0 && Date.now() - ts < 30_000;
+        return ts > 0 && Date.now() - ts < 120_000;
       } catch {
         return false;
       }
