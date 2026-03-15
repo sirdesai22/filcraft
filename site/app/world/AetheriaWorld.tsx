@@ -268,10 +268,22 @@ export function AetheriaWorld({
       });
     };
 
-    const loadModel = (THREE: { GLTFLoader: new () => { load: (url: string, onLoad: (gltf: unknown) => void, onProgress?: unknown, onError?: (err: unknown) => void) => void } }, path: string): Promise<unknown> => {
+    const loadModel = (
+      THREE: { GLTFLoader: new () => { load: (url: string, onLoad: (gltf: unknown) => void, onProgress?: unknown, onError?: (err: unknown) => void) => void } },
+      path: string,
+      name: string
+    ): Promise<unknown> => {
       return new Promise((resolve, reject) => {
         const loader = new THREE.GLTFLoader();
-        loader.load(path, (gltf) => resolve(gltf), undefined, (err) => reject(err));
+        loader.load(
+          path,
+          (gltf) => resolve(gltf),
+          undefined,
+          (err) => {
+            console.error(`[AetheriaWorld] Failed to load ${name} (${path}):`, err);
+            reject(err);
+          }
+        );
       });
     };
 
@@ -285,11 +297,12 @@ export function AetheriaWorld({
       })
       .then(({ THREE }) => {
         if (cancelled) return Promise.reject(new Error("cancelled"));
+        const T = THREE as Parameters<typeof loadModel>[0];
         return Promise.all([
-          loadModel(THREE as Parameters<typeof loadModel>[0], "/models/RobotExpressive.glb"),
-          loadModel(THREE as Parameters<typeof loadModel>[0], "/models/CastleModel.glb"),
-          loadModel(THREE as Parameters<typeof loadModel>[0], "/models/filecoin_model.glb"),
-          loadModel(THREE as Parameters<typeof loadModel>[0], "/models/furnace.glb"),
+          loadModel(T, "/models/RobotExpressive.glb", "RobotExpressive"),
+          loadModel(T, "/models/CastleModel.glb", "CastleModel"),
+          loadModel(T, "/models/filecoin_model.glb", "filecoin_model"),
+          loadModel(T, "/models/furnace.glb", "furnace"),
         ]).then(([gltf, castleGltf, filecoinGltf, furnaceGltf]) => ({ THREE, gltf, castleGltf, filecoinGltf, furnaceGltf }));
       })
       .then(({ THREE, gltf, castleGltf, filecoinGltf, furnaceGltf }) => {

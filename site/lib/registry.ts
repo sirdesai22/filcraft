@@ -353,7 +353,6 @@ export async function fetchAgentById(
     return agent;
   }
 
-  // Subgraph only — no RPC fallback
   if (config.subgraphUrl) {
     try {
       const agent = await fetchAgentByIdFromSubgraph(
@@ -362,6 +361,15 @@ export async function fetchAgentById(
         networkId,
         config.chain.id
       );
+      if (!agent) return null;
+      // Subgraph only tracks identity events — reputation lives in the ReputationRegistry contract.
+      // Always fall back to RPC for reputation data.
+      const reputation = await fetchReputationFromRpc(
+        networkId,
+        config.reputationRegistry,
+        BigInt(agentId)
+      );
+      if (reputation.totalFeedback > 0) return { ...agent, reputation };
       return agent;
     } catch (subgraphErr) {
       console.error(`[fetchAgentById] Subgraph error for agent ${agentId} on ${networkId}:`, subgraphErr);

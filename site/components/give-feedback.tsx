@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAccount, useConnect, useDisconnect, useSwitchChain, useWriteContract } from "wagmi";
-import { keccak256, toHex } from "viem";
+import { getAddress, keccak256, toHex } from "viem";
 import {
   Dialog,
   DialogContent,
@@ -24,10 +24,11 @@ const TAG1_OPTIONS = ["starred", "quality", "speed", "reliability", "helpfulness
 interface GiveFeedbackProps {
   agentId: string;
   networkId: NetworkId;
+  owner?: string;
   onSuccess?: () => void;
 }
 
-export function GiveFeedback({ agentId, networkId, onSuccess }: GiveFeedbackProps) {
+export function GiveFeedback({ agentId, networkId, owner, onSuccess }: GiveFeedbackProps) {
   const [open, setOpen] = useState(false);
   const [score, setScore] = useState(85);
   const [tag1, setTag1] = useState("starred");
@@ -59,6 +60,7 @@ export function GiveFeedback({ agentId, networkId, onSuccess }: GiveFeedbackProp
   });
 
   const handleOpenChange = (next: boolean) => {
+    if (next && isOwner) return;
     if (!next) reset();
     setOpen(next);
   };
@@ -73,6 +75,7 @@ export function GiveFeedback({ agentId, networkId, onSuccess }: GiveFeedbackProp
       await switchChainAsync({ chainId });
       return;
     }
+    if (isOwner) return;
 
     const agentIdBigInt = BigInt(agentId);
     const value = BigInt(Math.min(100, Math.max(0, score)));
@@ -101,12 +104,25 @@ export function GiveFeedback({ agentId, networkId, onSuccess }: GiveFeedbackProp
 
   const isWrongChain = isConnected && chain?.id !== chainId;
   const needsConnect = !isConnected;
-  const canSubmit = isConnected && chain?.id === chainId && !isSubmitting;
+  const isOwner = (() => {
+    if (!owner || !address) return false;
+    try {
+      return getAddress(owner.trim()) === getAddress(address.trim());
+    } catch {
+      return owner.trim().toLowerCase() === address.trim().toLowerCase();
+    }
+  })();
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1.5">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          disabled={isOwner}
+          title={isOwner ? "Owner cannot give feedback" : undefined}
+        >
           <MessageSquare className="h-3.5 w-3.5" />
           Give feedback
         </Button>
@@ -147,6 +163,15 @@ export function GiveFeedback({ agentId, networkId, onSuccess }: GiveFeedbackProp
             </div>
           )}
 
+          {isOwner && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
+              <p className="font-medium text-amber-600 dark:text-amber-400">Owner cannot give feedback</p>
+              <p className="mt-1 text-muted-foreground">
+                Reputation can only be given by others. You cannot give feedback to your own agent.
+              </p>
+            </div>
+          )}
+
           {isWrongChain && (
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
               <p className="font-medium text-amber-600 dark:text-amber-400">Wrong network</p>
@@ -173,7 +198,7 @@ export function GiveFeedback({ agentId, networkId, onSuccess }: GiveFeedbackProp
             </div>
           )}
 
-          {isConnected && chain?.id === chainId && (
+          {isConnected && chain?.id === chainId && !isOwner && (
             <>
               <div className="space-y-2">
                 <Label htmlFor="score">Score (0–100)</Label>
@@ -251,7 +276,7 @@ export function GiveFeedback({ agentId, networkId, onSuccess }: GiveFeedbackProp
             )}
             <Button
               type="submit"
-              disabled={isSubmitting || isConnecting || isSwitching}
+              disabled={isSubmitting || isConnecting || isSwitching || isOwner}
             >
               {isSubmitting ? (
                 <>
@@ -262,6 +287,8 @@ export function GiveFeedback({ agentId, networkId, onSuccess }: GiveFeedbackProp
                 "Connect to continue"
               ) : isWrongChain ? (
                 "Switch network to continue"
+              ) : isOwner ? (
+                "Owner cannot submit feedback"
               ) : (
                 "Submit feedback"
               )}
