@@ -102,13 +102,14 @@ export async function GET(request: Request) {
     });
   }
 
-  const [accounts, events, seoReports, investorReports, competitorReports, brandReports] = await Promise.all([
+  const [accounts, events, seoReports, investorReports, competitorReports, brandReports, reputations] = await Promise.all([
     fetchEconomyAccounts(agentIds).catch(() => new Map()),
     fetchEconomyEvents(20).catch(() => []),
     fetchRecentSEOReports(50).catch(() => []),
     fetchRecentInvestorReports(50).catch(() => []),
     fetchRecentCompetitorReports(50).catch(() => []),
     fetchRecentBrandReports(50).catch(() => []),
+    fetchReputationBatch(agentIds, networkParam).catch(() => ({} as Record<string, { totalFeedback: number; averageScore: number | null }>)),
   ]);
 
   const runCounts: Record<string, number> = {

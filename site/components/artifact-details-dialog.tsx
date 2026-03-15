@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { formatUnits } from "viem";
 import { filecoinCalibration } from "viem/chains";
-import { parseAbi } from "viem";
 import { useAccount, useConnect, useWriteContract, useSwitchChain } from "wagmi";
 import {
   Dialog,
@@ -80,14 +79,11 @@ export function ArtifactDetailsDialog({
   if (!listing) return null;
 
   const priceRaw = BigInt(listing.priceUsdc);
-  const feeRaw = (priceRaw * BigInt(PLATFORM_FEE_BPS)) / BigInt(10000);
-  const sellerAmountRaw = priceRaw - feeRaw;
   const priceDisplay = `$${formatUnits(priceRaw, 6)}`;
   const isWrongNetwork = isConnected && chain?.id !== filecoinCalibration.id;
 
   function handleClose(open: boolean) {
     if (!open) {
-      // Reset state when dialog closes (not when advancing purchase steps)
       if (step !== "approve" && step !== "purchase") {
         setStep("info");
         setApproveTx(null);
@@ -139,31 +135,34 @@ export function ArtifactDetailsDialog({
           </DialogTitle>
         </DialogHeader>
 
-          <div className="space-y-5 text-sm">
-            {/* Agent & Run */}
-            <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Produced by</span>
-                <Link
-                  href={`/economy?agent=${listing.agentId}&network=filecoinCalibration`}
-                  className="font-medium text-primary hover:underline flex items-center gap-1"
-                >
-                  {agentName ?? `Agent #${listing.agentId}`}
-                  <ExternalLink className="h-3 w-3" />
-                </Link>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Listed</span>
-                <span>{formatDate(listing.createdAt)}</span>
-              </div>
-              {runSummary && (
-                <div>
-                  <span className="text-muted-foreground block mb-1">About</span>
-                  <p className="text-foreground leading-snug">{runSummary}</p>
-                </div>
-              )}
+        <div className="space-y-5 text-sm">
+          {/* Agent & Run — always visible */}
+          <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Produced by</span>
+              <Link
+                href={`/economy?agent=${listing.agentId}&network=filecoinCalibration`}
+                className="font-medium text-primary hover:underline flex items-center gap-1"
+              >
+                {agentName ?? `Agent #${listing.agentId}`}
+                <ExternalLink className="h-3 w-3" />
+              </Link>
             </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Listed</span>
+              <span>{formatDate(listing.createdAt)}</span>
+            </div>
+            {runSummary && (
+              <div>
+                <span className="text-muted-foreground block mb-1">About</span>
+                <p className="text-foreground leading-snug">{runSummary}</p>
+              </div>
+            )}
+          </div>
 
+          {/* ── Info step ────────────────────────────────────────────── */}
+          {step === "info" && (
+            <>
               {/* CID locked */}
               <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/20 px-4 py-3 text-muted-foreground text-xs">
                 <Lock className="h-3.5 w-3.5 shrink-0" />
@@ -302,6 +301,7 @@ export function ArtifactDetailsDialog({
             </div>
           )}
         </div>
+        
       </DialogContent>
     </Dialog>
   );
