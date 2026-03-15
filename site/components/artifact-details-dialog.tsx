@@ -35,7 +35,7 @@ const FILECOIN_GAS_LIMIT = getNetwork("filecoinCalibration").transactionGasLimit
 type Step = "info" | "approve" | "purchase" | "done" | "error";
 
 function filbeamUrl(cid: string) {
-  return `https://calib.ezpdpz.net/piece/${cid}`;
+  return `https://caliberation-pdp.infrafolio.com/piece/${cid}`;
 }
 
 function formatDate(timestamp: string) {
