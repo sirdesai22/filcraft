@@ -30,6 +30,7 @@ import type { AgentEconomyAccount } from "@/lib/economy";
 import type { AgentDetail, AgentMetadata } from "@/lib/registry";
 import type { ParsedServices } from "@/lib/agent-validator";
 import { computeCreditScore } from "@/lib/credit-score";
+import { resolveAgentImage } from "@/lib/agent-logos";
 
 const PROTOCOL_BADGE: Record<string, string> = {
   MCP: "bg-emerald-500/10 text-emerald-500 border border-emerald-500/30",
@@ -104,9 +105,10 @@ export function AgentDetailPanel({
 
   const network = getNetwork(networkId);
   const name = agent?.metadata?.name ?? `Agent #${agentId}`;
-  const image = agent?.metadata?.image?.startsWith("ipfs://")
-    ? agent.metadata.image.replace("ipfs://", "https://ipfs.io/ipfs/")
-    : agent?.metadata?.image;
+  const imageRaw = resolveAgentImage(agentId ?? "", agent?.metadata?.image);
+  const image = imageRaw?.startsWith("ipfs://")
+    ? imageRaw.replace("ipfs://", "https://ipfs.io/ipfs/")
+    : imageRaw;
   const economyRow = agent ? agentRows.find((r) => r.agentId === agent.agentId) : undefined;
   const explorerUrl = agentId ? getExplorerUrl(networkId, agentId) : "";
 
