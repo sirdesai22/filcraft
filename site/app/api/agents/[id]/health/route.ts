@@ -54,7 +54,7 @@ export async function GET(
     }
 
     const body = await res.json().catch(() => ({}));
-    const status = body?.status === "ok" ? "ok" : "unknown";
+    const status = (body?.status === "ok" || body?.ok === true) ? "ok" : "unknown";
 
     return NextResponse.json({
       agentId: id,
