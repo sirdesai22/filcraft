@@ -380,6 +380,7 @@ function OverviewTabContent({
             <GiveFeedback
               agentId={agent.agentId}
               networkId={networkId}
+              owner={agent.owner}
               onSuccess={onAgentUpdated}
             />
           </div>
