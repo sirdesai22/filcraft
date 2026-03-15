@@ -359,16 +359,18 @@ export function RegisterAgentDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger ?? (
-          <button
-            className="rounded-full border border-[rgba(245,217,106,0.4)] bg-[rgba(245,217,106,0.08)] px-4 py-1.5 text-sm font-semibold text-[#f5d96a] hover:bg-[rgba(245,217,106,0.14)] hover:border-[rgba(245,217,106,0.6)] transition-all"
-            style={{ fontFamily: CINZEL, letterSpacing: "0.05em" }}
-          >
-            Register Agent
-          </button>
-        )}
-      </DialogTrigger>
+      {!isControlled && (
+        <DialogTrigger asChild>
+          {trigger ?? (
+            <button
+              className="rounded-full border border-[rgba(245,217,106,0.4)] bg-[rgba(245,217,106,0.08)] px-4 py-1.5 text-sm font-semibold text-[#f5d96a] hover:bg-[rgba(245,217,106,0.14)] hover:border-[rgba(245,217,106,0.6)] transition-all"
+              style={{ fontFamily: CINZEL, letterSpacing: "0.05em" }}
+            >
+              Register Agent
+            </button>
+          )}
+        </DialogTrigger>
+      )}
       <DialogContent
         className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0 border-[rgba(168,144,96,0.3)] bg-[#0d0a05]"
         showCloseButton={!isConfirmed}

@@ -87,7 +87,10 @@ export function MarketplaceAgentCard({ agent }: MarketplaceAgentCardProps) {
     : null;
 
   return (
-    <Link href={`/agents/${networkId}/${agent.agentId}`} className="block group">
+    <Link
+      href={`/marketplace?agent=${agent.agentId}&network=${networkId}`}
+      className="block group"
+    >
       <div className="rounded-lg border border-[rgba(168,144,96,0.18)] bg-card p-4 hover:border-[rgba(245,217,106,0.28)] hover:bg-[rgba(245,217,106,0.02)] transition-all duration-200">
         <div className="flex items-start gap-3">
           <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-[rgba(168,144,96,0.2)] bg-[#1a1208]">

@@ -217,7 +217,7 @@ export default async function LivePage() {
         <SectionHeader
           title="SEO Analyses"
           sub={<>Powered by <a href={seoBase} target="_blank" rel="noopener noreferrer" className="font-mono text-[#e8dcc8] hover:text-[#f5d96a] transition-colors">seo-agent</a> · x402 payment gated · Filecoin-stored</>}
-          link="/agents/filecoinCalibration/12"
+          link="/economy?agent=12&network=filecoinCalibration"
           agentNum="12"
         />
         {seoReports.length === 0 ? (
@@ -234,7 +234,7 @@ export default async function LivePage() {
         <SectionHeader
           title="Investor Analyses"
           sub={<>Powered by <a href={invBase} target="_blank" rel="noopener noreferrer" className="font-mono text-[#e8dcc8] hover:text-[#f5d96a] transition-colors">investor-finder</a> · A2A or direct x402 · Filecoin-stored</>}
-          link="/agents/filecoinCalibration/13"
+          link="/economy?agent=13&network=filecoinCalibration"
           agentNum="13"
         />
         {investorReports.length === 0 ? (
@@ -251,7 +251,7 @@ export default async function LivePage() {
         <SectionHeader
           title="Competitor Analyses"
           sub={<>Powered by <a href={cmpBase} target="_blank" rel="noopener noreferrer" className="font-mono text-[#e8dcc8] hover:text-[#f5d96a] transition-colors">competitor-analyser</a> · SWOT analysis · Filecoin-stored</>}
-          link="/agents/filecoinCalibration/14"
+          link="/economy?agent=14&network=filecoinCalibration"
           agentNum="14"
         />
         {competitorReports.length === 0 ? (

@@ -7,7 +7,9 @@
 
 import { Suspense } from "react";
 import Link from "next/link";
+import { Info } from "lucide-react";
 import { EconomyClient } from "./economy-client";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getAgentsPage } from "@/lib/agents";
 import {
   fetchEconomyAccounts,
@@ -47,7 +49,14 @@ async function fetchRunCounts(): Promise<Record<string, number>> {
 
 export const dynamic = "force-dynamic";
 
-export default async function EconomyPage() {
+export default async function EconomyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ agent?: string; network?: string }>;
+}) {
+  const sp = await searchParams;
+  const initialAgent = sp.agent ?? null;
+  const initialNetwork = sp.network ?? "filecoinCalibration";
   // Fetch all agents on Filecoin Calibration to get their IDs
   const agentsResult = await getAgentsPage({
     network: "filecoinCalibration",
@@ -101,16 +110,22 @@ export default async function EconomyPage() {
       label: "Identity Registry",
       sublabel: "ERC-8004 agent NFT registry",
       address: identityRegistry,
+      description:
+        "Mints and manages agent NFTs. Each agent has a unique on-chain identity (agentId) linked to this registry. The agent ID shown across the dashboard is the token ID from this contract.",
     },
     {
       label: "Reputation Registry",
       sublabel: "On-chain feedback & scoring",
       address: reputationRegistry,
+      description:
+        "Stores on-chain feedback and scores for agents. Users submit ratings and reviews; the contract aggregates these into reputation scores used for credit scoring in the marketplace.",
     },
     {
       label: "Economy Registry",
       sublabel: "Budget, storage cost & revenue",
       address: AGENT_ECONOMY_REGISTRY_ADDRESS,
+      description:
+        "Tracks each agent's tFIL balance, storage costs paid, revenue earned, and survival status. Agents draw down their balance when storing data on Filecoin; revenue from artifact sales is recorded. Agents below the minimum viability threshold can be wound down.",
     },
   ];
 
@@ -146,11 +161,31 @@ export default async function EconomyPage() {
           </span>
         </div>
         <div className="divide-y divide-[rgba(168,144,96,0.1)]">
-          {contracts.map(({ label, sublabel, address }) => (
+          {contracts.map(({ label, sublabel, address, description }) => (
             <div key={label} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 px-4 py-3 hover:bg-[rgba(245,217,106,0.02)] transition-colors">
-              <div className="sm:w-52 shrink-0">
-                <p className="text-sm font-semibold text-[#e8dcc8]">{label}</p>
-                <p className="text-xs text-[#a89060]">{sublabel}</p>
+              <div className="sm:w-52 shrink-0 flex items-start gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-[#e8dcc8]">{label}</p>
+                  <p className="text-xs text-[#a89060]">{sublabel}</p>
+                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="shrink-0 mt-0.5 p-0.5 rounded-full text-[#a89060] hover:text-[#f5d96a] hover:bg-[rgba(245,217,106,0.08)] transition-colors focus:outline-none focus:ring-2 focus:ring-[#f5d96a]/30"
+                      aria-label={`Explain ${label}`}
+                    >
+                      <Info className="h-5 w-5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="right"
+                    sideOffset={8}
+                    className="max-w-sm text-base leading-relaxed px-4 py-3"
+                  >
+                    {description}
+                  </TooltipContent>
+                </Tooltip>
               </div>
               <a
                 href={filscan(address)}
@@ -166,7 +201,12 @@ export default async function EconomyPage() {
       </div>
 
       <Suspense fallback={<EconomySkeleton />}>
-        <EconomyClient initialData={initialData} agentIds={agentIds} />
+        <EconomyClient
+          initialData={initialData}
+          agentIds={agentIds}
+          initialAgent={initialAgent}
+          initialNetwork={initialNetwork}
+        />
       </Suspense>
     </div>
   );

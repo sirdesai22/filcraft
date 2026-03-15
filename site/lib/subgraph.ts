@@ -372,6 +372,7 @@ async function fetchMetadata(uri: string): Promise<AgentMetadata | null> {
   if (!uri) return null;
   try {
     const res = await fetch(resolveURI(uri), {
+      signal: AbortSignal.timeout(5000),
       next: { revalidate: 3600 },
     } as RequestInit);
     if (!res.ok) return null;

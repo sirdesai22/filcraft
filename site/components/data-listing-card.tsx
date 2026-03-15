@@ -97,7 +97,7 @@ export function DataListingCard({ listing }: { listing: DataListing }) {
           <span>
             Produced by:{" "}
             <a
-              href={`/agents/filecoinCalibration/${listing.agentId}`}
+              href={`/economy?agent=${listing.agentId}&network=filecoinCalibration`}
               className="font-medium text-primary hover:underline"
             >
               Agent #{listing.agentId}

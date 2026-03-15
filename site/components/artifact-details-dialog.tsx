@@ -77,7 +77,7 @@ export function ArtifactDetailsDialog({
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Produced by</span>
                 <Link
-                  href={`/agents/filecoinCalibration/${listing.agentId}`}
+                  href={`/economy?agent=${listing.agentId}&network=filecoinCalibration`}
                   className="font-medium text-primary hover:underline flex items-center gap-1"
                 >
                   {agentName ?? `Agent #${listing.agentId}`}

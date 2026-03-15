@@ -14,12 +14,15 @@
  */
 
 import { useEffect, useState, useCallback } from "react";
+import { motion } from "framer-motion";
 import { AgentDetailPanel } from "@/components/agent-detail-panel";
 import {
   Zap,
   TrendingDown,
   XCircle,
   ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   Database,
   DollarSign,
   Clock,
@@ -72,6 +75,31 @@ function formatBigIntWei(wei: string | bigint): string {
 
 function formatBigIntCents(cents: string | bigint): string {
   return formatUsd(cents);
+}
+
+function agentInitialsSvg(seed: string, name: string): string {
+  const PALETTES = [
+    ["#1a2744", "#6a8fd8"],
+    ["#0f2b1c", "#4caf7a"],
+    ["#26133d", "#a87ad4"],
+    ["#2e1808", "#d4935a"],
+    ["#0f2828", "#4abdb0"],
+  ];
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) {
+    h = (Math.imul(31, h) + seed.charCodeAt(i)) | 0;
+  }
+  const [bg, fg] = PALETTES[Math.abs(h) % PALETTES.length];
+  const words = name.replace(/^Agent\s*#?\d*\s*/i, "").trim().split(/\s+/).filter(Boolean);
+  const initials =
+    words.length >= 2
+      ? (words[0][0] + words[1][0]).toUpperCase()
+      : name.replace(/\s+/g, "").slice(0, 2).toUpperCase() || "?";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">
+    <rect width="40" height="40" fill="${bg}" rx="8"/>
+    <text x="20" y="24" text-anchor="middle" dominant-baseline="middle" font-family="Georgia,serif" font-size="14" font-weight="bold" fill="${fg}">${initials}</text>
+  </svg>`;
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
 }
 
 function statusColor(status: AgentEconomyAccount["status"]): string {
@@ -151,16 +179,20 @@ function eventDescription(event: EconomyEvent): string {
 export function EconomyClient({
   initialData,
   agentIds,
+  initialAgent = null,
+  initialNetwork = "filecoinCalibration",
 }: {
   initialData: DashboardData;
   agentIds: string[];
+  initialAgent?: string | null;
+  initialNetwork?: string;
 }) {
   const [data, setData] = useState<DashboardData>(initialData);
   const [sortBy, setSortBy] = useState<"totalSpent" | "balance" | "totalEarned">("totalSpent");
   const [refreshing, setRefreshing] = useState(false);
-  const [panelAgentId, setPanelAgentId] = useState<string | null>(null);
-  const [panelNetworkId, setPanelNetworkId] = useState<string>("filecoinCalibration");
-  const [panelOpen, setPanelOpen] = useState(false);
+  const [panelAgentId, setPanelAgentId] = useState<string | null>(initialAgent);
+  const [panelNetworkId, setPanelNetworkId] = useState<string>(initialNetwork);
+  const [panelOpen, setPanelOpen] = useState(!!initialAgent);
 
   const openAgentPanel = useCallback((agentId: string, networkId: string) => {
     setPanelAgentId(agentId);
@@ -256,96 +288,176 @@ export function EconomyClient({
 
       {/* 3. Agent P&L table */}
       <div className="rounded-xl border border-[rgba(168,144,96,0.2)] overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[rgba(168,144,96,0.15)] bg-[rgba(245,217,106,0.02)]">
-          <h2 className="text-sm font-semibold text-[#e8dcc8]" style={{ fontFamily: CINZEL, letterSpacing: "0.08em" }}>
+        {/* Enhanced header with gradient */}
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[rgba(168,144,96,0.15)] bg-gradient-to-r from-[rgba(245,217,106,0.06)] via-[rgba(245,217,106,0.02)] to-transparent">
+          <h2
+            className="text-sm font-semibold text-[#e8dcc8]"
+            style={{ fontFamily: CINZEL, letterSpacing: "0.08em" }}
+          >
             Agent P&amp;L
           </h2>
-          <div className="flex gap-2">
-            {(["totalSpent", "balance", "totalEarned"] as const).map((col) => (
-              <button
-                key={col}
-                onClick={() => setSortBy(col)}
-                className={cn(
-                  "text-xs px-2 py-1 rounded flex items-center gap-1 transition-colors",
-                  sortBy === col
-                    ? "bg-[rgba(245,217,106,0.12)] text-[#f5d96a] border border-[rgba(245,217,106,0.25)]"
-                    : "text-[#a89060] hover:text-[#e8dcc8] border border-transparent"
-                )}
-              >
-                <ArrowUpDown className="h-3 w-3" />
-                {col === "totalSpent" ? "Storage" : col === "balance" ? "Balance" : "Revenue"}
-              </button>
-            ))}
+          <div className="flex gap-1.5">
+            {(["totalSpent", "balance", "totalEarned"] as const).map((col) => {
+              const isActive = sortBy === col;
+              return (
+                <button
+                  key={col}
+                  onClick={() => setSortBy(col)}
+                  className={cn(
+                    "relative text-xs px-3 py-1.5 rounded flex items-center gap-1.5 transition-all duration-200",
+                    isActive
+                      ? "bg-[rgba(245,217,106,0.12)] text-[#f5d96a] border border-[rgba(245,217,106,0.25)]"
+                      : "text-[#a89060] hover:text-[#e8dcc8] hover:bg-[rgba(245,217,106,0.04)] border border-transparent"
+                  )}
+                >
+                  {isActive ? (
+                    <ArrowDown className="h-3 w-3" />
+                  ) : (
+                    <ArrowUpDown className="h-3 w-3 opacity-60" />
+                  )}
+                  {col === "totalSpent" ? "Storage" : col === "balance" ? "Balance" : "Revenue"}
+                  {isActive && (
+                    <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-[#f5d96a]/50 rounded-full" />
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
+
+        {/* Grid header */}
+        <div
+          className="grid gap-4 px-5 py-2.5 border-b border-[rgba(168,144,96,0.12)] text-[#a89060] text-xs min-w-[580px]"
+          style={{
+            gridTemplateColumns: "minmax(140px, 1fr) 60px 90px 100px 100px 100px",
+          }}
+        >
+          <div>Agent</div>
+          <div className="text-right">Runs</div>
+          <div className="text-right">Revenue (USD)</div>
+          <div className="text-right">Storage Cost</div>
+          <div className="text-right">Balance</div>
+          <div className="text-right">Status</div>
+        </div>
+
+        {/* Card-style rows with animations */}
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[rgba(168,144,96,0.12)] text-[#a89060] text-xs">
-                <th className="text-left px-4 py-2">Agent</th>
-                <th className="text-right px-4 py-2">Runs</th>
-                <th className="text-right px-4 py-2">Revenue (USD)</th>
-                <th className="text-right px-4 py-2">Storage Cost (tFIL)</th>
-                <th className="text-right px-4 py-2">Balance (tFIL)</th>
-                <th className="text-right px-4 py-2">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-[#a89060]">
-                    No agents found on Filecoin Calibration.
-                  </td>
-                </tr>
-              ) : (
-                sorted.map((row) => (
-                  <tr
-                    key={row.agentId}
-                    className={cn(
-                      "border-b border-[rgba(168,144,96,0.1)] last:border-0 transition-colors",
-                      statusRowClass(row.economy.status)
-                    )}
-                  >
-                    <td className="px-4 py-2">
-                      <button
-                        type="button"
-                        onClick={() => openAgentPanel(row.agentId, row.networkId)}
-                        className="font-medium text-[#e8dcc8] hover:text-[#f5d96a] transition-colors text-left"
-                      >
-                        {row.name}
-                      </button>
-                      <span className="ml-2 text-xs text-[#a89060]">
-                        #{row.agentId}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-right tabular-nums">
-                      {row.completedRuns > 0 ? (
-                        <span className="font-semibold text-[#e8dcc8]">{row.completedRuns}</span>
-                      ) : (
-                        <span className="text-[#a89060]">0</span>
+          {sorted.length === 0 ? (
+            <div className="px-5 py-12 text-center text-[#a89060] text-sm">
+              No agents found on Filecoin Calibration.
+            </div>
+          ) : (
+            <motion.div
+              className="divide-y divide-[rgba(168,144,96,0.08)] min-w-[580px]"
+              initial="hidden"
+              animate="visible"
+              variants={{
+                visible: {
+                  transition: { staggerChildren: 0.04, delayChildren: 0.02 },
+                },
+                hidden: {},
+              }}
+            >
+              {sorted.map((row) => {
+                  const borderAccent =
+                    row.economy.status === "healthy"
+                      ? "border-l-emerald-500/60"
+                      : row.economy.status === "at-risk"
+                        ? "border-l-amber-500/60"
+                        : "border-l-[#a89060]/30";
+                  return (
+                    <motion.div
+                      key={row.agentId}
+                      layout
+                      variants={{
+                        visible: { opacity: 1, y: 0 },
+                        hidden: { opacity: 0, y: 8 },
+                      }}
+                      transition={{ duration: 0.25 }}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openAgentPanel(row.agentId, row.networkId)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          openAgentPanel(row.agentId, row.networkId);
+                        }
+                      }}
+                      className={cn(
+                        "group grid gap-4 px-5 py-3.5 cursor-pointer transition-all duration-200",
+                        "border-l-4",
+                        borderAccent,
+                        "hover:bg-[rgba(245,217,106,0.03)]",
+                        statusRowClass(row.economy.status)
                       )}
-                    </td>
-                    <td className="px-4 py-2 text-right tabular-nums text-[#e8dcc8]">
-                      ${formatUsd(row.economy.totalEarned)}
-                    </td>
-                    <td className="px-4 py-2 text-right tabular-nums text-[#e8dcc8]">
-                      {formatTFil(row.economy.totalSpent)}
-                    </td>
-                    <td className="px-4 py-2 text-right tabular-nums text-[#e8dcc8]">
-                      {formatTFil(row.economy.balance)}
-                    </td>
-                    <td className={cn("px-4 py-2 text-right font-medium", statusColor(row.economy.status))}>
-                      {row.economy.status === "healthy"
-                        ? "Healthy"
-                        : row.economy.status === "at-risk"
-                        ? "At Risk"
-                        : "Wound Down"}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                      style={{
+                        gridTemplateColumns: "minmax(140px, 1fr) 60px 90px 100px 100px 100px",
+                      }}
+                    >
+                      {/* Agent with avatar */}
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img
+                          src={agentInitialsSvg(row.agentId, row.name)}
+                          alt=""
+                          className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-[rgba(168,144,96,0.2)]"
+                        />
+                        <div className="min-w-0">
+                          <p className="font-medium text-[#e8dcc8] group-hover:text-[#f5d96a] truncate transition-colors">
+                            {row.name}
+                          </p>
+                          <p className="text-xs text-[#a89060]">#{row.agentId}</p>
+                        </div>
+                      </div>
+
+                      {/* Runs badge */}
+                      <div className="flex items-center justify-end">
+                        {row.completedRuns > 0 ? (
+                          <span className="inline-flex items-center rounded-md bg-[rgba(245,217,106,0.1)] px-2 py-0.5 text-xs font-semibold tabular-nums text-[#f5d96a]">
+                            {row.completedRuns}
+                          </span>
+                        ) : (
+                          <span className="text-[#a89060] tabular-nums">0</span>
+                        )}
+                      </div>
+
+                      {/* Revenue with highlight */}
+                      <div className="flex items-center justify-end gap-1.5">
+                        {Number(row.economy.totalEarned) > 0 && (
+                          <DollarSign className="h-3.5 w-3.5 text-violet-400 shrink-0" />
+                        )}
+                        <span
+                          className={cn(
+                            "tabular-nums",
+                            Number(row.economy.totalEarned) > 0
+                              ? "font-semibold text-violet-400"
+                              : "text-[#e8dcc8]"
+                          )}
+                        >
+                          ${formatUsd(row.economy.totalEarned)}
+                        </span>
+                      </div>
+
+                      {/* Storage cost (gold) */}
+                      <div className="flex items-center justify-end tabular-nums text-[#f5d96a]/90">
+                        {formatTFil(row.economy.totalSpent)}
+                      </div>
+
+                      {/* Balance */}
+                      <div className="flex items-center justify-end">
+                        <span className="tabular-nums text-[#e8a030]/90 min-w-[3.5rem] text-right">
+                          {formatTFil(row.economy.balance)}
+                        </span>
+                      </div>
+
+                      {/* Status badge */}
+                      <div className="flex items-center justify-end">
+                        <StatusBadge status={row.economy.status} />
+                      </div>
+                    </motion.div>
+                  );
+                })}
+            </motion.div>
+          )}
         </div>
       </div>
 
@@ -408,18 +520,19 @@ export function EconomyClient({
               </p>
             ) : (
               leaderboard.map((row, rank) => (
-                <div key={row.agentId} className="flex items-center gap-4 px-4 py-3">
+                <button
+                  key={row.agentId}
+                  type="button"
+                  onClick={() => openAgentPanel(row.agentId, row.networkId)}
+                  className="flex w-full items-center gap-4 px-4 py-4 text-left hover:bg-[rgba(245,217,106,0.04)] transition-colors cursor-pointer"
+                >
                   <span className="text-2xl font-bold tabular-nums text-[#a89060]/25 w-8">
                     {rank + 1}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <button
-                      type="button"
-                      onClick={() => openAgentPanel(row.agentId, row.networkId)}
-                      className="text-sm font-medium text-[#e8dcc8] hover:text-[#f5d96a] transition-colors truncate block text-left w-full"
-                    >
+                    <p className="text-sm font-medium text-[#e8dcc8] truncate">
                       {row.name}
-                    </button>
+                    </p>
                     <p className="text-xs text-[#a89060]">#{row.agentId}</p>
                   </div>
                   <div className="text-right">
@@ -428,7 +541,7 @@ export function EconomyClient({
                     </p>
                     <p className="text-xs text-[#a89060]">{row.economy.status}</p>
                   </div>
-                </div>
+                </button>
               ))
             )}
           </div>
@@ -477,3 +590,34 @@ function StatusCard({
     </div>
   );
 }
+
+function StatusBadge({ status }: { status: AgentEconomyAccount["status"] }) {
+  const label =
+    status === "healthy" ? "Healthy" : status === "at-risk" ? "At Risk" : "Wound Down";
+  const dotColor =
+    status === "healthy" ? "bg-emerald-400" : status === "at-risk" ? "bg-amber-400" : "bg-[#a89060]/50";
+  const pillClass =
+    status === "healthy"
+      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+      : status === "at-risk"
+        ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
+        : "border-[rgba(168,144,96,0.2)] bg-[rgba(168,144,96,0.05)] text-[#a89060]/70";
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium",
+        pillClass
+      )}
+    >
+      <span
+        className={cn(
+          "h-1.5 w-1.5 shrink-0 rounded-full",
+          dotColor,
+          status === "healthy" && "animate-pulse"
+        )}
+      />
+      {label}
+    </span>
+  );
+}
+

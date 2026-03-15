@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, Wallet, LogOut } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -23,7 +23,6 @@ const NAV_LINKS: Array<{ href: string; label: string; exact: boolean; live?: boo
   { href: "/", label: "World", exact: true },
   { href: "/marketplace", label: "Marketplace", exact: false },
   { href: "/economy", label: "Economy", exact: false },
-  { href: "/marketplace?register=1", label: "Register", exact: false },
 ];
 
 function isActive(pathname: string, href: string, exact: boolean): boolean {
@@ -35,9 +34,16 @@ function isActive(pathname: string, href: string, exact: boolean): boolean {
 export function Navbar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const { address, isConnected } = useAccount();
   const { connect, connectors, isPending: isConnecting } = useConnect();
   const { disconnect } = useDisconnect();
+
+  // Avoid hydration mismatch: wagmi state (address, isConnected) differs between server and client.
+  // Server has no wallet; client may have one from localStorage. Render wallet UI only after mount.
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const connectWalletClass =
     "rounded-full px-5 font-medium transition-all duration-200 hover:opacity-90 border border-[rgba(245,217,106,0.3)] bg-[rgba(245,217,106,0.08)] text-[#f5d96a] hover:bg-[rgba(245,217,106,0.15)] hover:border-[rgba(245,217,106,0.5)]";
@@ -92,7 +98,7 @@ export function Navbar() {
 
         <div className="flex items-center gap-4">
           <div className="hidden md:block">
-            {isConnected && address ? (
+            {mounted && isConnected && address ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -165,7 +171,7 @@ export function Navbar() {
                     </Link>
                   );
                 })}
-                {isConnected && address ? (
+                {mounted && isConnected && address ? (
                   <Button
                     variant="outline"
                     className="mt-4 w-full rounded-full border-[rgba(245,217,106,0.3)] bg-[rgba(245,217,106,0.08)] text-[#f5d96a] hover:bg-[rgba(245,217,106,0.15)]"

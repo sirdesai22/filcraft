@@ -1003,7 +1003,11 @@ export function AetheriaWorld({
 
                     {/* Link to FilCraft — always visible */}
                     <Link
-                      href={`/agents/${selectedRow.networkId}/${selectedRow.agentId}`}
+                      href={
+                        selectedRow.networkId === "filecoinCalibration"
+                          ? `/economy?agent=${selectedRow.agentId}&network=${selectedRow.networkId}`
+                          : `/marketplace?agent=${selectedRow.agentId}&network=${selectedRow.networkId}`
+                      }
                       className="block w-full py-2 text-center rounded border border-[#5a4a2a] text-[#f5d96a] text-sm font-medium hover:bg-[#5a4a2a]/30 hover:border-[#f5d96a]/50 transition-colors"
                     >
                       View on FilCraft
@@ -2961,42 +2965,54 @@ function initWorld(
     const NPC_SPEED = 5.0;
     const ARRIVE_DIST = 0.8;
     agentCreatures.forEach((c) => {
-      // NPC wander AI
-      c.wanderTimer -= dt;
-      if (c.wanderState === "idle" && c.wanderTimer <= 0) {
-        // Pick a fully random target anywhere on the map
-        const bound = WORLD_SIZE * 0.34;
-        c.wanderTarget = {
-          x: (Math.random() - 0.5) * 2 * bound,
-          z: (Math.random() - 0.5) * 2 * bound,
-        };
-        c.wanderState = "walking";
-        // Switch to walk animation
-        if (c.walkClip) {
-          c.activeMixerAction = fadeToAction(c.mixer, c.activeMixerAction, c.walkClip, 0.3);
-        }
-      } else if (c.wanderState === "walking" && c.wanderTarget) {
-        const dx = c.wanderTarget.x - c.x;
-        const dz = c.wanderTarget.z - c.z;
-        const dist = Math.sqrt(dx * dx + dz * dz);
-        if (dist < ARRIVE_DIST) {
-          // Arrived — switch to idle, wait before next wander
-          c.wanderTarget = null;
-          c.wanderState = "idle";
-          c.wanderTimer = 1 + Math.random() * 3;
-          const randomIdle = pickRandomIdleAnim();
-          if (randomIdle) {
-            c.activeMixerAction = fadeToAction(c.mixer, c.activeMixerAction, randomIdle, 0.3);
+      const currentRow = dataRef.current.agentRows.find((r) => r.agentId === c.id);
+      const isHealthy = currentRow?.economy.status === "healthy";
+
+      // Only healthy agents wander; non-healthy sit at fireplace with no movement
+      if (isHealthy) {
+        c.wanderTimer -= dt;
+        if (c.wanderState === "idle" && c.wanderTimer <= 0) {
+          // Pick a fully random target anywhere on the map
+          const bound = WORLD_SIZE * 0.34;
+          c.wanderTarget = {
+            x: (Math.random() - 0.5) * 2 * bound,
+            z: (Math.random() - 0.5) * 2 * bound,
+          };
+          c.wanderState = "walking";
+          // Switch to walk animation
+          if (c.walkClip) {
+            c.activeMixerAction = fadeToAction(c.mixer, c.activeMixerAction, c.walkClip, 0.3);
           }
-        } else {
-          // Move towards target
-          const nx = dx / dist;
-          const nz = dz / dist;
-          c.x += nx * NPC_SPEED * dt;
-          c.z += nz * NPC_SPEED * dt;
-          c.y = H(c.x, c.z);
-          c.facing = Math.atan2(nx, nz);
+        } else if (c.wanderState === "walking" && c.wanderTarget) {
+          const dx = c.wanderTarget.x - c.x;
+          const dz = c.wanderTarget.z - c.z;
+          const dist = Math.sqrt(dx * dx + dz * dz);
+          if (dist < ARRIVE_DIST) {
+            // Arrived — switch to idle, wait before next wander
+            c.wanderTarget = null;
+            c.wanderState = "idle";
+            c.wanderTimer = 1 + Math.random() * 3;
+            const randomIdle = pickRandomIdleAnim();
+            if (randomIdle) {
+              c.activeMixerAction = fadeToAction(c.mixer, c.activeMixerAction, randomIdle, 0.3);
+            }
+          } else {
+            // Move towards target
+            const nx = dx / dist;
+            const nz = dz / dist;
+            c.x += nx * NPC_SPEED * dt;
+            c.z += nz * NPC_SPEED * dt;
+            c.y = H(c.x, c.z);
+            c.facing = Math.atan2(nx, nz);
+          }
         }
+      } else {
+        // Non-healthy: stay at fireplace, no movement
+        c.wanderTarget = null;
+        c.wanderState = "idle";
+        c.x = c.homeX;
+        c.z = c.homeZ;
+        c.y = H(c.homeX, c.homeZ);
       }
 
       c.mesh.position.x = c.x;
@@ -3005,8 +3021,6 @@ function initWorld(
       c.mesh.rotation.y = c.facing;
       if (c.mixer) c.mixer.update(dt);
       const ud = (c.mesh as { userData?: { healthGlow?: { visible: boolean; material?: { opacity: number } }; agentLight?: { intensity: number }; halo?: { visible: boolean; rotation: { z: number } } } }).userData;
-      const currentRow = dataRef.current.agentRows.find((r) => r.agentId === c.id);
-      const isHealthy = currentRow?.economy.status === "healthy";
       if (ud?.healthGlow && currentRow) {
         ud.healthGlow.visible = isHealthy;
         if (ud.healthGlow.visible && ud.healthGlow.material) {

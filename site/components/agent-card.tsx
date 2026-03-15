@@ -169,9 +169,10 @@ export function HealthDot({ agentId, networkId }: { agentId: string; networkId: 
 interface RegistryAgentCardProps {
   agent: RegistryAgent;
   compact?: boolean;
+  onAgentClick?: () => void;
 }
 
-export function RegistryAgentCard({ agent, compact }: RegistryAgentCardProps) {
+export function RegistryAgentCard({ agent, compact, onAgentClick }: RegistryAgentCardProps) {
   const name = agent.metadata?.name ?? `Agent #${agent.agentId}`;
   const description = agent.metadata?.description;
   const image = agent.metadata?.image;
@@ -188,7 +189,13 @@ export function RegistryAgentCard({ agent, compact }: RegistryAgentCardProps) {
 
   return (
     <Link
-      href={`/agents/${networkId}/${agent.agentId}`}
+      href={onAgentClick ? "#" : `/marketplace?agent=${agent.agentId}&network=${networkId}`}
+      onClick={(e) => {
+        if (onAgentClick) {
+          e.preventDefault();
+          onAgentClick();
+        }
+      }}
       className="group block h-full"
     >
       <article

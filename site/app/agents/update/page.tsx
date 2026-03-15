@@ -270,7 +270,13 @@ function UpdateAgentPageInner() {
                 </a>
               </Button>
               <Button asChild size="sm">
-                <Link href={`/agents/${networkId}/${agentId}`}>
+                <Link
+                  href={
+                    networkId === "filecoinCalibration"
+                      ? `/economy?agent=${agentId}&network=${networkId}`
+                      : `/marketplace?agent=${agentId}&network=${networkId}`
+                  }
+                >
                   Agent Page
                 </Link>
               </Button>

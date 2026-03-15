@@ -8,6 +8,7 @@ import { WorkspaceLayout } from "@/components/workspace-layout";
 import { RegistryAgentFilterSidebar } from "@/components/filter-sidebar";
 import { RegistryAgentCard } from "@/components/agent-card";
 import { AgentCardSkeleton } from "@/components/agent-card-skeleton";
+import { AgentDetailPanel } from "@/components/agent-detail-panel";
 import { RegisterAgentDialog } from "@/components/register-agent-dialog";
 import { Slider } from "@/components/ui/slider";
 import type { RegistryAgent } from "@/lib/registry";
@@ -20,6 +21,8 @@ import { cn } from "@/lib/utils";
 const PAGE_SIZE = 12;
 const CINZEL = "var(--font-cinzel, Cinzel, serif)";
 const NETWORK_OPTIONS = NETWORK_IDS.map((id) => ({ id, name: NETWORKS[id].name }));
+
+type SortBy = "default" | "score" | "reviews" | "rating";
 
 const ALL_TIERS: CreditTier[] = ["new", "bronze", "silver", "gold", "platinum"];
 const TIER_LABELS: Record<CreditTier, string> = {
@@ -73,9 +76,13 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
   const [hasMore, setHasMore] = useState(initialData.hasMore);
   const [total, setTotal] = useState(initialData.total);
   const [tierFilter, setTierFilter] = useState<CreditTier | null>(null);
+  const [sortBy, setSortBy] = useState<SortBy>("default");
   const [maxCostUsdc, setMaxCostUsdc] = useState<number>(10);
   const [x402Only, setX402Only] = useState(false);
   const [registerOpen, setRegisterOpen] = useState(false);
+  const [panelAgentId, setPanelAgentId] = useState<string | null>(null);
+  const [panelNetworkId, setPanelNetworkId] = useState<NetworkId>(initialNetwork);
+  const [panelOpen, setPanelOpen] = useState(false);
 
   const fetchAgents = useCallback(async (page: number, net: NetworkId) => {
     setIsLoading(true);
@@ -111,6 +118,16 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
     if (searchParams.get("register") === "1") setRegisterOpen(true);
   }, [searchParams]);
 
+  useEffect(() => {
+    const agent = searchParams.get("agent");
+    const net = searchParams.get("network") as NetworkId | null;
+    if (agent && net && NETWORK_IDS.includes(net)) {
+      setPanelAgentId(agent);
+      setPanelNetworkId(net);
+      setPanelOpen(true);
+    }
+  }, [searchParams]);
+
   const displayedAgents = useMemo(() => {
     let result = agents;
     if (tierFilter) result = result.filter((a) => computeCreditScore(a).tier === tierFilter);
@@ -123,8 +140,15 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
         return !isNaN(cost) && cost <= maxCostUsdc;
       });
     }
+    if (sortBy === "score") {
+      result = [...result].sort((a, b) => computeCreditScore(b).score - computeCreditScore(a).score);
+    } else if (sortBy === "reviews") {
+      result = [...result].sort((a, b) => (b.reputation?.totalFeedback ?? 0) - (a.reputation?.totalFeedback ?? 0));
+    } else if (sortBy === "rating") {
+      result = [...result].sort((a, b) => (b.reputation?.averageScore ?? 0) - (a.reputation?.averageScore ?? 0));
+    }
     return result;
-  }, [agents, tierFilter, maxCostUsdc]);
+  }, [agents, tierFilter, maxCostUsdc, sortBy]);
 
   const sidebar = (
     <div className="space-y-4">
@@ -161,6 +185,24 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
 
       <SidebarDivider />
 
+      <div className="space-y-1.5">
+        <SidebarLabel>Sort By</SidebarLabel>
+        <div className="flex flex-col gap-0.5">
+          {([
+            ["default",  "Default (newest)"],
+            ["score",    "Credit Score ↓"],
+            ["reviews",  "Most Reviews ↓"],
+            ["rating",   "Best Rated ↓"],
+          ] as [SortBy, string][]).map(([key, label]) => (
+            <FilterButton key={key} active={sortBy === key} onClick={() => setSortBy(key)}>
+              {label}
+            </FilterButton>
+          ))}
+        </div>
+      </div>
+
+      <SidebarDivider />
+
       <div className="space-y-2">
         <SidebarLabel>Max Cost</SidebarLabel>
         <span className="block px-1 text-xs text-[#a89060]">
@@ -187,16 +229,30 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
                   {total} agent{total !== 1 ? "s" : ""} found.
                 </span>
               )}
+              {sortBy !== "default" && (
+                <span className="ml-2 rounded border border-[rgba(245,217,106,0.22)] bg-[rgba(245,217,106,0.07)] px-1.5 py-0.5 text-[11px] text-[#f5d96a]">
+                  {sortBy === "score" ? "by credit score" : sortBy === "reviews" ? "by most reviews" : "by best rating"}
+                </span>
+              )}
             </p>
           </div>
-          <button
-            onClick={() => fetchAgents(currentPage, network)}
-            disabled={isLoading}
-            title="Refresh"
-            className="rounded p-2 text-[#a89060] hover:text-[#f5d96a] hover:bg-[rgba(245,217,106,0.06)] transition-colors disabled:opacity-40"
-          >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setRegisterOpen(true)}
+              className="rounded border border-[rgba(245,217,106,0.3)] bg-[rgba(245,217,106,0.08)] px-4 py-2 text-sm font-medium text-[#f5d96a] hover:bg-[rgba(245,217,106,0.15)] hover:border-[rgba(245,217,106,0.5)] transition-colors"
+              style={{ fontFamily: CINZEL }}
+            >
+              Register Agent
+            </button>
+            <button
+              onClick={() => fetchAgents(currentPage, network)}
+              disabled={isLoading}
+              title="Refresh"
+              className="rounded p-2 text-[#a89060] hover:text-[#f5d96a] hover:bg-[rgba(245,217,106,0.06)] transition-colors disabled:opacity-40"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
@@ -234,7 +290,15 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
                     variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
                     transition={{ duration: 0.3 }}
                   >
-                    <RegistryAgentCard agent={agent} compact />
+                    <RegistryAgentCard
+                      agent={agent}
+                      compact
+                      onAgentClick={() => {
+                        setPanelAgentId(agent.agentId);
+                        setPanelNetworkId(agent.networkId ?? network);
+                        setPanelOpen(true);
+                      }}
+                    />
                   </motion.div>
                 ))}
               </AnimatePresence>
@@ -264,6 +328,13 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
       </div>
 
       <RegisterAgentDialog open={registerOpen} onOpenChange={setRegisterOpen} onSuccess={() => fetchAgents(1, network)} />
+      <AgentDetailPanel
+        agentId={panelAgentId}
+        networkId={panelNetworkId}
+        open={panelOpen}
+        onOpenChange={setPanelOpen}
+        agentRows={[]}
+      />
     </WorkspaceLayout>
   );
 }

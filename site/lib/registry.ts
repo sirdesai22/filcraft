@@ -35,6 +35,11 @@ export interface AgentMetadata {
   services?: any[];
 }
 
+export interface AgentReputation {
+  totalFeedback: number;
+  averageScore: number | null;
+}
+
 export interface RegistryAgent {
   id: string;
   agentId: string;
@@ -44,6 +49,7 @@ export interface RegistryAgent {
   metadata: AgentMetadata | null;
   protocols: string[];
   networkId: NetworkId;
+  reputation?: AgentReputation;
 }
 
 function createClient(networkId: NetworkId): PublicClient {
@@ -145,7 +151,10 @@ function resolveURI(uri: string): string {
 async function fetchMetadata(uri: string): Promise<AgentMetadata | null> {
   if (!uri) return null;
   try {
-    const res = await fetch(resolveURI(uri), { next: { revalidate: 3600 } });
+    const res = await fetch(resolveURI(uri), {
+      signal: AbortSignal.timeout(5000),
+      next: { revalidate: 3600 },
+    } as RequestInit);
     if (!res.ok) return null;
     return (await res.json()) as AgentMetadata;
   } catch {
@@ -311,11 +320,6 @@ async function fetchReputationFromRpc(
   } catch {
     return { totalFeedback: 0, averageScore: null };
   }
-}
-
-export interface AgentReputation {
-  totalFeedback: number;
-  averageScore: number | null;
 }
 
 export interface AgentDetail extends RegistryAgent {

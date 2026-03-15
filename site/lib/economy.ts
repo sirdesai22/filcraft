@@ -14,10 +14,10 @@ import { filecoinCalibration } from "viem/chains";
 
 // ── Contract ──────────────────────────────────────────────────────────────────
 
+const DEFAULT_ECONOMY_REGISTRY = "0x87ca5e54a3afd16f3ff5101ffbede586bac1292a" as `0x${string}`;
+
 export const AGENT_ECONOMY_REGISTRY_ADDRESS =
-  (process.env.AGENT_ECONOMY_REGISTRY_ADDRESS as `0x${string}`) ||
-  // Placeholder — replace after deployment
-  "0x0000000000000000000000000000000000000000";
+  (process.env.AGENT_ECONOMY_REGISTRY_ADDRESS as `0x${string}`) || DEFAULT_ECONOMY_REGISTRY;
 
 export const ECONOMY_ABI = parseAbi([
   "function isViable(uint256 agentId) view returns (bool)",
@@ -152,15 +152,12 @@ export async function fetchEconomyEvents(limit = 20): Promise<EconomyEvent[]> {
   const client = createClient();
   const address = AGENT_ECONOMY_REGISTRY_ADDRESS;
 
-  // If contract is not deployed (placeholder address), return empty
-  if (address === "0x0000000000000000000000000000000000000000") return [];
-
-  // Filecoin Calibration has a ~16h lookback limit on getLogs
-  // Use a safe window of ~2000 blocks (~12h at 2880 blocks/day)
+  // Filecoin Calibration RPC may have lookback limits; use a reasonable window
+  // ~8000 blocks ≈ 2.8 days at ~30s/block
   let fromBlock: bigint;
   try {
     const latest = await client.getBlockNumber();
-    fromBlock = latest > 2000n ? latest - 2000n : 0n;
+    fromBlock = latest > 8000n ? latest - 8000n : 0n;
   } catch {
     return [];
   }
