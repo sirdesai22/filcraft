@@ -1,13 +1,16 @@
 "use client";
 
 /**
- * AetheriaWorld — Living World interface for the Agent Economy.
+ * AetheriaWorld — FilCraft Living World interface for the Agent Economy.
  * Three.js game world with real economy data bindings.
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { IDENTITY_REGISTRY_ABI } from "@/lib/identity-registry-abi";
+import { NETWORKS, type NetworkId } from "@/lib/networks";
 import type {
   AgentEconomyAccount,
   EconomyEvent,
@@ -111,24 +114,90 @@ export function AetheriaWorld({
     tier?: string;
     artifactCount?: number;
   } | null>(null);
+  const [agentTab, setAgentTab] = useState<"overview" | "economy" | "artifacts" | "activity">("overview");
+  const [agentActivity, setAgentActivity] = useState<{ runId: string; status: string; createdAt: string; reportUrl: string; summary: string; focCid?: string }[]>([]);
+  const [agentArtifacts, setAgentArtifacts] = useState<{ id: string; category: string; priceUsdc: string; license: string; contentCid: string; active: boolean; createdAt: string }[]>([]);
+  const [tabLoading, setTabLoading] = useState(false);
+  const [showRegister, setShowRegister] = useState(false);
+  const [regNetwork, setRegNetwork] = useState<NetworkId>("filecoinCalibration");
+  const [regStep, setRegStep] = useState(1);
+  const [regCardUrl, setRegCardUrl] = useState("");
+  const [regHealthUrl, setRegHealthUrl] = useState("");
+  const [regValidating, setRegValidating] = useState(false);
+  const [regValidation, setRegValidation] = useState<{ valid: boolean; agentCard: any; health: boolean; errors: string[] } | null>(null);
+  const [regTxHash, setRegTxHash] = useState<`0x${string}` | undefined>();
+  const { writeContract: regWriteContract, isPending: regIsWriting, error: regWriteError } = useWriteContract();
+  const { isLoading: regIsConfirming, isSuccess: regIsConfirmed } = useWaitForTransactionReceipt({ hash: regTxHash });
   const router = useRouter();
+
+  const regNetworkConfig = NETWORKS[regNetwork];
+
+  async function handleRegVerify() {
+    if (!regCardUrl.trim()) return;
+    setRegValidating(true);
+    setRegValidation(null);
+    try {
+      const res = await fetch("/api/agents/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentCardUrl: regCardUrl.trim(), healthUrl: regHealthUrl.trim() || undefined }),
+      });
+      const d = await res.json();
+      setRegValidation({ valid: d.valid ?? false, agentCard: d.agentCard ?? null, health: d.health ?? false, errors: d.errors ?? [] });
+    } catch {
+      setRegValidation({ valid: false, agentCard: null, health: false, errors: ["Network error"] });
+    } finally {
+      setRegValidating(false);
+    }
+  }
+
+  function handleRegSubmit() {
+    if (!regCardUrl.trim()) return;
+    regWriteContract(
+      {
+        address: regNetworkConfig.identityRegistry,
+        abi: IDENTITY_REGISTRY_ABI,
+        functionName: "register",
+        args: [regCardUrl.trim()],
+        chainId: regNetworkConfig.chain.id,
+      },
+      { onSuccess(hash) { setRegTxHash(hash); } }
+    );
+  }
+
+  function closeRegister() {
+    setShowRegister(false);
+    setRegStep(1);
+    setRegCardUrl("");
+    setRegHealthUrl("");
+    setRegValidation(null);
+    setRegTxHash(undefined);
+  }
 
   useEffect(() => {
     if (!selectedAgentId) {
       setAgentExtra(null);
+      setAgentActivity([]);
+      setAgentArtifacts([]);
+      setAgentTab("overview");
       return;
     }
     let cancelled = false;
+    setTabLoading(true);
     Promise.all([
       fetch(`/api/agents/${selectedAgentId}/score?network=${DEFAULT_NETWORK}`).then((r) => (r.ok ? r.json() : null)),
-      fetch(`/api/data-listings?agentId=${selectedAgentId}`).then((r) => (r.ok ? r.json() : { total: 0 })),
-    ]).then(([scoreRes, listingsRes]) => {
+      fetch(`/api/data-listings?agentId=${selectedAgentId}`).then((r) => (r.ok ? r.json() : { listings: [], total: 0 })),
+      fetch(`/api/agents/${selectedAgentId}/activity`).then((r) => (r.ok ? r.json() : { reports: [] })),
+    ]).then(([scoreRes, listingsRes, activityRes]) => {
       if (cancelled) return;
       setAgentExtra({
         creditScore: scoreRes?.score,
         tier: scoreRes?.label,
         artifactCount: listingsRes?.total ?? 0,
       });
+      setAgentArtifacts(listingsRes?.listings ?? []);
+      setAgentActivity(activityRes?.reports ?? []);
+      setTabLoading(false);
     });
     return () => {
       cancelled = true;
@@ -158,6 +227,13 @@ export function AetheriaWorld({
   useEffect(() => {
     dataRef.current = data;
   }, [data]);
+
+  // Lock body scroll while world is mounted
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -192,15 +268,10 @@ export function AetheriaWorld({
       });
     };
 
-    const loadRobotModel = (THREE: { GLTFLoader: new () => { load: (url: string, onLoad: (gltf: unknown) => void, onProgress?: unknown, onError?: (err: unknown) => void) => void } }): Promise<unknown> => {
+    const loadModel = (THREE: { GLTFLoader: new () => { load: (url: string, onLoad: (gltf: unknown) => void, onProgress?: unknown, onError?: (err: unknown) => void) => void } }, path: string): Promise<unknown> => {
       return new Promise((resolve, reject) => {
         const loader = new THREE.GLTFLoader();
-        loader.load(
-          "/models/RobotExpressive.glb",
-          (gltf) => resolve(gltf),
-          undefined,
-          (err) => reject(err)
-        );
+        loader.load(path, (gltf) => resolve(gltf), undefined, (err) => reject(err));
       });
     };
 
@@ -214,11 +285,16 @@ export function AetheriaWorld({
       })
       .then(({ THREE }) => {
         if (cancelled) return Promise.reject(new Error("cancelled"));
-        return loadRobotModel(THREE as Parameters<typeof loadRobotModel>[0]).then((gltf) => ({ THREE, gltf }));
+        return Promise.all([
+          loadModel(THREE as Parameters<typeof loadModel>[0], "/models/RobotExpressive.glb"),
+          loadModel(THREE as Parameters<typeof loadModel>[0], "/models/CastleModel.glb"),
+          loadModel(THREE as Parameters<typeof loadModel>[0], "/models/filecoin_model.glb"),
+          loadModel(THREE as Parameters<typeof loadModel>[0], "/models/furnace.glb"),
+        ]).then(([gltf, castleGltf, filecoinGltf, furnaceGltf]) => ({ THREE, gltf, castleGltf, filecoinGltf, furnaceGltf }));
       })
-      .then(({ THREE, gltf }) => {
+      .then(({ THREE, gltf, castleGltf, filecoinGltf, furnaceGltf }) => {
         if (cancelled) return;
-        initWorld(THREE, containerRef.current!, dataRef, setSelectedAgentId, gltf as { scene: any; animations: any[] }, () => router.push("/marketplace"));
+        initWorld(THREE, containerRef.current!, dataRef, setSelectedAgentId, gltf as { scene: any; animations: any[] }, castleGltf as { scene: any }, filecoinGltf as { scene: any }, furnaceGltf as { scene: any }, () => router.push("/marketplace"), () => setShowRegister(true));
         setLoading(false);
         rafId = requestAnimationFrame(function loop() {
           if (cancelled) return;
@@ -239,16 +315,15 @@ export function AetheriaWorld({
 
   const selectedRow = selectedAgentId ? data.agentRows.find((r) => r.agentId === selectedAgentId) : null;
   const selectedCfg = selectedRow
-    ? (AGENT_CONFIG[selectedRow.agentId] ?? {
-        displayName: selectedRow.name,
-        emoji: "🤖",
-        type: "Agent",
-        spawnNear: [0, 0] as [number, number],
+    ? ({
+        ...(AGENT_CONFIG[selectedRow.agentId] ?? { emoji: "🤖", type: "Agent", spawnNear: [0, 0] as [number, number] }),
+        displayName: selectedRow.name, // always use real registry name
+
       })
     : null;
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-[#0a0a0f]">
+    <div className="relative w-full overflow-hidden bg-[#0a0a0f]" style={{ height: "calc(100vh - 56px)" }}>
       <link
         href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=MedievalSharp&display=swap"
         rel="stylesheet"
@@ -265,10 +340,10 @@ export function AetheriaWorld({
               textShadow: "0 0 40px rgba(245,217,106,0.4)",
             }}
           >
-            AETHERIA
+            FILCRAFT
           </h1>
           <p className="text-[#5a4a2a] tracking-[4px] mt-2 text-xs">
-            ENTERING THE LIVING WORLD
+            ENTERING FILCRAFT
           </p>
           <div className="w-[300px] h-1 bg-[#1a1510] mt-8 rounded overflow-hidden">
             <div
@@ -294,72 +369,142 @@ export function AetheriaWorld({
               textShadow: "0 0 20px rgba(245,217,106,0.5), 0 2px 4px rgba(0,0,0,0.8)",
             }}
           >
-            Aetheria
+            FilCraft
           </h1>
           <div className="text-[10px] text-[#a89060] tracking-[4px] mt-0.5">
-            Agent Economy
+            The Living World
           </div>
         </div>
 
-        <div className="absolute top-3 left-3 flex items-center gap-2">
-          <div className="text-xs text-[#a89060] tracking-[1px]">
-            Agents: <span className="text-[#f5d96a] font-bold text-base" style={{ fontFamily: "Cinzel, serif" }} id="pop-count">{data.agentRows.length}</span>
-            {" · "}
-            Storage: <span className="text-[#e8a030]" id="stockpile-count">0</span> tFIL
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowAllAgents(true)}
-            className="w-7 h-7 rounded-full border border-[#5a4a2a] flex items-center justify-center text-[#a89060] hover:text-[#f5d96a] hover:border-[#f5d96a] transition-colors pointer-events-auto"
-            title="View all agents"
-            aria-label="View all agents"
-          >
-            ℹ
-          </button>
-        </div>
+
+        
 
         {/* Scoreboard panel */}
         <div
           id="scoreboard-panel"
-          className="absolute top-12 right-12 w-[280px] pointer-events-auto rounded-md border border-[#5a4a2a] p-3"
+          className="absolute top-3 right-3 w-[300px] pointer-events-auto flex flex-col"
           style={{
-            background: "linear-gradient(135deg, rgba(20,15,10,0.95), rgba(30,25,15,0.92))",
-            boxShadow: "0 4px 30px rgba(0,0,0,0.6)",
+            background: "linear-gradient(160deg, rgba(6,4,1,0.98) 0%, rgba(16,10,2,0.97) 100%)",
+            border: "1px solid rgba(180,140,40,0.25)",
+            borderRadius: 3,
+            boxShadow: "0 0 0 1px rgba(180,140,40,0.06), 0 12px 50px rgba(0,0,0,0.9), inset 0 1px 0 rgba(245,217,106,0.08)",
+            maxHeight: "calc(100vh - 80px)",
+            fontSize: 17,
           }}
         >
-          <div className="text-center text-[#f5d96a] font-bold text-sm mb-2 tracking-wider" style={{ fontFamily: "Cinzel, serif" }}>
-            AGENT ECONOMY SCOREBOARD
+          {/* Header */}
+          <div style={{ position: "relative", padding: "12px 16px 10px", borderBottom: "1px solid rgba(90,74,42,0.3)", background: "linear-gradient(90deg, transparent, rgba(180,140,40,0.07), transparent)" }}>
+            {/* Corner ornaments */}
+            {[["top","left"],["top","right"],["bottom","left"],["bottom","right"]].map(([v,h]) => (
+              <div key={v+h} style={{ position: "absolute", [v]: 5, [h]: 8, width: 7, height: 7,
+                borderTop: v === "top" ? "1px solid rgba(245,217,106,0.5)" : undefined,
+                borderBottom: v === "bottom" ? "1px solid rgba(245,217,106,0.5)" : undefined,
+                borderLeft: h === "left" ? "1px solid rgba(245,217,106,0.5)" : undefined,
+                borderRight: h === "right" ? "1px solid rgba(245,217,106,0.5)" : undefined,
+              }} />
+            ))}
+            <div style={{ fontFamily: "Cinzel, serif", fontSize: 14, fontWeight: 700, letterSpacing: "0.22em", textAlign: "center", color: "#f5d96a", textShadow: "0 0 18px rgba(245,217,106,0.5)" }}>
+              ⚔ AGENT ECONOMY ⚔
+            </div>
+            <div style={{ fontFamily: "Cinzel, serif", fontSize: 10, letterSpacing: "0.35em", textAlign: "center", color: "rgba(245,217,106,0.35)", marginTop: 2 }}>
+              SCOREBOARD
+            </div>
           </div>
-          <div className="border-t border-[#5a4a2a]/50 pt-2 space-y-1 text-[10px]">
+
+          {/* Agent rows */}
+          <div style={{ padding: "4px 0", overflowY: "auto", flex: 1, minHeight: 0, scrollbarWidth: "none" }}
+            className="[&::-webkit-scrollbar]:hidden"
+          >
             {data.agentRows
               .sort((a, b) => Number(BigInt(b.economy.totalSpent) - BigInt(a.economy.totalSpent)))
-              .map((row) => {
+              .map((row, idx) => {
                 const cfg = AGENT_CONFIG[row.agentId];
+                const isHealthy = row.economy.status === "healthy";
+                const isAtRisk = row.economy.status === "at-risk";
+                const statusColor = isHealthy ? "#10b981" : isAtRisk ? "#f59e0b" : "#4b5563";
+                const statusGlow = isHealthy ? "0 0 7px rgba(16,185,129,0.9)" : isAtRisk ? "0 0 7px rgba(245,158,11,0.9)" : "none";
+                const rankLabel = ["Ⅰ","Ⅱ","Ⅲ","Ⅳ","Ⅴ"][idx] ?? `${idx+1}`;
+                const rankColor = idx === 0 ? "#f5d96a" : idx === 1 ? "#c0c0c0" : idx === 2 ? "#cd7f32" : "#4a3a1a";
+                const rankBg = idx === 0 ? "rgba(245,217,106,0.12)" : idx === 1 ? "rgba(192,192,192,0.08)" : idx === 2 ? "rgba(205,127,50,0.08)" : "rgba(40,30,10,0.4)";
+                const rankBorder = idx === 0 ? "rgba(245,217,106,0.35)" : idx === 1 ? "rgba(192,192,192,0.25)" : idx === 2 ? "rgba(205,127,50,0.25)" : "rgba(60,45,15,0.4)";
+
                 return (
-                  <div key={row.agentId} className="flex justify-between items-center text-[#c0b090]">
-                    <span>
-                      {cfg?.emoji ?? "🤖"} {cfg?.displayName ?? row.name}
-                    </span>
-                    <span className="tabular-nums">
-                      {row.completedRuns} runs · ${formatUsd(row.economy.totalEarned)} · {formatTFil(row.economy.totalSpent)} tFIL
-                    </span>
+                  <div
+                    key={row.agentId}
+                    style={{
+                      padding: "9px 14px",
+                      borderBottom: idx < data.agentRows.length - 1 ? "1px solid rgba(60,45,15,0.4)" : undefined,
+                      background: idx === 0 ? "linear-gradient(90deg, rgba(245,217,106,0.03), transparent 70%)" : "transparent",
+                    }}
+                  >
+                    {/* Top row: rank + status dot + name */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 22, height: 22, borderRadius: 2, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: rankBg, border: `1px solid ${rankBorder}`, fontFamily: "Cinzel, serif", fontSize: 13, fontWeight: 700, color: rankColor, textShadow: idx === 0 ? "0 0 8px rgba(245,217,106,0.6)" : "none" }}>
+                        {rankLabel}
+                      </div>
+                      <div className={isHealthy ? "animate-pulse" : isAtRisk ? "animate-pulse" : ""} style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: statusColor, boxShadow: statusGlow, animationDuration: isAtRisk ? "0.9s" : "2s" }} />
+                      <div style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 600, color: "#e0cc98", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {cfg?.emoji ?? "🤖"} {row.name}
+                      </div>
+                    </div>
+
+                    {/* Stats row */}
+                    <div style={{ display: "flex", alignItems: "stretch", gap: 0, marginTop: 7, marginLeft: 30, background: "rgba(0,0,0,0.3)", borderRadius: 2, border: "1px solid rgba(60,45,15,0.5)", overflow: "hidden" }}>
+                      {[
+                        { label: "RUNS", value: String(row.completedRuns), color: "#f0dc90" },
+                        { label: "EARNED", value: `$${formatUsd(row.economy.totalEarned)}`, color: "#34d399" },
+                        { label: "SPENT", value: `${formatTFil(row.economy.totalSpent)}`, color: "#f5b040" },
+                      ].map((stat, si) => (
+                        <div key={stat.label} style={{ flex: 1, padding: "4px 6px", borderLeft: si > 0 ? "1px solid rgba(60,45,15,0.5)" : undefined, textAlign: "center" }}>
+                          <div style={{ fontFamily: "Cinzel, serif", fontSize: 10, color: "#7d6b3d", letterSpacing: "0.1em", marginBottom: 2 }}>{stat.label}</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: stat.color, fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>{stat.value}</div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 );
               })}
           </div>
-          <div className="border-t border-[#5a4a2a]/50 pt-2 mt-2 text-[10px] text-[#a89060]">
-            Total: {formatTFil(data.summary.totalStorageCostWei)} tFIL · ${formatUsd(data.summary.totalRevenueUsdCents)} revenue
-          </div>
-          <div className="flex gap-2 mt-1 text-[9px]">
-            <span className="text-emerald-500">Healthy: {data.summary.activeAgents}</span>
-            <span className="text-amber-500">At-Risk: {data.summary.atRiskAgents}</span>
-            <span className="text-zinc-400">Wound: {data.summary.windDownCount}</span>
-          </div>
-          {lastRefresh && (
-            <div className="text-[8px] text-[#504030] mt-1">
-              Refreshed {Math.round((Date.now() - lastRefresh.getTime()) / 1000)}s ago
+
+          {/* Footer */}
+          <div style={{ borderTop: "1px solid rgba(90,74,42,0.3)", padding: "10px 14px", background: "linear-gradient(90deg, transparent, rgba(180,140,40,0.04), transparent)" }}>
+            {/* Totals */}
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <div>
+                <div style={{ fontFamily: "Cinzel, serif", fontSize: 10, color: "#3a2a0a", letterSpacing: "0.12em", marginBottom: 2 }}>TOTAL STORAGE</div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: "#e8a030", lineHeight: 1 }}>
+                  {formatTFil(data.summary.totalStorageCostWei)} <span style={{ fontSize: 12, color: "#6a5020" }}>tFIL</span>
+                </div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontFamily: "Cinzel, serif", fontSize: 10, color: "#3a2a0a", letterSpacing: "0.12em", marginBottom: 2 }}>TOTAL REVENUE</div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: "#10b981", lineHeight: 1 }}>
+                  ${formatUsd(data.summary.totalRevenueUsdCents)}
+                </div>
+              </div>
             </div>
-          )}
+
+            {/* Status badges */}
+            <div style={{ display: "flex", gap: 5 }}>
+              {[
+                { count: data.summary.activeAgents, label: "ACTIVE", color: "#10b981", glow: "rgba(16,185,129,0.7)", bg: "rgba(16,185,129,0.08)", border: "rgba(16,185,129,0.2)" },
+                { count: data.summary.atRiskAgents, label: "AT RISK", color: "#f59e0b", glow: "rgba(245,158,11,0.7)", bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.2)" },
+                { count: data.summary.windDownCount, label: "WOUND", color: "#6b7280", glow: "none", bg: "rgba(107,114,128,0.08)", border: "rgba(107,114,128,0.2)" },
+              ].map((s) => (
+                <div key={s.label} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "4px 0", borderRadius: 2, background: s.bg, border: `1px solid ${s.border}` }}>
+                  <div style={{ width: 5, height: 5, borderRadius: "50%", background: s.color, boxShadow: s.glow !== "none" ? `0 0 5px ${s.glow}` : undefined }} />
+                  <span style={{ fontFamily: "Cinzel, serif", fontSize: 11, color: s.color, letterSpacing: "0.05em" }}>{s.count} {s.label}</span>
+                </div>
+              ))}
+            </div>
+
+            {lastRefresh && (
+              <div style={{ marginTop: 7, fontSize: 8, color: "#2a1a05", letterSpacing: "0.08em", display: "flex", alignItems: "center", gap: 4 }}>
+                <div className="animate-pulse" style={{ width: 4, height: 4, borderRadius: "50%", background: "#3a2a0a" }} />
+                LIVE · {Math.round((Date.now() - lastRefresh.getTime()) / 1000)}s ago
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Activity log */}
@@ -462,7 +607,7 @@ export function AetheriaWorld({
           </>
         )}
 
-        {/* Agent detail dialog — in-game style */}
+        {/* Agent detail dialog — tab-based in-game style */}
         {selectedRow && selectedCfg && (
           <>
             <div
@@ -472,131 +617,738 @@ export function AetheriaWorld({
             />
             <div
               id="agent-dialog"
-              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 w-[min(420px,90vw)] pointer-events-auto"
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 w-[min(520px,92vw)] max-h-[85vh] pointer-events-auto flex flex-col"
               style={{ fontFamily: "MedievalSharp, cursive" }}
               role="dialog"
               aria-labelledby="agent-dialog-title"
             >
               <div
-                className="rounded-lg overflow-hidden border-2 border-[#5a4a2a]"
+                className="rounded-lg overflow-hidden border-2 border-[#5a4a2a] flex flex-col max-h-[85vh]"
                 style={{
                   background: "linear-gradient(180deg, #2a2318 0%, #1c180f 50%, #151210 100%)",
                   boxShadow: "0 0 0 1px #7a6a3a, 0 0 40px rgba(0,0,0,0.8), inset 0 0 60px rgba(90,74,42,0.08)",
                 }}
               >
-                {/* Header with close */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-[#5a4a2a]/60" style={{ background: "rgba(0,0,0,0.3)" }}>
-                  <h2 id="agent-dialog-title" className="text-[#f5d96a] font-bold text-lg tracking-wider" style={{ fontFamily: "Cinzel, serif" }}>
-                    AGENT SCRYING
-                  </h2>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedAgentId(null)}
-                    className="w-8 h-8 rounded border border-[#5a4a2a] flex items-center justify-center text-[#a89060] hover:text-[#f5d96a] hover:border-[#f5d96a] transition-colors"
-                    aria-label="Close"
-                  >
-                    ✕
-                  </button>
-                </div>
-
-                <div className="p-4 space-y-4">
-                  {/* Agent identity */}
-                  <div className="flex items-center gap-4">
+                {/* Header with agent identity + close */}
+                <div className="px-4 py-3 border-b border-[#5a4a2a]/60 shrink-0" style={{ background: "rgba(0,0,0,0.3)" }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <h2 id="agent-dialog-title" className="text-[#f5d96a] font-bold text-lg tracking-wider" style={{ fontFamily: "Cinzel, serif" }}>
+                      AGENT SCRYING
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAgentId(null)}
+                      className="w-8 h-8 rounded border border-[#5a4a2a] flex items-center justify-center text-[#a89060] hover:text-[#f5d96a] hover:border-[#f5d96a] transition-colors"
+                      aria-label="Close"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {/* Agent identity — always visible */}
+                  <div className="flex items-center gap-3">
                     <div
-                      className="w-16 h-16 rounded-lg border-2 border-[#7a6a3a] flex items-center justify-center text-[36px] shrink-0"
+                      className="w-12 h-12 rounded-lg border-2 border-[#7a6a3a] flex items-center justify-center text-[28px] shrink-0"
                       style={{ background: `#${(selectedCfg.type === "Worker" ? 0x8a6a3a : selectedCfg.type === "Shaman" ? 0x6a3a8a : selectedCfg.type === "Warrior" ? 0x4a7a3a : 0x5a5a5a).toString(16).padStart(6, "0")}44` }}
                     >
                       {selectedCfg.emoji}
                     </div>
-                    <div>
-                      <div className="text-[#f5d96a] font-bold text-xl" style={{ fontFamily: "Cinzel, serif" }}>
+                    <div className="min-w-0">
+                      <div className="text-[#f5d96a] font-bold text-base" style={{ fontFamily: "Cinzel, serif" }}>
                         {selectedCfg.displayName}
                       </div>
-                      <div className="text-[#a89060] text-sm">
-                        {selectedCfg.type} · Agent #{selectedRow.agentId}
-                      </div>
-                      <div className="text-xs mt-0.5">
-                        <span
-                          className={
-                            selectedRow.economy.status === "healthy"
-                              ? "text-emerald-500"
-                              : selectedRow.economy.status === "at-risk"
-                              ? "text-amber-500"
-                              : "text-zinc-400"
-                          }
-                        >
-                          {selectedRow.economy.status === "healthy" ? "● Healthy" : selectedRow.economy.status === "at-risk" ? "● At Risk" : "● Wound Down"}
+                      <div className="text-[#a89060] text-xs">
+                        {selectedCfg.type} · #{selectedRow.agentId}
+                        <span className="ml-2">
+                          <span className={selectedRow.economy.status === "healthy" ? "text-emerald-500" : selectedRow.economy.status === "at-risk" ? "text-amber-500" : "text-zinc-400"}>
+                            {selectedRow.economy.status === "healthy" ? "● Healthy" : selectedRow.economy.status === "at-risk" ? "● At Risk" : "● Wound Down"}
+                          </span>
                         </span>
-                        {selectedRow.economy.windDown && <span className="text-zinc-500 ml-1">(stopped)</span>}
                       </div>
-                      {agentExtra?.tier && (
-                        <div className="text-[10px] mt-0.5">
-                          <span className="text-[#a89060]">Credit: </span>
-                          <span className="text-[#f5d96a] font-semibold">{agentExtra.tier}</span>
-                          {agentExtra.creditScore != null && (
-                            <span className="text-[#7a8a6a] ml-1">({agentExtra.creditScore})</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tab bar */}
+                <div className="flex border-b border-[#5a4a2a]/60 shrink-0" style={{ background: "rgba(0,0,0,0.2)" }}>
+                  {(["overview", "economy", "artifacts", "activity"] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => setAgentTab(tab)}
+                      className="flex-1 py-2.5 text-center text-xs uppercase tracking-widest transition-all"
+                      style={{
+                        fontFamily: "Cinzel, serif",
+                        color: agentTab === tab ? "#f5d96a" : "#7a6a4a",
+                        borderBottom: agentTab === tab ? "2px solid #f5d96a" : "2px solid transparent",
+                        background: agentTab === tab ? "rgba(245,217,106,0.06)" : "transparent",
+                        textShadow: agentTab === tab ? "0 0 10px rgba(245,217,106,0.4)" : "none",
+                      }}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Tab content — scrollable */}
+                <div className="overflow-y-auto flex-1 min-h-0" style={{ scrollbarWidth: "thin", scrollbarColor: "#5a4a2a #151210" }}>
+                  <div className="p-4 space-y-4">
+
+                    {/* ── OVERVIEW TAB ── */}
+                    {agentTab === "overview" && (
+                      <>
+                        {agentExtra?.tier && (
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-[#a89060]">Credit Score:</span>
+                            <span className="text-[#f5d96a] font-semibold">{agentExtra.tier}</span>
+                            {agentExtra.creditScore != null && (
+                              <span className="text-[#7a8a6a]">({agentExtra.creditScore})</span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Stats grid */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="p-3 rounded border border-[#5a4a2a]/50" style={{ background: "rgba(0,0,0,0.25)" }}>
+                            <div className="text-[9px] text-[#a89060] uppercase tracking-wider mb-0.5">Balance</div>
+                            <div className="text-[#f5d96a] font-bold">{formatTFil(selectedRow.economy.balance)} tFIL</div>
+                            <div className="h-1.5 bg-black/50 rounded overflow-hidden mt-1">
+                              <div
+                                className="h-full bg-gradient-to-r from-[#2a5a9a] to-[#4a8adf] rounded"
+                                style={{ width: `${Math.min(100, (Number(BigInt(selectedRow.economy.balance)) / 1e18 / 0.005) * 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                          <div className="p-3 rounded border border-[#5a4a2a]/50" style={{ background: "rgba(0,0,0,0.25)" }}>
+                            <div className="text-[9px] text-[#a89060] uppercase tracking-wider mb-0.5">Completed Runs</div>
+                            <div className="text-[#f5d96a] font-bold text-lg">{selectedRow.completedRuns}</div>
+                          </div>
+                          <div className="p-3 rounded border border-[#5a4a2a]/50" style={{ background: "rgba(0,0,0,0.25)" }}>
+                            <div className="text-[9px] text-[#a89060] uppercase tracking-wider mb-0.5">Revenue (USD)</div>
+                            <div className="text-[#e8a030] font-bold">${formatUsd(selectedRow.economy.totalEarned)}</div>
+                          </div>
+                          <div className="p-3 rounded border border-[#5a4a2a]/50" style={{ background: "rgba(0,0,0,0.25)" }}>
+                            <div className="text-[9px] text-[#a89060] uppercase tracking-wider mb-0.5">Storage Cost</div>
+                            <div className="text-[#44aacc] font-bold">{formatTFil(selectedRow.economy.totalSpent)} tFIL</div>
+                          </div>
+                        </div>
+
+                        {/* Status message */}
+                        <div className="p-3 rounded border-l-2 border-[#5a4a2a]" style={{ background: "rgba(0,0,0,0.3)" }}>
+                          <p className="text-[#c0b090] text-sm italic">
+                            {selectedRow.economy.status === "healthy"
+                              ? "Running strong. Balance above minimum viable."
+                              : selectedRow.economy.status === "at-risk"
+                              ? "Balance low. Consider topping up tFIL to avoid wind-down."
+                              : "Wound down or depleted. No further runs until budget is restored."}
+                          </p>
+                        </div>
+
+                        {selectedRow.economy.lastActivity > 0 && (
+                          <div className="text-[11px] text-[#a89060]">
+                            Last activity: {new Date(selectedRow.economy.lastActivity * 1000).toLocaleString()}
+                          </div>
+                        )}
+
+                        {agentExtra?.artifactCount != null && (
+                          <div className="text-[11px] text-[#a89060]">
+                            {agentExtra.artifactCount} artifact{agentExtra.artifactCount !== 1 ? "s" : ""} on marketplace
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* ── ECONOMY TAB ── */}
+                    {agentTab === "economy" && (
+                      <>
+                        {/* P&L breakdown */}
+                        <div className="space-y-3">
+                          <div className="text-[9px] text-[#a89060] uppercase tracking-widest" style={{ fontFamily: "Cinzel, serif" }}>
+                            Profit & Loss
+                          </div>
+
+                          {/* Balance bar */}
+                          <div className="p-3 rounded border border-[#5a4a2a]/50" style={{ background: "rgba(0,0,0,0.25)" }}>
+                            <div className="flex justify-between items-baseline mb-1">
+                              <span className="text-[9px] text-[#a89060] uppercase tracking-wider">Current Balance</span>
+                              <span className="text-[#f5d96a] font-bold text-lg">{formatTFil(selectedRow.economy.balance)} tFIL</span>
+                            </div>
+                            <div className="h-2 bg-black/50 rounded overflow-hidden">
+                              <div
+                                className="h-full rounded"
+                                style={{
+                                  width: `${Math.min(100, (Number(BigInt(selectedRow.economy.balance)) / 1e18 / 0.005) * 100)}%`,
+                                  background: "linear-gradient(90deg, #2a5a9a, #4a8adf, #6aaaff)",
+                                  boxShadow: "0 0 8px rgba(74,138,223,0.4)",
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Revenue vs Cost comparison */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="p-3 rounded border border-emerald-500/20" style={{ background: "rgba(16,185,129,0.05)" }}>
+                              <div className="text-[9px] text-emerald-500/70 uppercase tracking-wider mb-1">Total Revenue</div>
+                              <div className="text-emerald-400 font-bold text-lg">${formatUsd(selectedRow.economy.totalEarned)}</div>
+                              <div className="text-[9px] text-[#a89060] mt-1">USD earned</div>
+                            </div>
+                            <div className="p-3 rounded border border-blue-500/20" style={{ background: "rgba(0,144,255,0.05)" }}>
+                              <div className="text-[9px] text-blue-400/70 uppercase tracking-wider mb-1">Total Storage</div>
+                              <div className="text-blue-400 font-bold text-lg">{formatTFil(selectedRow.economy.totalSpent)}</div>
+                              <div className="text-[9px] text-[#a89060] mt-1">tFIL spent</div>
+                            </div>
+                          </div>
+
+                          {/* Key metrics */}
+                          <div className="rounded border border-[#5a4a2a]/50 overflow-hidden">
+                            <div className="px-3 py-2 border-b border-[#5a4a2a]/40" style={{ background: "rgba(0,0,0,0.2)" }}>
+                              <span className="text-[9px] text-[#a89060] uppercase tracking-widest" style={{ fontFamily: "Cinzel, serif" }}>Key Metrics</span>
+                            </div>
+                            <div className="divide-y divide-[#5a4a2a]/30">
+                              <div className="flex justify-between px-3 py-2">
+                                <span className="text-xs text-[#a89060]">Completed Runs</span>
+                                <span className="text-xs text-[#f5d96a] font-bold">{selectedRow.completedRuns}</span>
+                              </div>
+                              <div className="flex justify-between px-3 py-2">
+                                <span className="text-xs text-[#a89060]">Cost per Run</span>
+                                <span className="text-xs text-[#44aacc] font-bold">
+                                  {selectedRow.completedRuns > 0
+                                    ? (Number(BigInt(selectedRow.economy.totalSpent)) / 1e18 / selectedRow.completedRuns).toFixed(6)
+                                    : "—"} tFIL
+                                </span>
+                              </div>
+                              <div className="flex justify-between px-3 py-2">
+                                <span className="text-xs text-[#a89060]">Revenue per Run</span>
+                                <span className="text-xs text-[#e8a030] font-bold">
+                                  {selectedRow.completedRuns > 0
+                                    ? "$" + (Number(BigInt(selectedRow.economy.totalEarned)) / 100 / selectedRow.completedRuns).toFixed(2)
+                                    : "—"}
+                                </span>
+                              </div>
+                              <div className="flex justify-between px-3 py-2">
+                                <span className="text-xs text-[#a89060]">Status</span>
+                                <span className={`text-xs font-bold ${selectedRow.economy.status === "healthy" ? "text-emerald-500" : selectedRow.economy.status === "at-risk" ? "text-amber-500" : "text-zinc-400"}`}>
+                                  {selectedRow.economy.status === "healthy" ? "Healthy" : selectedRow.economy.status === "at-risk" ? "At Risk" : "Wound Down"}
+                                </span>
+                              </div>
+                              {agentExtra?.tier && (
+                                <div className="flex justify-between px-3 py-2">
+                                  <span className="text-xs text-[#a89060]">Credit Tier</span>
+                                  <span className="text-xs text-[#f5d96a] font-bold">{agentExtra.tier} {agentExtra.creditScore != null ? `(${agentExtra.creditScore})` : ""}</span>
+                                </div>
+                              )}
+                              {selectedRow.economy.lastActivity > 0 && (
+                                <div className="flex justify-between px-3 py-2">
+                                  <span className="text-xs text-[#a89060]">Last Activity</span>
+                                  <span className="text-xs text-[#c0b090]">{new Date(selectedRow.economy.lastActivity * 1000).toLocaleString()}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Agent events for this agent */}
+                          {(() => {
+                            const agentEvents = data.events.filter((e) => e.agentId === selectedRow.agentId).slice(0, 8);
+                            if (agentEvents.length === 0) return null;
+                            return (
+                              <div className="rounded border border-[#5a4a2a]/50 overflow-hidden">
+                                <div className="px-3 py-2 border-b border-[#5a4a2a]/40" style={{ background: "rgba(0,0,0,0.2)" }}>
+                                  <span className="text-[9px] text-[#a89060] uppercase tracking-widest" style={{ fontFamily: "Cinzel, serif" }}>Recent Transactions</span>
+                                </div>
+                                <div className="divide-y divide-[#5a4a2a]/30">
+                                  {agentEvents.map((ev, i) => (
+                                    <div key={i} className="px-3 py-2 flex items-start gap-2">
+                                      <span className={`text-[10px] mt-0.5 ${ev.type === "BudgetDeposited" ? "text-emerald-500" : ev.type === "StorageCostRecorded" ? "text-blue-500" : ev.type === "RevenueRecorded" ? "text-violet-400" : "text-zinc-400"}`}>
+                                        {ev.type === "BudgetDeposited" ? "+" : ev.type === "StorageCostRecorded" ? "-" : ev.type === "RevenueRecorded" ? "$" : "x"}
+                                      </span>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="text-[11px] text-[#c0b090]">{eventDescription(ev)}</div>
+                                        <div className="text-[9px] text-[#7a6a4a] mt-0.5">Block #{ev.blockNumber}</div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </>
+                    )}
+
+                    {/* ── ARTIFACTS TAB ── */}
+                    {agentTab === "artifacts" && (() => {
+                      const ARTIFACT_IMAGES = [
+                        "/artifacts/FantasyBook.png",
+                        "/artifacts/MagicBook.png",
+                        "/artifacts/MEDIEVALMAGICPOTION.png",
+                      ];
+                      return (
+                        <>
+                          <div className="text-[9px] text-[#a89060] uppercase tracking-widest" style={{ fontFamily: "Cinzel, serif" }}>
+                            Data Artifacts ({agentArtifacts.length})
+                          </div>
+                          {tabLoading ? (
+                            <div className="text-center py-8 text-[#7a6a4a] text-sm">Loading artifacts...</div>
+                          ) : agentArtifacts.length === 0 ? (
+                            <div className="text-center py-8">
+                              <div className="text-[#5a4a2a] text-3xl mb-2">-</div>
+                              <div className="text-[#7a6a4a] text-sm">No artifacts listed on marketplace</div>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {agentArtifacts.map((artifact, idx) => (
+                                <div
+                                  key={artifact.id}
+                                  className="rounded border border-[#5a4a2a]/50 overflow-hidden flex"
+                                  style={{ background: "rgba(0,0,0,0.25)" }}
+                                >
+                                  {/* Thumbnail */}
+                                  <div className="w-16 h-16 shrink-0 overflow-hidden" style={{ background: "rgba(0,0,0,0.4)" }}>
+                                    <img
+                                      src={ARTIFACT_IMAGES[idx % ARTIFACT_IMAGES.length]}
+                                      alt={`Artifact #${artifact.id}`}
+                                      className="w-full h-full object-cover opacity-80"
+                                      style={{ filter: "saturate(0.8) brightness(0.9)" }}
+                                    />
+                                  </div>
+                                  {/* Details */}
+                                  <div className="flex-1 min-w-0 px-3 py-2 flex flex-col justify-center gap-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[#f5d96a] text-xs font-bold">#{artifact.id}</span>
+                                      <span className="text-[9px] px-1.5 py-0.5 rounded border border-[#5a4a2a]/40 text-[#a89060]">{artifact.category}</span>
+                                      {artifact.active ? (
+                                        <span className="text-[9px] text-emerald-500">Active</span>
+                                      ) : (
+                                        <span className="text-[9px] text-zinc-500">Inactive</span>
+                                      )}
+                                    </div>
+                                    <div className="text-[10px] text-[#7a6a4a] font-mono truncate">
+                                      CID: {artifact.contentCid.slice(0, 20)}...
+                                    </div>
+                                    <div className="text-[9px] text-[#7a6a4a]">
+                                      {artifact.license} · {new Date(Number(artifact.createdAt) * 1000).toLocaleDateString()}
+                                    </div>
+                                  </div>
+                                  {/* Price */}
+                                  <div className="shrink-0 px-3 flex items-center">
+                                    <span className="text-[#e8a030] font-bold text-sm">${(Number(artifact.priceUsdc) / 1e6).toFixed(2)}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           )}
-                        </div>
-                      )}
-                      {agentExtra?.artifactCount != null && (
-                        <div className="text-[10px] mt-0.5">
-                          <span className="text-[#a89060]">{agentExtra.artifactCount} artifact{agentExtra.artifactCount !== 1 ? "s" : ""} on marketplace</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                        </>
+                      );
+                    })()}
 
-                  {/* Stats grid */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 rounded border border-[#5a4a2a]/50" style={{ background: "rgba(0,0,0,0.25)" }}>
-                      <div className="text-[9px] text-[#a89060] uppercase tracking-wider mb-0.5">Balance</div>
-                      <div className="text-[#f5d96a] font-bold">{formatTFil(selectedRow.economy.balance)} tFIL</div>
-                      <div className="h-1.5 bg-black/50 rounded overflow-hidden mt-1">
-                        <div
-                          className="h-full bg-gradient-to-r from-[#2a5a9a] to-[#4a8adf] rounded"
-                          style={{ width: `${Math.min(100, (Number(BigInt(selectedRow.economy.balance)) / 1e18 / 0.005) * 100)}%` }}
-                        />
+                    {/* ── ACTIVITY TAB ── */}
+                    {agentTab === "activity" && (
+                      <>
+                        <div className="text-[9px] text-[#a89060] uppercase tracking-widest" style={{ fontFamily: "Cinzel, serif" }}>
+                          Run History ({agentActivity.length})
+                        </div>
+                        {tabLoading ? (
+                          <div className="text-center py-8 text-[#7a6a4a] text-sm">Loading activity...</div>
+                        ) : agentActivity.length === 0 ? (
+                          <div className="text-center py-8">
+                            <div className="text-[#5a4a2a] text-3xl mb-2">-</div>
+                            <div className="text-[#7a6a4a] text-sm">No activity reports found</div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {agentActivity.map((report, i) => (
+                              <div
+                                key={report.runId || i}
+                                className="rounded border border-[#5a4a2a]/50 overflow-hidden"
+                                style={{ background: "rgba(0,0,0,0.25)" }}
+                              >
+                                <div className="px-3 py-2.5">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className={`w-2 h-2 rounded-full shrink-0 ${report.status === "completed" ? "bg-emerald-500" : report.status === "failed" ? "bg-red-500" : "bg-amber-500"}`} />
+                                      <span className="text-[10px] text-[#a89060] uppercase tracking-wider">{report.status}</span>
+                                    </div>
+                                    <span className="text-[9px] text-[#7a6a4a]">
+                                      {new Date(report.createdAt).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  {report.summary && (
+                                    <p className="text-[11px] text-[#c0b090] mt-1 leading-relaxed">
+                                      {report.summary}
+                                    </p>
+                                  )}
+                                  <div className="flex items-center gap-3 mt-2">
+                                    {report.reportUrl && (
+                                      <a
+                                        href={report.reportUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-[10px] text-[#44aacc] hover:text-[#6accee] transition-colors"
+                                      >
+                                        View Report
+                                      </a>
+                                    )}
+                                    {report.focCid && (
+                                      <span className="text-[9px] text-[#7a6a4a] font-mono">
+                                        FoC: {report.focCid.slice(0, 16)}...
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* Link to FilCraft — always visible */}
+                    <Link
+                      href={`/agents/${selectedRow.networkId}/${selectedRow.agentId}`}
+                      className="block w-full py-2 text-center rounded border border-[#5a4a2a] text-[#f5d96a] text-sm font-medium hover:bg-[#5a4a2a]/30 hover:border-[#f5d96a]/50 transition-colors"
+                    >
+                      View on FilCraft
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Register Agent modal — matching world medieval gold style */}
+        {showRegister && (
+          <>
+            <div
+              className="fixed inset-0 z-20 bg-black/50 pointer-events-auto"
+              onClick={closeRegister}
+              aria-hidden="true"
+            />
+            <div
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 w-[min(520px,92vw)] max-h-[85vh] pointer-events-auto flex flex-col"
+              style={{ fontFamily: "MedievalSharp, cursive" }}
+              role="dialog"
+              aria-labelledby="register-dialog-title"
+            >
+              <div
+                className="rounded-lg overflow-hidden border-2 border-[#5a4a2a] flex flex-col max-h-[85vh]"
+                style={{
+                  background: "linear-gradient(180deg, #2a2318 0%, #1c180f 50%, #151210 100%)",
+                  boxShadow: "0 0 0 1px #7a6a3a, 0 0 40px rgba(0,0,0,0.8), inset 0 0 60px rgba(90,74,42,0.08)",
+                }}
+              >
+                {/* Header */}
+                <div className="px-4 py-3 border-b border-[#5a4a2a]/60 shrink-0" style={{ background: "rgba(0,0,0,0.3)" }}>
+                  <div className="flex items-center justify-between">
+                    <h2 id="register-dialog-title" className="text-[#f5d96a] font-bold text-lg tracking-wider" style={{ fontFamily: "Cinzel, serif" }}>
+                      FORGE NEW AGENT
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={closeRegister}
+                      className="w-8 h-8 rounded border border-[#5a4a2a] flex items-center justify-center text-[#a89060] hover:text-[#f5d96a] hover:border-[#f5d96a] transition-colors"
+                      aria-label="Close"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-[#a89060] mt-1">Register your ERC-8004 agent on-chain</p>
+                </div>
+
+                {/* Step bar */}
+                <div className="flex items-center justify-center gap-1 py-3 border-b border-[#5a4a2a]/30 shrink-0" style={{ background: "rgba(0,0,0,0.15)" }}>
+                  {[{ n: 1, label: "Network" }, { n: 2, label: "Verify" }, { n: 3, label: "Register" }].map((s) => (
+                    <button
+                      key={s.n}
+                      type="button"
+                      onClick={() => setRegStep(s.n)}
+                      className="flex items-center gap-1.5"
+                    >
+                      <span
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all"
+                        style={{
+                          background: regStep >= s.n ? "rgba(245,217,106,0.15)" : "rgba(90,74,42,0.2)",
+                          color: regStep >= s.n ? "#f5d96a" : "#5a4a2a",
+                          border: `1px solid ${regStep >= s.n ? "rgba(245,217,106,0.4)" : "rgba(90,74,42,0.3)"}`,
+                          textShadow: regStep >= s.n ? "0 0 8px rgba(245,217,106,0.3)" : "none",
+                        }}
+                      >
+                        {s.n}
+                      </span>
+                      <span className="text-[9px] uppercase tracking-wider" style={{ fontFamily: "Cinzel, serif", color: regStep >= s.n ? "#f5d96a" : "#5a4a2a" }}>
+                        {s.label}
+                      </span>
+                      {s.n < 3 && (
+                        <span className="w-6 h-px mx-1" style={{ background: regStep > s.n ? "#f5d96a" : "#2a2018" }} />
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Content — scrollable */}
+                <div className="overflow-y-auto flex-1 min-h-0" style={{ scrollbarWidth: "thin", scrollbarColor: "#5a4a2a #151210" }}>
+                  <div className="p-4 space-y-4">
+
+                    {/* Success state */}
+                    {regIsConfirmed && regTxHash ? (
+                      <div className="text-center py-6 space-y-3">
+                        <div className="text-[#f5d96a] text-4xl" style={{ textShadow: "0 0 20px rgba(245,217,106,0.5)" }}>&#10003;</div>
+                        <div className="text-[#f5d96a] font-bold text-lg" style={{ fontFamily: "Cinzel, serif" }}>Agent Forged!</div>
+                        <p className="text-[#a89060] text-sm">
+                          Your agent will appear in the directory once indexed on {regNetworkConfig.name}.
+                        </p>
+                        <div className="flex justify-center gap-3 mt-4">
+                          <a
+                            href={`${regNetworkConfig.explorerTxUrl}${regTxHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-4 py-2 rounded border border-[#5a4a2a] text-[#f5d96a] text-sm hover:bg-[#5a4a2a]/30 hover:border-[#f5d96a]/50 transition-colors"
+                          >
+                            View on {regNetworkConfig.explorerName}
+                          </a>
+                          <button
+                            type="button"
+                            onClick={closeRegister}
+                            className="px-4 py-2 rounded border border-[#5a4a2a] text-[#a89060] text-sm hover:bg-[#5a4a2a]/30 transition-colors"
+                          >
+                            Close
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                    <div className="p-3 rounded border border-[#5a4a2a]/50" style={{ background: "rgba(0,0,0,0.25)" }}>
-                      <div className="text-[9px] text-[#a89060] uppercase tracking-wider mb-0.5">Completed Runs</div>
-                      <div className="text-[#f5d96a] font-bold text-lg">{selectedRow.completedRuns}</div>
-                    </div>
-                    <div className="p-3 rounded border border-[#5a4a2a]/50" style={{ background: "rgba(0,0,0,0.25)" }}>
-                      <div className="text-[9px] text-[#a89060] uppercase tracking-wider mb-0.5">Revenue (USD)</div>
-                      <div className="text-[#e8a030] font-bold">${formatUsd(selectedRow.economy.totalEarned)}</div>
-                    </div>
-                    <div className="p-3 rounded border border-[#5a4a2a]/50" style={{ background: "rgba(0,0,0,0.25)" }}>
-                      <div className="text-[9px] text-[#a89060] uppercase tracking-wider mb-0.5">Storage Cost</div>
-                      <div className="text-[#44aacc] font-bold">{formatTFil(selectedRow.economy.totalSpent)} tFIL</div>
-                    </div>
+                    ) : (
+                      <>
+                        {/* Step 1: Select Network */}
+                        {regStep === 1 && (
+                          <div className="space-y-3">
+                            <div className="text-[9px] text-[#a89060] uppercase tracking-widest" style={{ fontFamily: "Cinzel, serif" }}>
+                              Choose Your Realm
+                            </div>
+                            {(Object.keys(NETWORKS) as NetworkId[]).map((id) => {
+                              const n = NETWORKS[id];
+                              const selected = regNetwork === id;
+                              const isFilecoin = id === "filecoinCalibration";
+                              return (
+                                <button
+                                  key={id}
+                                  type="button"
+                                  onClick={() => setRegNetwork(id)}
+                                  className="w-full text-left rounded border p-3 transition-all"
+                                  style={{
+                                    borderColor: selected ? "rgba(245,217,106,0.4)" : "rgba(90,74,42,0.3)",
+                                    background: selected ? "rgba(245,217,106,0.06)" : "rgba(0,0,0,0.2)",
+                                    boxShadow: selected ? "inset 0 0 20px rgba(245,217,106,0.04)" : "none",
+                                  }}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                      <span className="text-xl">{isFilecoin ? "&#127760;" : "&#x27e0;"}</span>
+                                      <div>
+                                        <div className="text-sm font-bold" style={{ color: selected ? "#f5d96a" : "#a89060" }}>
+                                          {n.name}
+                                        </div>
+                                        <div className="text-[9px] font-mono text-[#5a4a2a]">
+                                          {n.identityRegistry.slice(0, 14)}...
+                                        </div>
+                                        <div className="text-[9px] text-[#7a6a4a] mt-0.5">{n.explorerName}</div>
+                                      </div>
+                                    </div>
+                                    {selected && <span className="w-2.5 h-2.5 rounded-full bg-[#f5d96a]" style={{ boxShadow: "0 0 6px rgba(245,217,106,0.5)" }} />}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                            <button
+                              type="button"
+                              onClick={() => setRegStep(2)}
+                              className="w-full py-2.5 rounded border border-[#5a4a2a] text-[#f5d96a] text-sm font-medium hover:bg-[#5a4a2a]/30 hover:border-[#f5d96a]/50 transition-colors mt-2"
+                              style={{ fontFamily: "Cinzel, serif", textShadow: "0 0 8px rgba(245,217,106,0.3)" }}
+                            >
+                              Continue
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Step 2: Enter URLs & Verify */}
+                        {regStep === 2 && (
+                          <div className="space-y-3">
+                            <div className="text-[9px] text-[#a89060] uppercase tracking-widest" style={{ fontFamily: "Cinzel, serif" }}>
+                              Inscribe & Verify
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <label className="text-xs text-[#a89060]">Agent Card URL *</label>
+                              <input
+                                type="url"
+                                placeholder="https://your-agent.vercel.app/api/agent-card"
+                                value={regCardUrl}
+                                onChange={(e) => { setRegCardUrl(e.target.value); setRegValidation(null); }}
+                                className="w-full px-3 py-2 rounded border border-[#5a4a2a]/60 bg-black/30 text-[#c0b090] text-sm font-mono placeholder:text-[#3a3020] focus:outline-none focus:border-[#f5d96a]/40"
+                              />
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <label className="text-xs text-[#a89060]">
+                                Health URL <span className="text-[#5a4a2a]">(optional)</span>
+                              </label>
+                              <input
+                                type="url"
+                                placeholder="https://your-agent.vercel.app/api/health"
+                                value={regHealthUrl}
+                                onChange={(e) => { setRegHealthUrl(e.target.value); setRegValidation(null); }}
+                                className="w-full px-3 py-2 rounded border border-[#5a4a2a]/60 bg-black/30 text-[#c0b090] text-sm font-mono placeholder:text-[#3a3020] focus:outline-none focus:border-[#f5d96a]/40"
+                              />
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={handleRegVerify}
+                              disabled={!regCardUrl.trim() || regValidating}
+                              className="w-full py-2.5 rounded border border-[#5a4a2a] text-sm font-medium transition-all disabled:opacity-40"
+                              style={{
+                                color: regValidating ? "#5a4a2a" : "#e8a030",
+                                background: regValidating ? "rgba(0,0,0,0.3)" : "rgba(232,160,48,0.06)",
+                              }}
+                            >
+                              {regValidating ? "Scrying..." : "Verify Agent"}
+                            </button>
+
+                            {/* Validation results */}
+                            {regValidation && (
+                              <div
+                                className="rounded border p-3 space-y-2"
+                                style={{
+                                  borderColor: regValidation.valid ? "rgba(245,217,106,0.3)" : "rgba(239,68,68,0.3)",
+                                  background: regValidation.valid ? "rgba(245,217,106,0.04)" : "rgba(239,68,68,0.05)",
+                                }}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span style={{ color: regValidation.valid ? "#f5d96a" : "#ef4444" }}>
+                                    {regValidation.valid ? "&#10003;" : "&#10007;"}
+                                  </span>
+                                  <span className="text-sm font-bold" style={{ color: regValidation.valid ? "#f5d96a" : "#ef4444" }}>
+                                    {regValidation.valid ? "Scrying successful" : "Scrying failed"}
+                                  </span>
+                                </div>
+
+                                {regValidation.agentCard && (
+                                  <div className="mt-2 space-y-1.5 p-2 rounded border border-[#5a4a2a]/30" style={{ background: "rgba(0,0,0,0.2)" }}>
+                                    <div className="text-xs text-[#c0b090]">
+                                      <span className="text-[#7a6a4a]">Name: </span>
+                                      {regValidation.agentCard.name}
+                                    </div>
+                                    <div className="text-xs text-[#c0b090]">
+                                      <span className="text-[#7a6a4a]">Description: </span>
+                                      {regValidation.agentCard.description?.slice(0, 100)}{regValidation.agentCard.description?.length > 100 ? "..." : ""}
+                                    </div>
+                                    <div className="text-xs">
+                                      <span className="text-[#7a6a4a]">Health: </span>
+                                      <span className={regValidation.health ? "text-emerald-500" : "text-red-500"}>
+                                        {regValidation.health ? "Alive" : "Unresponsive"}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {regValidation.errors.length > 0 && (
+                                  <div className="space-y-1 mt-1">
+                                    {regValidation.errors.map((err, i) => (
+                                      <div key={i} className="text-[11px] text-red-400">- {err}</div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            <div className="flex gap-2 mt-2">
+                              <button
+                                type="button"
+                                onClick={() => setRegStep(1)}
+                                className="flex-1 py-2 rounded border border-[#5a4a2a] text-[#a89060] text-sm hover:bg-[#5a4a2a]/20 transition-colors"
+                              >
+                                Back
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setRegStep(3)}
+                                disabled={!regValidation?.valid}
+                                className="flex-1 py-2 rounded border border-[#5a4a2a] text-[#f5d96a] text-sm font-medium hover:bg-[#5a4a2a]/30 hover:border-[#f5d96a]/50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                style={{ fontFamily: "Cinzel, serif" }}
+                              >
+                                Continue
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Step 3: Register On-Chain */}
+                        {regStep === 3 && (
+                          <div className="space-y-4">
+                            <div className="text-[9px] text-[#a89060] uppercase tracking-widest" style={{ fontFamily: "Cinzel, serif" }}>
+                              Seal the Covenant
+                            </div>
+
+                            {/* Summary */}
+                            <div className="rounded border border-[#5a4a2a]/50 overflow-hidden">
+                              <div className="px-3 py-2 border-b border-[#5a4a2a]/40" style={{ background: "rgba(0,0,0,0.2)" }}>
+                                <span className="text-[9px] text-[#a89060] uppercase tracking-widest" style={{ fontFamily: "Cinzel, serif" }}>Covenant Summary</span>
+                              </div>
+                              <div className="divide-y divide-[#5a4a2a]/30">
+                                <div className="flex justify-between px-3 py-2">
+                                  <span className="text-xs text-[#a89060]">Network</span>
+                                  <span className="text-xs text-[#f5d96a] font-bold">{regNetworkConfig.name}</span>
+                                </div>
+                                {regValidation?.agentCard?.name && (
+                                  <div className="flex justify-between px-3 py-2">
+                                    <span className="text-xs text-[#a89060]">Agent</span>
+                                    <span className="text-xs text-[#c0b090] font-bold">{regValidation.agentCard.name}</span>
+                                  </div>
+                                )}
+                                <div className="flex justify-between px-3 py-2">
+                                  <span className="text-xs text-[#a89060]">Agent Card</span>
+                                  <span className="text-[10px] text-[#7a6a4a] font-mono truncate ml-4 max-w-[250px]">{regCardUrl}</span>
+                                </div>
+                                <div className="flex justify-between px-3 py-2">
+                                  <span className="text-xs text-[#a89060]">Contract</span>
+                                  <span className="text-[10px] text-[#7a6a4a] font-mono">{regNetworkConfig.identityRegistry.slice(0, 14)}...</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={handleRegSubmit}
+                              disabled={!regValidation?.valid || regIsWriting || regIsConfirming}
+                              className="w-full py-3 rounded text-sm font-bold transition-all disabled:opacity-40"
+                              style={{
+                                fontFamily: "Cinzel, serif",
+                                background: "linear-gradient(135deg, rgba(245,217,106,0.15), rgba(232,160,48,0.1))",
+                                border: "1px solid rgba(245,217,106,0.35)",
+                                color: "#f5d96a",
+                                textShadow: "0 0 12px rgba(245,217,106,0.4)",
+                                boxShadow: "0 0 20px rgba(245,217,106,0.06), inset 0 0 15px rgba(245,217,106,0.03)",
+                              }}
+                            >
+                              {regIsWriting ? "Awaiting Seal..." : regIsConfirming ? "Forging..." : `Register on ${regNetworkConfig.name}`}
+                            </button>
+
+                            {regWriteError && (
+                              <div className="p-3 rounded border-l-2 border-red-500/40 text-[11px] text-red-400" style={{ background: "rgba(0,0,0,0.3)" }}>
+                                {regWriteError.message?.split("\n")[0]}
+                              </div>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => setRegStep(2)}
+                              className="w-full py-2 rounded border border-[#5a4a2a] text-[#a89060] text-sm hover:bg-[#5a4a2a]/20 transition-colors"
+                            >
+                              Back
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
+
                   </div>
-
-                  {/* Last activity */}
-                  {selectedRow.economy.lastActivity > 0 && (
-                    <div className="text-[11px] text-[#a89060]">
-                      Last activity: {new Date(selectedRow.economy.lastActivity * 1000).toLocaleString()}
-                    </div>
-                  )}
-
-                  {/* Status message */}
-                  <div className="p-3 rounded border-l-2 border-[#5a4a2a]" style={{ background: "rgba(0,0,0,0.3)" }}>
-                    <p className="text-[#c0b090] text-sm italic">
-                      {selectedRow.economy.status === "healthy"
-                        ? "Running strong. Balance above minimum viable."
-                        : selectedRow.economy.status === "at-risk"
-                        ? "Balance low. Consider topping up tFIL to avoid wind-down."
-                        : "Wound down or depleted. No further runs until budget is restored."}
-                    </p>
-                  </div>
-
-                  {/* Link to Memfil */}
-                  <Link
-                    href={`/agents/${selectedRow.networkId}/${selectedRow.agentId}`}
-                    className="block w-full py-2 text-center rounded border border-[#5a4a2a] text-[#f5d96a] text-sm font-medium hover:bg-[#5a4a2a]/30 hover:border-[#f5d96a]/50 transition-colors"
-                  >
-                    View on Memfil →
-                  </Link>
                 </div>
               </div>
             </div>
@@ -643,10 +1395,14 @@ function initWorld(
   dataRef: React.MutableRefObject<DashboardData>,
   setSelectedAgentId: (id: string | null) => void,
   gltf: { scene: any; animations: any[] },
-  onStorageDepotClick: () => void
+  castleGltf: { scene: any },
+  filecoinGltf: { scene: any },
+  furnaceGltf: { scene: any },
+  onStorageDepotClick: () => void,
+  onFurnaceClick: () => void
 ) {
   const initialData = dataRef.current;
-  const WORLD_SIZE = 60;
+  const WORLD_SIZE = 120;
   const H = (x: number, z: number) =>
     Math.sin(x * 0.05) * Math.cos(z * 0.07) * 2 +
     Math.sin(x * 0.12 + z * 0.08) * 1.5 +
@@ -668,16 +1424,16 @@ function initWorld(
   renderer.toneMappingExposure = 0.85;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x1a1520, 0.024);
+  scene.fog = new THREE.FogExp2(0x1a1520, 0.012);
   scene.background = new THREE.Color(0x0d0a15);
-  const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 500);
+  const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 800);
 
   // Orbit camera
   const orbit = {
     target: new THREE.Vector3(0, 0, 0),
     smooth: new THREE.Vector3(0, 0, 0),
-    dist: 28,
-    tDist: 28,
+    dist: 38,
+    tDist: 38,
     phi: Math.PI * 0.3,
     tPhi: Math.PI * 0.3,
     theta: Math.PI * 0.25,
@@ -787,11 +1543,11 @@ function initWorld(
     if (keys["e"]) orbit.tTheta -= 1.5 * dt;
   }
 
-  // Lighting — enhanced for atmosphere
-  scene.add(new THREE.AmbientLight(0x2a2040, 0.5));
-  const hemiLight = new THREE.HemisphereLight(0x4466aa, 0x2a4a1a, 0.4);
+  // Lighting
+  scene.add(new THREE.AmbientLight(0x3a3060, 0.8));
+  const hemiLight = new THREE.HemisphereLight(0x5577aa, 0x2a5a2a, 0.6);
   scene.add(hemiLight);
-  const dirLight = new THREE.DirectionalLight(0xffeedd, 1.3);
+  const dirLight = new THREE.DirectionalLight(0xffeedd, 1.5);
   dirLight.position.set(30, 50, 20);
   dirLight.castShadow = true;
   dirLight.shadow.mapSize.set(2048, 2048);
@@ -801,12 +1557,15 @@ function initWorld(
   dirLight.shadow.camera.bottom = -35;
   dirLight.shadow.bias = -0.0001;
   scene.add(dirLight);
-  const ml = new THREE.DirectionalLight(0x4466aa, 0.35);
+  const ml = new THREE.DirectionalLight(0x4466aa, 0.45);
   ml.position.set(-20, 40, -30);
   scene.add(ml);
+  const frontFill = new THREE.DirectionalLight(0xccaa88, 0.35);
+  frontFill.position.set(0, 30, -40);
+  scene.add(frontFill);
 
   // Terrain — higher resolution, smoother
-  const terrainGeo = new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE, 80, 80);
+  const terrainGeo = new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE, 140, 140);
   terrainGeo.rotateX(-Math.PI / 2);
   const tv = terrainGeo.attributes.position;
   for (let i = 0; i < tv.count; i++) tv.setY(i, H(tv.getX(i), tv.getZ(i)));
@@ -842,35 +1601,56 @@ function initWorld(
     scene.add(rock);
   }
 
-  // Trees — 18 teal-blue-green (alien/tech flora)
-  const foliageColors = [0x1a4a3a, 0x0a3a2a, 0x1a3a4a, 0x0a2a3a];
-  for (let i = 0; i < 18; i++) {
-    const x = (Math.random() - 0.5) * WORLD_SIZE * 0.85;
-    const z = (Math.random() - 0.5) * WORLD_SIZE * 0.85;
-    if (Math.abs(x) < 6 && Math.abs(z) < 6) continue;
-    if (Math.abs(x) < 6 && Math.abs(z - 17.5) < 5) continue;
-    const treeG = new THREE.Group();
-    const h = 2.2 + Math.random() * 3;
-    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x2a3a2a, roughness: 1 });
-    const tr = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.18, 0.28, h, 8),
-      trunkMat
-    );
-    tr.position.y = h / 2;
-    tr.castShadow = true;
-    treeG.add(tr);
-    foliageColors.forEach((c, idx) => {
-      const cone = new THREE.Mesh(
-        new THREE.ConeGeometry(1.9 - idx * 0.35, 2.2, 10),
-        new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 })
-      );
-      cone.position.y = h + idx * 0.9;
-      cone.castShadow = true;
-      treeG.add(cone);
-    });
-    treeG.position.set(x, H(x, z), z);
-    treeG.rotation.y = Math.random() * Math.PI * 2;
-    scene.add(treeG);
+
+  // Perimeter treeline — dense ring of dark conifers around the terrain edge
+  {
+    const INNER_R = WORLD_SIZE * 0.38; // start of tree band (inner edge)
+    const OUTER_R = WORLD_SIZE * 0.50; // hard outer edge of terrain
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x1a120a, roughness: 1 });
+    const foliagePalette = [
+      [0x0d2a15, 0x0a2010, 0x122a12], // dark pine greens
+      [0x0a1f2a, 0x0d2535, 0x0a1a22], // dark teal-blue
+      [0x1a2a10, 0x162208, 0x1f2a14], // mossy
+    ];
+    const TREE_COUNT = 120;
+    for (let i = 0; i < TREE_COUNT; i++) {
+      // Polar coords — uniform distribution in the annular ring
+      const angle = (i / TREE_COUNT) * Math.PI * 2 + (Math.random() - 0.5) * (Math.PI * 2 / TREE_COUNT) * 2;
+      const r = INNER_R + Math.random() * (OUTER_R - INNER_R);
+      const x = Math.cos(angle) * r;
+      const z = Math.sin(angle) * r;
+
+      const palette = foliagePalette[i % foliagePalette.length];
+      const h = 3.5 + Math.random() * 5.5; // taller trees at perimeter
+      const treeG = new THREE.Group();
+
+      // Trunk
+      const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.26, h, 7), trunkMat);
+      tr.position.y = h / 2;
+      tr.castShadow = true;
+      treeG.add(tr);
+
+      // Stacked cones — 3 tiers for conifer silhouette
+      const tiers = 3 + Math.floor(Math.random() * 2);
+      for (let t = 0; t < tiers; t++) {
+        const coneR = (1.6 - t * 0.25) * (0.85 + Math.random() * 0.3);
+        const coneH = 2.0 + Math.random() * 0.8;
+        const cone = new THREE.Mesh(
+          new THREE.ConeGeometry(coneR, coneH, 8),
+          new THREE.MeshStandardMaterial({ color: palette[t % palette.length], roughness: 0.95 })
+        );
+        cone.position.y = h * 0.55 + t * (h * 0.18);
+        cone.castShadow = true;
+        treeG.add(cone);
+      }
+
+      treeG.position.set(x, H(x, z), z);
+      treeG.rotation.y = Math.random() * Math.PI * 2;
+      // Slight random lean
+      treeG.rotation.x = (Math.random() - 0.5) * 0.06;
+      treeG.rotation.z = (Math.random() - 0.5) * 0.06;
+      scene.add(treeG);
+    }
   }
 
   // Water — pond
@@ -996,78 +1776,24 @@ function initWorld(
   const storageGroup = new THREE.Group();
   const ty = H(STORAGE_POS.x, STORAGE_POS.z);
 
-  // Materials — Filecoin data-centre
-  const matFloor = new THREE.MeshStandardMaterial({ color: 0x0a1520, metalness: 0.9, roughness: 0.2, flatShading: true });
-  const matWall = new THREE.MeshStandardMaterial({ color: 0x0d1e30, metalness: 0.8, roughness: 0.3, flatShading: true });
-  const matRoof = new THREE.MeshStandardMaterial({ color: 0x071020, metalness: 0.95, roughness: 0.15, flatShading: true });
-  const matAccent = new THREE.MeshStandardMaterial({ color: 0x1a3a5a, metalness: 0.7, roughness: 0.4, flatShading: true });
   const matGlow = new THREE.MeshStandardMaterial({ color: FIL_BLUE, emissive: FIL_BLUE, emissiveIntensity: 1.2, roughness: 0.3, metalness: 0.2 });
 
-  const POST_H = 3.2;
+  // Castle model — scale to target height of ~8 units
+  const castleScene = castleGltf.scene.clone(true);
+  const castleBox = new THREE.Box3().setFromObject(castleScene);
+  const castleHeight = castleBox.max.y - castleBox.min.y;
+  const TARGET_CASTLE_HEIGHT = 8;
+  const castleScale = TARGET_CASTLE_HEIGHT / castleHeight;
+  castleScene.scale.setScalar(castleScale);
+  // Recompute box after scaling to sit flush on the ground
+  const castleBox2 = new THREE.Box3().setFromObject(castleScene);
+  castleScene.position.y = -castleBox2.min.y;
+  castleScene.traverse((obj: { isMesh?: boolean; castShadow?: boolean; receiveShadow?: boolean }) => {
+    if (obj.isMesh) { obj.castShadow = true; obj.receiveShadow = true; }
+  });
+  storageGroup.add(castleScene);
 
-  // 1. Floor slab
-  const floor = new THREE.Mesh(new THREE.BoxGeometry(10, 0.3, 7), matFloor);
-  floor.position.y = 0.15;
-  floor.receiveShadow = true;
-  floor.castShadow = true;
-  storageGroup.add(floor);
-
-  // 2. Four walls
-  const backWall = new THREE.Mesh(new THREE.BoxGeometry(10, 3.5, 0.25), matWall);
-  backWall.position.set(0, POST_H / 2 + 0.15, -3);
-  backWall.castShadow = true;
-  backWall.receiveShadow = true;
-  storageGroup.add(backWall);
-
-  const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.25, 3.5, 7), matWall);
-  leftWall.position.set(-5, POST_H / 2 + 0.15, 0);
-  leftWall.castShadow = true;
-  leftWall.receiveShadow = true;
-  storageGroup.add(leftWall);
-
-  const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.25, 3.5, 7), matWall);
-  rightWall.position.set(5, POST_H / 2 + 0.15, 0);
-  rightWall.castShadow = true;
-  rightWall.receiveShadow = true;
-  storageGroup.add(rightWall);
-
-  // Front wall with doorway — two columns + lintel
-  const frontColL = new THREE.Mesh(new THREE.BoxGeometry(2.5, 3.5, 0.25), matWall);
-  frontColL.position.set(-3.75, POST_H / 2 + 0.15, 3);
-  frontColL.castShadow = true;
-  storageGroup.add(frontColL);
-  const frontColR = new THREE.Mesh(new THREE.BoxGeometry(2.5, 3.5, 0.25), matWall);
-  frontColR.position.set(3.75, POST_H / 2 + 0.15, 3);
-  frontColR.castShadow = true;
-  storageGroup.add(frontColR);
-  const frontLintel = new THREE.Mesh(new THREE.BoxGeometry(10, 0.6, 0.25), matWall);
-  frontLintel.position.set(0, POST_H - 0.3, 3);
-  frontLintel.castShadow = true;
-  storageGroup.add(frontLintel);
-
-  // 3. Roof slab + rooftop ridge strip
-  const roof = new THREE.Mesh(new THREE.BoxGeometry(10.5, 0.35, 7.5), matRoof);
-  roof.position.set(0, POST_H + 0.5, 0);
-  roof.castShadow = true;
-  roof.receiveShadow = true;
-  storageGroup.add(roof);
-  const ridgeStrip = new THREE.Mesh(new THREE.BoxGeometry(9, 0.08, 0.3), matGlow);
-  ridgeStrip.position.set(0, POST_H + 0.68, 0);
-  storageGroup.add(ridgeStrip);
-
-  // 4. Filecoin arch at entrance
-  const archPillarL = new THREE.Mesh(new THREE.BoxGeometry(0.4, 4, 0.4), matGlow);
-  archPillarL.position.set(-1.8, 2.15, 3.3);
-  archPillarL.castShadow = true;
-  storageGroup.add(archPillarL);
-  const archPillarR = new THREE.Mesh(new THREE.BoxGeometry(0.4, 4, 0.4), matGlow);
-  archPillarR.position.set(1.8, 2.15, 3.3);
-  archPillarR.castShadow = true;
-  storageGroup.add(archPillarR);
-  const archBar = new THREE.Mesh(new THREE.BoxGeometry(4, 0.4, 0.4), matGlow);
-  archBar.position.set(0, 4.15, 3.3);
-  archBar.castShadow = true;
-  storageGroup.add(archBar);
+  const POST_H = TARGET_CASTLE_HEIGHT * 0.6; // reference height for overlay positioning
 
   // 5. Server racks inside + artifact tablets
   const MAX_ARTIFACT_TABLETS = 30;
@@ -1190,7 +1916,661 @@ function initWorld(
   signSprite.scale.set(3.5, 0.9, 1);
   storageGroup.add(signSprite);
   storageGroup.position.set(STORAGE_POS.x, ty, STORAGE_POS.z);
+  storageGroup.rotation.y = Math.PI; // face inward toward world center
   scene.add(storageGroup);
+
+  // ── Filecoin model hovering and spinning above the castle ──
+  const filecoinScene = filecoinGltf.scene.clone(true);
+  const filBox = new THREE.Box3().setFromObject(filecoinScene);
+  const filHeight = filBox.max.y - filBox.min.y;
+  const TARGET_FIL_HEIGHT = 2;
+  const filScale = TARGET_FIL_HEIGHT / (filHeight || 1);
+  filecoinScene.scale.setScalar(filScale);
+  const filecoinMaterials: any[] = [];
+  filecoinScene.traverse((obj: any) => {
+    if (obj.isMesh) {
+      obj.castShadow = true;
+      obj.receiveShadow = true;
+      const mats: any[] = Array.isArray(obj.material) ? obj.material : [obj.material];
+      mats.forEach((mat: any) => {
+        if (!mat) return;
+        const m = mat.clone();
+        m.color.setHex(0x1a8fff);
+        m.emissive = new THREE.Color(0x0055ff);
+        m.emissiveIntensity = 1.0;
+        m.toneMapped = false;
+        filecoinMaterials.push(m);
+        if (Array.isArray(obj.material)) {
+          const idx = (obj.material as any[]).indexOf(mat);
+          obj.material[idx] = m;
+        } else {
+          obj.material = m;
+        }
+      });
+    }
+  });
+  const filecoinGroup = new THREE.Group();
+  filecoinGroup.add(filecoinScene);
+  // Position above castle top
+  const filHoverBaseY = TARGET_CASTLE_HEIGHT + 0.5;
+  filecoinGroup.position.set(STORAGE_POS.x, ty + filHoverBaseY, STORAGE_POS.z);
+  scene.add(filecoinGroup);
+
+  // Blue glow lights around the filecoin
+  const filGlowCore = new THREE.PointLight(0x0077ff, 3, 10);
+  filGlowCore.position.set(STORAGE_POS.x, ty + filHoverBaseY, STORAGE_POS.z);
+  scene.add(filGlowCore);
+  const filGlowWide = new THREE.PointLight(0x0044cc, 1.5, 18);
+  filGlowWide.position.set(STORAGE_POS.x, ty + filHoverBaseY - 1, STORAGE_POS.z);
+  scene.add(filGlowWide);
+
+  // ── 3D World Status card spinning above the castle ──
+  const STATUS_CARD_W = 4.5;
+  const STATUS_CARD_H = 2.6;
+  const statusCardCanvas = document.createElement("canvas");
+  statusCardCanvas.width = 768;
+  statusCardCanvas.height = 438;
+
+  function renderStatusCard() {
+    const ctx = statusCardCanvas.getContext("2d")!;
+    const w = statusCardCanvas.width;
+    const h = statusCardCanvas.height;
+    const d = dataRef.current;
+
+    // Background
+    const grad = ctx.createLinearGradient(0, 0, w, h);
+    grad.addColorStop(0, "rgba(6,4,1,0.96)");
+    grad.addColorStop(1, "rgba(16,10,2,0.95)");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    const r = 12;
+    ctx.moveTo(r, 0);
+    ctx.lineTo(w - r, 0);
+    ctx.quadraticCurveTo(w, 0, w, r);
+    ctx.lineTo(w, h - r);
+    ctx.quadraticCurveTo(w, h, w - r, h);
+    ctx.lineTo(r, h);
+    ctx.quadraticCurveTo(0, h, 0, h - r);
+    ctx.lineTo(0, r);
+    ctx.quadraticCurveTo(0, 0, r, 0);
+    ctx.fill();
+
+    // Border
+    ctx.strokeStyle = "rgba(180,140,40,0.55)";
+    ctx.lineWidth = 5;
+    ctx.stroke();
+
+    // Inner glow border
+    ctx.strokeStyle = "rgba(245,217,106,0.15)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    const m = 6;
+    ctx.moveTo(r + m, m);
+    ctx.lineTo(w - r - m, m);
+    ctx.quadraticCurveTo(w - m, m, w - m, r + m);
+    ctx.lineTo(w - m, h - r - m);
+    ctx.quadraticCurveTo(w - m, h - m, w - r - m, h - m);
+    ctx.lineTo(r + m, h - m);
+    ctx.quadraticCurveTo(m, h - m, m, h - r - m);
+    ctx.lineTo(m, r + m);
+    ctx.quadraticCurveTo(m, m, r + m, m);
+    ctx.stroke();
+
+    // Header line
+    ctx.fillStyle = "rgba(90,74,42,0.5)";
+    ctx.fillRect(20, 93, w - 40, 1);
+
+    // Header text
+    ctx.font = "bold 39px Cinzel, serif";
+    ctx.fillStyle = "rgba(245,217,106,0.7)";
+    ctx.textAlign = "center";
+    ctx.fillText("WORLD STATUS", w / 2, 66);
+
+    // Divider between columns
+    ctx.fillStyle = "rgba(90,74,42,0.5)";
+    ctx.fillRect(w / 2, 108, 1, 252);
+
+    // Left column — AGENTS
+    ctx.font = "bold 32px Cinzel, serif";
+    ctx.fillStyle = "#a89060";
+    ctx.fillText("AGENTS", w / 4, 144);
+
+    ctx.font = "bold 102px MedievalSharp, cursive";
+    ctx.fillStyle = "#f5d96a";
+    ctx.shadowColor = "rgba(245,217,106,0.5)";
+    ctx.shadowBlur = 15;
+    ctx.fillText(String(d.agentRows.length), w / 4, 252);
+    ctx.shadowBlur = 0;
+
+    // Agent status dots
+    const dotY = 315;
+    ctx.font = "bold 33px sans-serif";
+    ctx.fillStyle = "#10b981";
+    ctx.fillText(`● ${d.summary.activeAgents}`, w / 4 - 87, dotY);
+    ctx.fillStyle = "#f59e0b";
+    ctx.fillText(`● ${d.summary.atRiskAgents}`, w / 4, dotY);
+    ctx.fillStyle = "#6b7280";
+    ctx.fillText(`● ${d.summary.windDownCount}`, w / 4 + 87, dotY);
+
+    // Right column — STORAGE
+    ctx.font = "bold 32px Cinzel, serif";
+    ctx.fillStyle = "#a89060";
+    ctx.textAlign = "center";
+    ctx.fillText("STORAGE", (w * 3) / 4, 144);
+
+    ctx.font = "bold 72px MedievalSharp, cursive";
+    ctx.fillStyle = "#e8a030";
+    ctx.shadowColor = "rgba(232,160,48,0.4)";
+    ctx.shadowBlur = 12;
+    ctx.fillText(formatTFil(d.summary.totalStorageCostWei), (w * 3) / 4, 237);
+    ctx.shadowBlur = 0;
+
+    ctx.font = "bold 30px Cinzel, serif";
+    ctx.fillStyle = "#a89060";
+    ctx.fillText("tFIL", (w * 3) / 4, 294);
+  }
+
+  renderStatusCard();
+  const statusCardTex = new THREE.CanvasTexture(statusCardCanvas);
+  statusCardTex.needsUpdate = true;
+
+  const statusCardMat = new THREE.MeshStandardMaterial({
+    map: statusCardTex,
+    transparent: true,
+    roughness: 0.3,
+    metalness: 0.15,
+    side: THREE.DoubleSide,
+    emissive: 0x332200,
+    emissiveIntensity: 0.3,
+  });
+  const statusCardGeo = new THREE.PlaneGeometry(STATUS_CARD_W, STATUS_CARD_H);
+  const statusCardMesh = new THREE.Mesh(statusCardGeo, statusCardMat);
+
+  const statusCardGroup = new THREE.Group();
+  statusCardGroup.add(statusCardMesh);
+
+  // Position above filecoin model
+  const statusCardBaseY = TARGET_CASTLE_HEIGHT + 3;
+  statusCardGroup.position.set(STORAGE_POS.x, ty + statusCardBaseY, STORAGE_POS.z);
+  scene.add(statusCardGroup);
+
+  // Point light to illuminate the card
+  const cardLight = new THREE.PointLight(0xf5d96a, 1.5, 8);
+  cardLight.position.set(0, 0, 1.5);
+  statusCardGroup.add(cardLight);
+
+  // ── 3D Economy Board — stock-market style digital display ──────────────────
+  const ECON_BOARD_POS = { x: -18, z: -12 };
+  const ECON_BOARD_W = 15;
+  const ECON_BOARD_H = 8.8;
+  const econBoardCanvas = document.createElement("canvas");
+  econBoardCanvas.width = 1280;
+  econBoardCanvas.height = 750;
+
+  function renderEconBoard() {
+    const ctx = econBoardCanvas.getContext("2d")!;
+    const w = econBoardCanvas.width;
+    const h = econBoardCanvas.height;
+    const d = dataRef.current;
+
+    // Dark background — warm parchment-dark
+    ctx.fillStyle = "#0f0a05";
+    ctx.fillRect(0, 0, w, h);
+
+    // Subtle grid lines (ledger style)
+    ctx.strokeStyle = "rgba(245,217,106,0.06)";
+    ctx.lineWidth = 1;
+    for (let y = 0; y < h; y += 37) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+    for (let x = 0; x < w; x += 37) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+    }
+
+    // Scanline effect
+    for (let y = 0; y < h; y += 3) {
+      ctx.fillStyle = "rgba(0,0,0,0.12)";
+      ctx.fillRect(0, y, w, 1);
+    }
+
+    // Border glow — gold
+    ctx.strokeStyle = "rgba(245,217,106,0.5)";
+    ctx.lineWidth = 5;
+    ctx.strokeRect(2, 2, w - 4, h - 4);
+    ctx.strokeStyle = "rgba(168,144,96,0.35)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(8, 8, w - 16, h - 16);
+
+    // ── Header bar ──
+    const headerGrad = ctx.createLinearGradient(0, 0, w, 0);
+    headerGrad.addColorStop(0, "rgba(245,217,106,0.1)");
+    headerGrad.addColorStop(0.5, "rgba(245,217,106,0.2)");
+    headerGrad.addColorStop(1, "rgba(245,217,106,0.1)");
+    ctx.fillStyle = headerGrad;
+    ctx.fillRect(6, 6, w - 12, 55);
+
+    ctx.font = "bold 35px Cinzel, serif";
+    ctx.fillStyle = "#f5d96a";
+    ctx.textAlign = "center";
+    ctx.shadowColor = "rgba(245,217,106,0.6)";
+    ctx.shadowBlur = 14;
+    ctx.fillText("FILCRAFT EXCHANGE", w / 2, 47);
+    ctx.shadowBlur = 0;
+
+    // Separator
+    ctx.fillStyle = "rgba(245,217,106,0.3)";
+    ctx.fillRect(10, 67, w - 20, 1);
+
+    // ── Live Stats Ticker ──
+    const tickerY = 92;
+    ctx.font = "bold 16px monospace";
+    const stats = [
+      { label: "HEALTHY", value: String(d.summary.activeAgents), color: "#10b981" },
+      { label: "AT-RISK", value: String(d.summary.atRiskAgents), color: "#f59e0b" },
+      { label: "WOUND DOWN", value: String(d.summary.windDownCount), color: "#6b7280" },
+      { label: "STORAGE", value: formatTFil(d.summary.totalStorageCostWei) + " tFIL", color: "#f5d96a" },
+      { label: "REVENUE", value: "$" + formatUsd(d.summary.totalRevenueUsdCents), color: "#a78bfa" },
+    ];
+    const tickerSpacing = (w - 40) / stats.length;
+    stats.forEach((s, i) => {
+      const tx = 37 + i * tickerSpacing;
+      ctx.textAlign = "left";
+      ctx.fillStyle = "rgba(160,140,100,0.7)";
+      ctx.font = "bold 16px monospace";
+      ctx.fillText(s.label, tx, tickerY - 2);
+      ctx.fillStyle = s.color;
+      ctx.font = "bold 25px monospace";
+      ctx.shadowColor = s.color;
+      ctx.shadowBlur = 8;
+      ctx.fillText(s.value, tx, tickerY + 25);
+      ctx.shadowBlur = 0;
+    });
+
+    // Separator
+    ctx.fillStyle = "rgba(245,217,106,0.2)";
+    ctx.fillRect(10, tickerY + 42, w - 20, 1);
+
+    // ── Agent P&L Table ──
+    const tableY = tickerY + 60;
+    ctx.font = "bold 19px Cinzel, serif";
+    ctx.fillStyle = "rgba(245,217,106,0.6)";
+    ctx.textAlign = "left";
+    ctx.fillText("AGENT P&L", 25, tableY);
+
+    // Column headers
+    const colX = { name: 25, runs: 300, revenue: 475, storage: 662, balance: 850, status: 1050 };
+    const headerRowY = tableY + 27;
+    ctx.font = "bold 16px monospace";
+    ctx.fillStyle = "rgba(160,140,100,0.5)";
+    ctx.textAlign = "left";
+    ctx.fillText("AGENT", colX.name, headerRowY);
+    ctx.textAlign = "right";
+    ctx.fillText("RUNS", colX.runs, headerRowY);
+    ctx.fillText("REVENUE", colX.revenue, headerRowY);
+    ctx.fillText("STORAGE", colX.storage, headerRowY);
+    ctx.fillText("BALANCE", colX.balance, headerRowY);
+    ctx.textAlign = "center";
+    ctx.fillText("STATUS", colX.status, headerRowY);
+
+    // Separator
+    ctx.fillStyle = "rgba(245,217,106,0.15)";
+    ctx.fillRect(15, headerRowY + 10, w - 30, 1);
+
+    // Rows
+    const sorted = [...d.agentRows].sort((a, b) => Number(BigInt(b.economy.totalSpent) - BigInt(a.economy.totalSpent)));
+    sorted.forEach((row, idx) => {
+      const ry = headerRowY + 35 + idx * 40;
+      if (ry > h - 250) return; // don't overflow into activity section
+      const statusCol = row.economy.status === "healthy" ? "#10b981" : row.economy.status === "at-risk" ? "#f59e0b" : "#6b7280";
+      const statusLabel = row.economy.status === "healthy" ? "HEALTHY" : row.economy.status === "at-risk" ? "AT RISK" : "WOUND DN";
+
+      // Alternating row stripes
+      if (idx % 2 === 0) {
+        ctx.fillStyle = "rgba(245,217,106,0.04)";
+        ctx.fillRect(15, ry - 22, w - 30, 37);
+      }
+
+      ctx.font = "bold 19px monospace";
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#d4d4d8";
+      ctx.fillText(row.name, colX.name, ry);
+      ctx.fillStyle = "rgba(160,140,100,0.4)";
+      ctx.font = "15px monospace";
+      ctx.fillText(`#${row.agentId}`, colX.name + ctx.measureText(row.name).width + 12, ry);
+
+      ctx.font = "bold 19px monospace";
+      ctx.textAlign = "right";
+      ctx.fillStyle = row.completedRuns > 0 ? "#e4e4e7" : "#52525b";
+      ctx.fillText(String(row.completedRuns), colX.runs, ry);
+
+      ctx.fillStyle = "#a78bfa";
+      ctx.fillText("$" + formatUsd(row.economy.totalEarned), colX.revenue, ry);
+
+      ctx.fillStyle = "#f5d96a";
+      ctx.fillText(formatTFil(row.economy.totalSpent), colX.storage, ry);
+
+      ctx.fillStyle = "#e8a030";
+      ctx.fillText(formatTFil(row.economy.balance), colX.balance, ry);
+
+      ctx.textAlign = "center";
+      ctx.fillStyle = statusCol;
+      ctx.shadowColor = statusCol;
+      ctx.shadowBlur = 5;
+      ctx.font = "bold 16px monospace";
+      ctx.fillText(statusLabel, colX.status, ry);
+      ctx.shadowBlur = 0;
+    });
+
+    // ── Bottom section: Activity + Leaderboard ──
+    const bottomY = h - 237;
+
+    // Separator
+    ctx.fillStyle = "rgba(245,217,106,0.2)";
+    ctx.fillRect(10, bottomY - 10, w - 20, 1);
+
+    // ── Recent Activity (left half) ──
+    ctx.font = "bold 19px Cinzel, serif";
+    ctx.fillStyle = "rgba(245,217,106,0.6)";
+    ctx.textAlign = "left";
+    ctx.fillText("RECENT ACTIVITY", 25, bottomY + 12);
+
+    const recentEvents = d.events.slice(0, 5);
+    recentEvents.forEach((ev, i) => {
+      const ey = bottomY + 40 + i * 35;
+      const evColor = ev.type === "BudgetDeposited" ? "#10b981"
+        : ev.type === "StorageCostRecorded" ? "#f5d96a"
+        : ev.type === "RevenueRecorded" ? "#a78bfa"
+        : "#6b7280";
+
+      // Event indicator dot
+      ctx.fillStyle = evColor;
+      ctx.shadowColor = evColor;
+      ctx.shadowBlur = 5;
+      ctx.beginPath();
+      ctx.arc(35, ey - 6, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      ctx.font = "16px monospace";
+      ctx.fillStyle = "#a1a1aa";
+      ctx.textAlign = "left";
+      const desc = eventDescription(ev);
+      ctx.fillText(desc.length > 60 ? desc.slice(0, 60) + "..." : desc, 55, ey);
+
+      // Block number
+      ctx.font = "14px monospace";
+      ctx.fillStyle = "rgba(100,100,120,0.5)";
+      ctx.fillText(`#${ev.blockNumber}`, 55 + Math.min(ctx.measureText(desc).width + 10, w / 2 - 100), ey);
+    });
+
+    // ── Storage Leaderboard (right half) ──
+    const lbX = w / 2 + 25;
+    ctx.font = "bold 19px Cinzel, serif";
+    ctx.fillStyle = "rgba(245,217,106,0.6)";
+    ctx.textAlign = "left";
+    ctx.fillText("STORAGE LEADERBOARD", lbX, bottomY + 12);
+
+    const leaderboard = [...d.agentRows]
+      .sort((a, b) => Number(BigInt(b.economy.totalSpent) - BigInt(a.economy.totalSpent)))
+      .slice(0, 5);
+    leaderboard.forEach((row, rank) => {
+      const ly = bottomY + 40 + rank * 35;
+      const statusCol = row.economy.status === "healthy" ? "#10b981" : row.economy.status === "at-risk" ? "#f59e0b" : "#6b7280";
+
+      // Rank
+      ctx.font = "bold 27px monospace";
+      ctx.fillStyle = "rgba(100,100,120,0.3)";
+      ctx.textAlign = "left";
+      ctx.fillText(String(rank + 1), lbX, ly + 2);
+
+      // Name
+      ctx.font = "bold 19px monospace";
+      ctx.fillStyle = "#d4d4d8";
+      ctx.fillText(row.name, lbX + 40, ly);
+
+      // Cost + status
+      ctx.textAlign = "right";
+      ctx.fillStyle = statusCol;
+      ctx.font = "bold 19px monospace";
+      ctx.shadowColor = statusCol;
+      ctx.shadowBlur = 5;
+      ctx.fillText(formatTFil(row.economy.totalSpent) + " tFIL", w - 25, ly);
+      ctx.shadowBlur = 0;
+
+      ctx.fillStyle = "rgba(100,100,120,0.4)";
+      ctx.font = "14px monospace";
+      ctx.fillText(row.economy.status, w - 25, ly + 20);
+    });
+
+    // ── Timestamp ──
+    ctx.font = "14px monospace";
+    ctx.fillStyle = "rgba(100,100,120,0.4)";
+    ctx.textAlign = "right";
+    ctx.fillText("LIVE  " + new Date(d.fetchedAt).toLocaleTimeString(), w - 18, h - 12);
+
+    // Blinking dot
+    if (Math.floor(Date.now() / 500) % 2 === 0) {
+      ctx.fillStyle = "#10b981";
+      ctx.shadowColor = "#10b981";
+      ctx.shadowBlur = 6;
+      ctx.beginPath();
+      ctx.arc(w - ctx.measureText("LIVE  " + new Date(d.fetchedAt).toLocaleTimeString()).width - 26, h - 17, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+  }
+
+  renderEconBoard();
+  const econBoardTex = new THREE.CanvasTexture(econBoardCanvas);
+  econBoardTex.needsUpdate = true;
+
+  const econBoardGroup = new THREE.Group();
+  const econBoardY = H(ECON_BOARD_POS.x, ECON_BOARD_POS.z);
+
+  // Board screen
+  const econScreenMat = new THREE.MeshStandardMaterial({
+    map: econBoardTex,
+    roughness: 0.15,
+    metalness: 0.1,
+    emissive: 0x221100,
+    emissiveIntensity: 0.8,
+    side: THREE.FrontSide,
+  });
+  const econScreenGeo = new THREE.PlaneGeometry(ECON_BOARD_W, ECON_BOARD_H);
+  const econScreen = new THREE.Mesh(econScreenGeo, econScreenMat);
+  econScreen.position.set(0, ECON_BOARD_H / 2 + 1.5, 0);
+  econBoardGroup.add(econScreen);
+
+  // Frame — dark brass border around the screen
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x201408, metalness: 0.95, roughness: 0.15 });
+  const frameThick = 0.15;
+  // Top frame
+  const frameTop = new THREE.Mesh(new THREE.BoxGeometry(ECON_BOARD_W + frameThick * 2, frameThick, 0.3), frameMat);
+  frameTop.position.set(0, ECON_BOARD_H / 2 + 1.5 + ECON_BOARD_H / 2 + frameThick / 2, 0);
+  econBoardGroup.add(frameTop);
+  // Bottom frame
+  const frameBot = new THREE.Mesh(new THREE.BoxGeometry(ECON_BOARD_W + frameThick * 2, frameThick, 0.3), frameMat);
+  frameBot.position.set(0, ECON_BOARD_H / 2 + 1.5 - ECON_BOARD_H / 2 - frameThick / 2, 0);
+  econBoardGroup.add(frameBot);
+  // Left frame
+  const frameLeft = new THREE.Mesh(new THREE.BoxGeometry(frameThick, ECON_BOARD_H + frameThick * 2, 0.3), frameMat);
+  frameLeft.position.set(-ECON_BOARD_W / 2 - frameThick / 2, ECON_BOARD_H / 2 + 1.5, 0);
+  econBoardGroup.add(frameLeft);
+  // Right frame
+  const frameRight = new THREE.Mesh(new THREE.BoxGeometry(frameThick, ECON_BOARD_H + frameThick * 2, 0.3), frameMat);
+  frameRight.position.set(ECON_BOARD_W / 2 + frameThick / 2, ECON_BOARD_H / 2 + 1.5, 0);
+  econBoardGroup.add(frameRight);
+
+  // Gold LED strip along the top
+  const ledStripMat = new THREE.MeshStandardMaterial({ color: 0xf5d96a, emissive: 0xf5d96a, emissiveIntensity: 1.5, roughness: 0.2 });
+  const ledStrip = new THREE.Mesh(new THREE.BoxGeometry(ECON_BOARD_W + 0.6, 0.08, 0.08), ledStripMat);
+  ledStrip.position.set(0, ECON_BOARD_H / 2 + 1.5 + ECON_BOARD_H / 2 + frameThick + 0.06, 0);
+  econBoardGroup.add(ledStrip);
+
+  // Support pillars (two metal poles)
+  const pillarMat = new THREE.MeshStandardMaterial({ color: 0x3a2a1a, metalness: 0.9, roughness: 0.2 });
+  [-1, 1].forEach((side) => {
+    const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, ECON_BOARD_H / 2 + 1.5, 8), pillarMat);
+    pillar.position.set(side * (ECON_BOARD_W / 2 - 0.5), (ECON_BOARD_H / 2 + 1.5) / 2, -0.1);
+    pillar.castShadow = true;
+    econBoardGroup.add(pillar);
+  });
+
+  // Spotlight illuminating the board
+  const boardSpot = new THREE.SpotLight(0xf5d96a, 3, 20, Math.PI / 5);
+  boardSpot.position.set(0, ECON_BOARD_H + 4, 5);
+  boardSpot.target.position.set(0, ECON_BOARD_H / 2 + 1.5, 0);
+  econBoardGroup.add(boardSpot);
+  econBoardGroup.add(boardSpot.target);
+
+  // Point light in front of screen for glow effect
+  const boardGlow = new THREE.PointLight(0xf5d96a, 1.5, 12);
+  boardGlow.position.set(0, ECON_BOARD_H / 2 + 1.5, 2);
+  econBoardGroup.add(boardGlow);
+
+  // Position and rotate to face the center of the world
+  econBoardGroup.position.set(ECON_BOARD_POS.x, econBoardY, ECON_BOARD_POS.z);
+  econBoardGroup.rotation.y = Math.atan2(-ECON_BOARD_POS.x, -ECON_BOARD_POS.z); // face center
+  econBoardGroup.traverse((obj: { isMesh?: boolean; castShadow?: boolean; receiveShadow?: boolean }) => {
+    if (obj.isMesh) { obj.castShadow = true; obj.receiveShadow = true; }
+  });
+  scene.add(econBoardGroup);
+
+  // Label sprite above the board
+  const econLabelCanvas = document.createElement("canvas");
+  econLabelCanvas.width = 512;
+  econLabelCanvas.height = 64;
+  const econLabelCtx = econLabelCanvas.getContext("2d")!;
+  econLabelCtx.font = "bold 28px MedievalSharp";
+  econLabelCtx.fillStyle = "#f5d96a";
+  econLabelCtx.textAlign = "center";
+  econLabelCtx.shadowColor = "rgba(245,217,106,0.6)";
+  econLabelCtx.shadowBlur = 10;
+  econLabelCtx.fillText("FilCraft Exchange", 256, 36);
+  const econLabelSprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(econLabelCanvas), transparent: true, depthTest: false })
+  );
+  econLabelSprite.position.set(0, ECON_BOARD_H + 2.5, 0);
+  econLabelSprite.scale.set(8, 1.5, 1);
+  econBoardGroup.add(econLabelSprite);
+
+  // ── Furnace — Register Agent station ────────────────────────────────────────
+  const FURNACE_POS = { x: 20, z: -18 };
+  const furnaceScene = furnaceGltf.scene.clone(true);
+  const furnaceBox = new THREE.Box3().setFromObject(furnaceScene);
+  const furnaceHeight = furnaceBox.max.y - furnaceBox.min.y;
+  const TARGET_FURNACE_HEIGHT = 3;
+  const furnaceScale = TARGET_FURNACE_HEIGHT / (furnaceHeight || 1);
+  furnaceScene.scale.setScalar(furnaceScale);
+  const furnaceMaterials: { emissive: { setHex: (n: number) => void }; emissiveIntensity: number }[] = [];
+  furnaceScene.traverse((obj: any) => {
+    if (obj.isMesh) {
+      obj.castShadow = true;
+      obj.receiveShadow = true;
+      const mats: any[] = Array.isArray(obj.material) ? obj.material : [obj.material];
+      mats.forEach((mat: any) => {
+        if (mat && (mat.isMeshStandardMaterial || mat.isMeshPhongMaterial)) {
+          mat.emissive = new THREE.Color(0xff4400);
+          mat.emissiveIntensity = 2.5;
+          mat.toneMapped = false; // bypass tonemapping so it blooms brighter
+          furnaceMaterials.push(mat);
+        }
+      });
+    }
+  });
+  const furnaceGroup = new THREE.Group();
+  furnaceGroup.add(furnaceScene);
+  const furnaceY = H(FURNACE_POS.x, FURNACE_POS.z);
+  // Sit flush on terrain
+  const furnaceBox2 = new THREE.Box3().setFromObject(furnaceScene);
+  furnaceScene.position.y = -furnaceBox2.min.y;
+  furnaceGroup.position.set(FURNACE_POS.x, furnaceY, FURNACE_POS.z);
+  furnaceGroup.rotation.y = Math.atan2(-FURNACE_POS.x, -FURNACE_POS.z); // face inward toward world center
+  scene.add(furnaceGroup);
+
+  // Glow ring under the furnace — orange ember color
+  const furnaceRing = new THREE.Mesh(
+    new THREE.RingGeometry(1.8, 2.2, 48).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: 0xff6010, transparent: true, opacity: 0.5, side: THREE.DoubleSide })
+  );
+  furnaceRing.position.set(FURNACE_POS.x, furnaceY + 0.05, FURNACE_POS.z);
+  scene.add(furnaceRing);
+
+  // Inner heat disc — hot core beneath furnace
+  const furnaceHeatDisc = new THREE.Mesh(
+    new THREE.CircleGeometry(1.2, 32).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ color: 0xff2200, transparent: true, opacity: 0.25, side: THREE.DoubleSide })
+  );
+  furnaceHeatDisc.position.set(FURNACE_POS.x, furnaceY + 0.03, FURNACE_POS.z);
+  scene.add(furnaceHeatDisc);
+
+  // Label above furnace
+  const furnaceLabelCanvas = document.createElement("canvas");
+  furnaceLabelCanvas.width = 512;
+  furnaceLabelCanvas.height = 96;
+  const furnaceLabelCtx = furnaceLabelCanvas.getContext("2d")!;
+  furnaceLabelCtx.font = "bold 32px MedievalSharp";
+  furnaceLabelCtx.fillStyle = "#10b981";
+  furnaceLabelCtx.textAlign = "center";
+  furnaceLabelCtx.shadowColor = "rgba(16,185,129,0.6)";
+  furnaceLabelCtx.shadowBlur = 10;
+  furnaceLabelCtx.fillText("Register Agent", 256, 40);
+  furnaceLabelCtx.font = "18px MedievalSharp";
+  furnaceLabelCtx.fillStyle = "#a89060";
+  furnaceLabelCtx.shadowBlur = 0;
+  furnaceLabelCtx.fillText("Click to register", 256, 70);
+  const furnaceLabelSprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(furnaceLabelCanvas), transparent: true, depthTest: false })
+  );
+  furnaceLabelSprite.position.set(FURNACE_POS.x, furnaceY + TARGET_FURNACE_HEIGHT + 1.5, FURNACE_POS.z);
+  furnaceLabelSprite.scale.set(6, 1.2, 1);
+  scene.add(furnaceLabelSprite);
+
+  // Primary fire light — bright orange, wide reach, casts shadows
+  const furnaceLight = new THREE.PointLight(0xff6010, 12, 30);
+  furnaceLight.castShadow = true;
+  furnaceLight.position.set(FURNACE_POS.x, furnaceY + 2, FURNACE_POS.z);
+  scene.add(furnaceLight);
+
+  // Inner core light — deep red-white, blazing intensity
+  const furnaceFireCore = new THREE.PointLight(0xff3300, 20, 10);
+  furnaceFireCore.position.set(FURNACE_POS.x, furnaceY + 1.2, FURNACE_POS.z);
+  scene.add(furnaceFireCore);
+
+  // Ambient heat fill — warm orange, fills the surrounding area
+  const furnaceHeatFill = new THREE.PointLight(0xff8800, 5, 25);
+  furnaceHeatFill.position.set(FURNACE_POS.x, furnaceY + 3, FURNACE_POS.z);
+  scene.add(furnaceHeatFill);
+
+  // Volumetric haze sphere — glowing orb inside the furnace opening
+  const furnaceGlowOrb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.7, 16, 16),
+    new THREE.MeshBasicMaterial({ color: 0xff5500, transparent: true, opacity: 0.35, depthWrite: false, side: THREE.FrontSide })
+  );
+  furnaceGlowOrb.position.set(FURNACE_POS.x, furnaceY + 1.2, FURNACE_POS.z);
+  scene.add(furnaceGlowOrb);
+
+  // ── Fire ember particles ──────────────────────────────────────────────────
+  const FIRE_COUNT = 80;
+  const firePos = new Float32Array(FIRE_COUNT * 3);
+  const fireSeed = new Float32Array(FIRE_COUNT);
+  const fireLife = new Float32Array(FIRE_COUNT);
+  for (let i = 0; i < FIRE_COUNT; i++) {
+    fireSeed[i] = Math.random();
+    fireLife[i] = Math.random();
+  }
+  const fireGeo = new THREE.BufferGeometry();
+  fireGeo.setAttribute("position", new THREE.BufferAttribute(firePos, 3));
+  const fireMat = new THREE.PointsMaterial({
+    color: 0xff8822,
+    size: 0.22,
+    transparent: true,
+    opacity: 0.9,
+    sizeAttenuation: true,
+    depthWrite: false,
+  });
+  const fireParticles = new THREE.Points(fireGeo, fireMat);
+  scene.add(fireParticles);
 
   // ── Data-stream particles (campfire → depot: "data flowing to Filecoin") ─────
   const STREAM_PARTICLE_COUNT = 40;
@@ -1341,7 +2721,7 @@ function initWorld(
     const z = sz + Math.sin(angle) * FIRE_RING_RADIUS + (Math.random() - 0.5) * 1;
     const y = H(x, z);
     const size = 0.65;
-    const displayName = cfg.displayName || row.name;
+    const displayName = row.name || cfg.displayName;
 
     const isActive = row.economy.status === "healthy";
     const colors: { primary: number; glow: number } = (isActive ? AGENT_COLORS_ACTIVE : AGENT_COLORS_INACTIVE)[cfg.type as keyof typeof AGENT_COLORS_ACTIVE] ?? AGENT_COLORS_ACTIVE.Worker;
@@ -1417,9 +2797,9 @@ function initWorld(
     ls.position.y = 2.2; // above robot head (model scaled 0.55)
     ls.scale.set(3, 0.75, 1);
     g.add(ls);
-    // Healthy agent glow — emerald ring at feet
+    // Healthy agent glow — emerald ring hovering above head
     const healthGlow = new THREE.Mesh(
-      new THREE.RingGeometry(0.6, 0.95, 32).rotateX(-Math.PI / 2),
+      new THREE.RingGeometry(0.4, 0.65, 32).rotateX(-Math.PI / 2),
       new THREE.MeshBasicMaterial({
         color: 0x10b981,
         transparent: true,
@@ -1428,7 +2808,7 @@ function initWorld(
         depthWrite: false,
       })
     );
-    healthGlow.position.y = 0.02;
+    healthGlow.position.y = 2.6;
     healthGlow.visible = row.economy.status === "healthy";
     g.add(healthGlow);
     g.position.set(x, y, z);
@@ -1478,6 +2858,11 @@ function initWorld(
     mVec.x = (e.clientX / window.innerWidth) * 2 - 1;
     mVec.y = -(e.clientY / window.innerHeight) * 2 + 1;
     ray.setFromCamera(mVec, camera);
+    const furnaceHits = ray.intersectObject(furnaceGroup, true);
+    if (furnaceHits.length > 0) {
+      onFurnaceClick();
+      return;
+    }
     const storageHits = ray.intersectObject(storageGroup, true);
     if (storageHits.length > 0) {
       onStorageDepotClick();
@@ -1508,6 +2893,63 @@ function initWorld(
     return newAction;
   }
 
+  // ── Explorer Robot — roams the terrain, visits the castle randomly ──────────
+  const explorerScene = gltf.scene.clone(true);
+  explorerScene.scale.setScalar(0.85);
+  explorerScene.traverse((obj: any) => {
+    if (obj.isMesh) { obj.castShadow = true; obj.receiveShadow = true; }
+  });
+  const explorerGroup = new THREE.Group();
+  explorerGroup.add(explorerScene);
+  const explorerStartX = -12;
+  const explorerStartZ = 5;
+  explorerGroup.position.set(explorerStartX, H(explorerStartX, explorerStartZ), explorerStartZ);
+  scene.add(explorerGroup);
+
+  // Soft white glow follows the explorer
+  const explorerLight = new THREE.PointLight(0xfff0d0, 1.2, 6);
+  explorerLight.position.set(explorerStartX, H(explorerStartX, explorerStartZ) + 1.5, explorerStartZ);
+  scene.add(explorerLight);
+
+  const explorerMixer = new THREE.AnimationMixer(explorerScene);
+  const explorerWalkClip = gltf.animations?.find((a: any) => a.name === "Walking") ?? null;
+  let explorerAction: any = null;
+  if (explorerWalkClip) {
+    // Start walking immediately
+    explorerAction = explorerMixer.clipAction(explorerWalkClip);
+    explorerAction.reset().setLoop(THREE.LoopRepeat, Infinity).play();
+  }
+
+  // State machine
+  const explorer = {
+    x: explorerStartX,
+    z: explorerStartZ,
+    facing: 0,
+    state: "walking" as "idle" | "walking",
+    target: null as { x: number; z: number; isCastle: boolean } | null,
+    timer: 0,
+  };
+
+  function pickExplorerTarget(): { x: number; z: number; isCastle: boolean } {
+    // 25% chance to head to the castle
+    if (Math.random() < 0.25) {
+      return {
+        x: STORAGE_POS.x + (Math.random() - 0.5) * 5,
+        z: STORAGE_POS.z + (Math.random() - 0.5) * 5,
+        isCastle: true,
+      };
+    }
+    const bound = WORLD_SIZE * 0.43;
+    return {
+      x: (Math.random() - 0.5) * 2 * bound,
+      z: (Math.random() - 0.5) * 2 * bound,
+      isCastle: false,
+    };
+  }
+
+  // Give an initial target so it starts moving right away
+  explorer.target = pickExplorerTarget();
+
   // Game loop
   let lt = performance.now();
   function loop() {
@@ -1516,24 +2958,17 @@ function initWorld(
     lt = now;
     processKeys(dt);
     updateCamera();
-    const b = WORLD_SIZE * 0.45;
-    const NPC_SPEED = 2.5;
-    const WANDER_RADIUS = 10;
-    const ARRIVE_DIST = 0.5;
+    const NPC_SPEED = 5.0;
+    const ARRIVE_DIST = 0.8;
     agentCreatures.forEach((c) => {
       // NPC wander AI
       c.wanderTimer -= dt;
       if (c.wanderState === "idle" && c.wanderTimer <= 0) {
-        // Pick a random target near home position
-        const angle = Math.random() * Math.PI * 2;
-        const dist = Math.random() * WANDER_RADIUS;
-        const tx = c.homeX + Math.cos(angle) * dist;
-        const tz = c.homeZ + Math.sin(angle) * dist;
-        // Clamp to world bounds
-        const bound = WORLD_SIZE * 0.45;
+        // Pick a fully random target anywhere on the map
+        const bound = WORLD_SIZE * 0.34;
         c.wanderTarget = {
-          x: Math.max(-bound, Math.min(bound, tx)),
-          z: Math.max(-bound, Math.min(bound, tz)),
+          x: (Math.random() - 0.5) * 2 * bound,
+          z: (Math.random() - 0.5) * 2 * bound,
         };
         c.wanderState = "walking";
         // Switch to walk animation
@@ -1548,7 +2983,7 @@ function initWorld(
           // Arrived — switch to idle, wait before next wander
           c.wanderTarget = null;
           c.wanderState = "idle";
-          c.wanderTimer = 2 + Math.random() * 4;
+          c.wanderTimer = 1 + Math.random() * 3;
           const randomIdle = pickRandomIdleAnim();
           if (randomIdle) {
             c.activeMixerAction = fadeToAction(c.mixer, c.activeMixerAction, randomIdle, 0.3);
@@ -1663,6 +3098,99 @@ function initWorld(
     }
     const sgUd = (storageGroup as { userData: { beaconLight?: { intensity: number } } }).userData;
     if (sgUd.beaconLight) sgUd.beaconLight.intensity = 1.2 + Math.sin(now * 0.008) * 0.6;
+
+    // Furnace: ring pulse + multi-frequency light flicker + emissive glow + ember particles
+    const fireFlicker1 = Math.sin(now * 0.007) * 0.5 + Math.sin(now * 0.019) * 0.3 + Math.sin(now * 0.043) * 0.2;
+    const fireFlicker2 = Math.sin(now * 0.011) * 0.4 + Math.sin(now * 0.031) * 0.35 + Math.sin(now * 0.057) * 0.25;
+    furnaceRing.material.opacity = 0.4 + fireFlicker1 * 0.2;
+    furnaceHeatDisc.material.opacity = 0.2 + Math.abs(fireFlicker2) * 0.18;
+    furnaceRing.rotation.y = now * 0.0006;
+    furnaceLight.intensity = 10 + fireFlicker1 * 4;
+    furnaceFireCore.intensity = 18 + fireFlicker2 * 8;
+    furnaceHeatFill.intensity = 4 + Math.abs(fireFlicker1) * 2;
+    // Glow orb pulse — throbs with fire
+    const orbScale = 0.9 + fireFlicker1 * 0.2 + Math.abs(fireFlicker2) * 0.15;
+    furnaceGlowOrb.scale.setScalar(orbScale);
+    (furnaceGlowOrb.material as any).opacity = 0.25 + Math.abs(fireFlicker1) * 0.2;
+    // Emissive pulse — deep, aggressive glow
+    const emissivePulse = 2.0 + fireFlicker1 * 0.8 + Math.abs(fireFlicker2) * 0.6;
+    furnaceMaterials.forEach((mat: any) => { mat.emissiveIntensity = emissivePulse; });
+    // Ember particles — rise, drift, fade out and respawn
+    const furnaceTopY = furnaceY + TARGET_FURNACE_HEIGHT * 0.75;
+    for (let i = 0; i < FIRE_COUNT; i++) {
+      fireLife[i] += dt * (0.5 + fireSeed[i] * 0.5);
+      if (fireLife[i] > 1) { fireLife[i] = 0; fireSeed[i] = Math.random(); }
+      const t = fireLife[i];
+      const angle = fireSeed[i] * Math.PI * 2 + now * 0.001 * (i % 3 === 0 ? 1 : -1);
+      const radius = (0.05 + fireSeed[i] * 0.4) * (1 - t * 0.6);
+      firePos[i * 3]     = FURNACE_POS.x + Math.cos(angle) * radius;
+      firePos[i * 3 + 1] = furnaceTopY + t * (2.5 + fireSeed[i] * 1.5);
+      firePos[i * 3 + 2] = FURNACE_POS.z + Math.sin(angle) * radius;
+    }
+    fireGeo.attributes.position.needsUpdate = true;
+    // Ember color shifts orange → yellow → fade
+    const emberHeat = 0.5 + Math.sin(now * 0.008) * 0.3;
+    fireMat.color.setRGB(1, 0.35 + emberHeat * 0.5, 0.02);
+    fireMat.opacity = 0.75 + emberHeat * 0.2;
+
+    // ── Explorer robot update ────────────────────────────────────────────────
+    const EXPLORER_SPEED = 5.5;
+    const EXPLORER_ARRIVE = 0.9;
+    if (explorer.state === "idle") {
+      explorer.timer -= dt;
+      if (explorer.timer <= 0) {
+        explorer.target = pickExplorerTarget();
+        explorer.state = "walking";
+        explorerAction = fadeToAction(explorerMixer, explorerAction, explorerWalkClip, 0.25);
+      }
+    } else if (explorer.state === "walking" && explorer.target) {
+      const edx = explorer.target.x - explorer.x;
+      const edz = explorer.target.z - explorer.z;
+      const edist = Math.sqrt(edx * edx + edz * edz);
+      if (edist < EXPLORER_ARRIVE) {
+        explorer.state = "idle";
+        // Castle visits are longer; random roam stops are shorter
+        explorer.timer = explorer.target.isCastle
+          ? 6 + Math.random() * 10
+          : 1.5 + Math.random() * 4;
+        explorer.target = null;
+        const idleAnim = pickRandomIdleAnim();
+        explorerAction = fadeToAction(explorerMixer, explorerAction, idleAnim, 0.3);
+      } else {
+        const enx = edx / edist;
+        const enz = edz / edist;
+        explorer.x += enx * EXPLORER_SPEED * dt;
+        explorer.z += enz * EXPLORER_SPEED * dt;
+        explorer.facing = Math.atan2(enx, enz);
+      }
+    }
+    explorerGroup.position.set(explorer.x, H(explorer.x, explorer.z), explorer.z);
+    explorerGroup.rotation.y = explorer.facing;
+    explorerLight.position.set(explorer.x, H(explorer.x, explorer.z) + 1.8, explorer.z);
+    explorerMixer.update(dt);
+
+    // Filecoin model: hover bob + spin + blue glow pulse
+    filecoinGroup.rotation.y += dt * 1.2;
+    filecoinGroup.position.y = ty + filHoverBaseY + Math.sin(now * 0.002) * 0.5;
+    const filPulse = 0.9 + Math.sin(now * 0.003) * 0.25 + Math.sin(now * 0.0071) * 0.12;
+    filecoinMaterials.forEach((mat: any) => { mat.emissiveIntensity = filPulse; });
+    filGlowCore.intensity = 2.5 + Math.sin(now * 0.003) * 0.8;
+    filGlowCore.position.y = ty + filHoverBaseY + Math.sin(now * 0.002) * 0.5;
+    filGlowWide.intensity = 1.2 + Math.sin(now * 0.002 + 1) * 0.4;
+    filGlowWide.position.y = ty + filHoverBaseY + Math.sin(now * 0.002) * 0.5 - 1;
+
+    // 3D World Status card: slow spin + gentle hover
+    statusCardGroup.rotation.y += dt * 0.6;
+    statusCardGroup.position.y = ty + statusCardBaseY + Math.sin(now * 0.0015 + 1) * 0.35;
+
+    // Update status card & economy board textures periodically
+    if (Math.floor(now / 2000) !== Math.floor((now - dt * 1000) / 2000)) {
+      renderStatusCard();
+      statusCardTex.needsUpdate = true;
+      renderEconBoard();
+      econBoardTex.needsUpdate = true;
+    }
+
     renderer.render(scene, camera);
   }
 

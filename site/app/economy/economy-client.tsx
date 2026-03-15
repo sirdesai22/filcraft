@@ -33,6 +33,8 @@ import type {
   EconomySummary,
 } from "@/lib/economy";
 
+const CINZEL = "var(--font-cinzel, Cinzel, serif)";
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface AgentRow {
@@ -75,11 +77,11 @@ function formatBigIntCents(cents: string | bigint): string {
 function statusColor(status: AgentEconomyAccount["status"]): string {
   switch (status) {
     case "healthy":
-      return "text-emerald-500";
+      return "text-emerald-400";
     case "at-risk":
-      return "text-amber-500";
+      return "text-amber-400";
     case "wound-down":
-      return "text-zinc-400";
+      return "text-[#a89060]/60";
   }
 }
 
@@ -90,7 +92,7 @@ function statusBg(status: AgentEconomyAccount["status"]): string {
     case "at-risk":
       return "border-amber-500/20 bg-amber-500/5";
     case "wound-down":
-      return "border-zinc-500/20 bg-zinc-500/5 opacity-60";
+      return "border-[rgba(168,144,96,0.15)] bg-[rgba(168,144,96,0.03)] opacity-60";
   }
 }
 
@@ -101,7 +103,7 @@ function statusRowClass(status: AgentEconomyAccount["status"]): string {
     case "at-risk":
       return "hover:bg-amber-500/5";
     case "wound-down":
-      return "opacity-50 hover:bg-zinc-500/5";
+      return "opacity-50 hover:bg-[rgba(168,144,96,0.04)]";
   }
 }
 
@@ -121,13 +123,13 @@ function eventTypeLabel(type: EconomyEvent["type"]): string {
 function eventIcon(type: EconomyEvent["type"]) {
   switch (type) {
     case "BudgetDeposited":
-      return <Zap className="h-4 w-4 text-emerald-500" />;
+      return <Zap className="h-4 w-4 text-emerald-400" />;
     case "StorageCostRecorded":
-      return <Database className="h-4 w-4 text-blue-500" />;
+      return <Database className="h-4 w-4 text-blue-400" />;
     case "RevenueRecorded":
-      return <DollarSign className="h-4 w-4 text-violet-500" />;
+      return <DollarSign className="h-4 w-4 text-violet-400" />;
     case "AgentWindDown":
-      return <XCircle className="h-4 w-4 text-zinc-400" />;
+      return <XCircle className="h-4 w-4 text-[#a89060]/60" />;
   }
 }
 
@@ -188,42 +190,40 @@ export function EconomyClient({
 
   const { summary, agentRows, events } = data;
 
-  // Sorted agent rows
   const sorted = [...agentRows].sort((a, b) => {
     return Number(BigInt(b.economy[sortBy]) - BigInt(a.economy[sortBy]));
   });
 
-  // Top 5 by storage cost
   const leaderboard = [...agentRows]
     .sort((a, b) => Number(BigInt(b.economy.totalSpent) - BigInt(a.economy.totalSpent)))
     .slice(0, 5);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* 1. Live stats bar */}
-      <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-xl border border-border bg-card px-6 py-4 text-sm">
+      <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-xl border border-[rgba(168,144,96,0.2)] bg-[rgba(18,13,6,0.6)] px-6 py-4 text-sm">
         <span>
-          <span className="font-semibold text-emerald-500">{summary.activeAgents}</span>{" "}
-          <span className="text-muted-foreground">healthy</span>
+          <span className="font-semibold text-emerald-400">{summary.activeAgents}</span>{" "}
+          <span className="text-[#a89060]">healthy</span>
         </span>
         <span>
-          <span className="font-semibold text-amber-500">{summary.atRiskAgents}</span>{" "}
-          <span className="text-muted-foreground">at-risk</span>
+          <span className="font-semibold text-amber-400">{summary.atRiskAgents}</span>{" "}
+          <span className="text-[#a89060]">at-risk</span>
         </span>
         <span>
-          <span className="font-semibold text-zinc-400">{summary.windDownCount}</span>{" "}
-          <span className="text-muted-foreground">wound down</span>
+          <span className="font-semibold text-[#a89060]/60">{summary.windDownCount}</span>{" "}
+          <span className="text-[#a89060]">wound down</span>
         </span>
-        <span className="text-muted-foreground">·</span>
+        <span className="text-[#a89060]/40">·</span>
         <span>
-          <span className="font-semibold">{formatBigIntWei(summary.totalStorageCostWei)}</span>{" "}
-          <span className="text-muted-foreground">tFIL storage spent</span>
+          <span className="font-semibold text-[#e8dcc8]">{formatBigIntWei(summary.totalStorageCostWei)}</span>{" "}
+          <span className="text-[#a89060]">tFIL storage spent</span>
         </span>
         <span>
-          <span className="font-semibold">${formatBigIntCents(summary.totalRevenueUsdCents)}</span>{" "}
-          <span className="text-muted-foreground">USDC revenue</span>
+          <span className="font-semibold text-[#e8dcc8]">${formatBigIntCents(summary.totalRevenueUsdCents)}</span>{" "}
+          <span className="text-[#a89060]">USDC revenue</span>
         </span>
-        <span className="ml-auto flex items-center gap-1 text-muted-foreground text-xs">
+        <span className="ml-auto flex items-center gap-1 text-[#a89060] text-xs">
           <Clock className="h-3 w-3" />
           {refreshing ? "refreshing…" : `as of ${new Date(data.fetchedAt).toLocaleTimeString()}`}
         </span>
@@ -232,32 +232,34 @@ export function EconomyClient({
       {/* 2. Survival status cards */}
       <div className="grid sm:grid-cols-3 gap-4">
         <StatusCard
-          icon={<CheckCircle className="h-5 w-5 text-emerald-500" />}
+          icon={<CheckCircle className="h-5 w-5 text-emerald-400" />}
           label="Healthy"
           count={summary.activeAgents}
-          description="Balance &gt; 3× minimum"
+          description="Balance > 3× minimum"
           className="border-emerald-500/20 bg-emerald-500/5"
         />
         <StatusCard
-          icon={<AlertTriangle className="h-5 w-5 text-amber-500" />}
+          icon={<AlertTriangle className="h-5 w-5 text-amber-400" />}
           label="At Risk"
           count={summary.atRiskAgents}
           description="Between 1× and 3× minimum"
           className="border-amber-500/20 bg-amber-500/5"
         />
         <StatusCard
-          icon={<TrendingDown className="h-5 w-5 text-zinc-400" />}
+          icon={<TrendingDown className="h-5 w-5 text-[#a89060]/60" />}
           label="Wound Down"
           count={summary.windDownCount}
           description="Depleted or manually stopped"
-          className="border-zinc-500/20 bg-zinc-500/5"
+          className="border-[rgba(168,144,96,0.15)] bg-[rgba(168,144,96,0.03)]"
         />
       </div>
 
       {/* 3. Agent P&L table */}
-      <div className="rounded-xl border border-border overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
-          <h2 className="text-sm font-semibold">Agent P&amp;L</h2>
+      <div className="rounded-xl border border-[rgba(168,144,96,0.2)] overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[rgba(168,144,96,0.15)] bg-[rgba(245,217,106,0.02)]">
+          <h2 className="text-sm font-semibold text-[#e8dcc8]" style={{ fontFamily: CINZEL, letterSpacing: "0.08em" }}>
+            Agent P&amp;L
+          </h2>
           <div className="flex gap-2">
             {(["totalSpent", "balance", "totalEarned"] as const).map((col) => (
               <button
@@ -266,8 +268,8 @@ export function EconomyClient({
                 className={cn(
                   "text-xs px-2 py-1 rounded flex items-center gap-1 transition-colors",
                   sortBy === col
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-[rgba(245,217,106,0.12)] text-[#f5d96a] border border-[rgba(245,217,106,0.25)]"
+                    : "text-[#a89060] hover:text-[#e8dcc8] border border-transparent"
                 )}
               >
                 <ArrowUpDown className="h-3 w-3" />
@@ -279,7 +281,7 @@ export function EconomyClient({
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border text-muted-foreground text-xs">
+              <tr className="border-b border-[rgba(168,144,96,0.12)] text-[#a89060] text-xs">
                 <th className="text-left px-4 py-2">Agent</th>
                 <th className="text-right px-4 py-2">Runs</th>
                 <th className="text-right px-4 py-2">Revenue (USD)</th>
@@ -291,7 +293,7 @@ export function EconomyClient({
             <tbody>
               {sorted.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                  <td colSpan={5} className="px-4 py-8 text-center text-[#a89060]">
                     No agents found on Filecoin Calibration.
                   </td>
                 </tr>
@@ -300,7 +302,7 @@ export function EconomyClient({
                   <tr
                     key={row.agentId}
                     className={cn(
-                      "border-b border-border last:border-0 transition-colors",
+                      "border-b border-[rgba(168,144,96,0.1)] last:border-0 transition-colors",
                       statusRowClass(row.economy.status)
                     )}
                   >
@@ -308,28 +310,28 @@ export function EconomyClient({
                       <button
                         type="button"
                         onClick={() => openAgentPanel(row.agentId, row.networkId)}
-                        className="font-medium hover:underline text-left"
+                        className="font-medium text-[#e8dcc8] hover:text-[#f5d96a] transition-colors text-left"
                       >
                         {row.name}
                       </button>
-                      <span className="ml-2 text-xs text-muted-foreground">
+                      <span className="ml-2 text-xs text-[#a89060]">
                         #{row.agentId}
                       </span>
                     </td>
                     <td className="px-4 py-2 text-right tabular-nums">
                       {row.completedRuns > 0 ? (
-                        <span className="font-semibold">{row.completedRuns}</span>
+                        <span className="font-semibold text-[#e8dcc8]">{row.completedRuns}</span>
                       ) : (
-                        <span className="text-muted-foreground">0</span>
+                        <span className="text-[#a89060]">0</span>
                       )}
                     </td>
-                    <td className="px-4 py-2 text-right tabular-nums">
+                    <td className="px-4 py-2 text-right tabular-nums text-[#e8dcc8]">
                       ${formatUsd(row.economy.totalEarned)}
                     </td>
-                    <td className="px-4 py-2 text-right tabular-nums">
+                    <td className="px-4 py-2 text-right tabular-nums text-[#e8dcc8]">
                       {formatTFil(row.economy.totalSpent)}
                     </td>
-                    <td className="px-4 py-2 text-right tabular-nums">
+                    <td className="px-4 py-2 text-right tabular-nums text-[#e8dcc8]">
                       {formatTFil(row.economy.balance)}
                     </td>
                     <td className={cn("px-4 py-2 text-right font-medium", statusColor(row.economy.status))}>
@@ -349,13 +351,15 @@ export function EconomyClient({
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* 4. Recent activity feed */}
-        <div className="rounded-xl border border-border">
-          <div className="px-4 py-3 border-b border-border bg-muted/30">
-            <h2 className="text-sm font-semibold">Recent Activity</h2>
+        <div className="rounded-xl border border-[rgba(168,144,96,0.2)]">
+          <div className="px-4 py-3 border-b border-[rgba(168,144,96,0.15)] bg-[rgba(245,217,106,0.02)]">
+            <h2 className="text-sm font-semibold text-[#e8dcc8]" style={{ fontFamily: CINZEL, letterSpacing: "0.08em" }}>
+              Recent Activity
+            </h2>
           </div>
-          <div className="divide-y divide-border">
+          <div className="divide-y divide-[rgba(168,144,96,0.1)]">
             {events.length === 0 ? (
-              <p className="px-4 py-6 text-sm text-muted-foreground text-center">
+              <p className="px-4 py-6 text-sm text-[#a89060] text-center">
                 No events yet — economy contract events appear here once deployed.
               </p>
             ) : (
@@ -363,24 +367,24 @@ export function EconomyClient({
                 <div key={i} className="flex gap-3 px-4 py-3 items-start">
                   <div className="mt-0.5 shrink-0">{eventIcon(ev.type)}</div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm text-foreground leading-snug">
+                    <p className="text-sm text-[#e8dcc8] leading-snug">
                       {eventDescription(ev)}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
+                    <p className="text-xs text-[#a89060] mt-0.5 flex items-center gap-2">
                       <span>{eventTypeLabel(ev.type)}</span>
                       {ev.txHash && (
                         <a
                           href={`https://calibration.filscan.io/tx/${ev.txHash}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="hover:underline font-mono text-[10px]"
+                          className="hover:text-[#f5d96a] transition-colors font-mono text-[10px]"
                         >
                           {ev.txHash.slice(0, 10)}…
                         </a>
                       )}
                     </p>
                   </div>
-                  <span className="text-xs text-muted-foreground shrink-0">
+                  <span className="text-xs text-[#a89060] shrink-0">
                     #{ev.blockNumber}
                   </span>
                 </div>
@@ -390,37 +394,39 @@ export function EconomyClient({
         </div>
 
         {/* 5. Storage cost leaderboard */}
-        <div className="rounded-xl border border-border">
-          <div className="px-4 py-3 border-b border-border bg-muted/30">
-            <h2 className="text-sm font-semibold">Storage Cost Leaderboard</h2>
-            <p className="text-xs text-muted-foreground">Top 5 agents by cumulative tFIL spent</p>
+        <div className="rounded-xl border border-[rgba(168,144,96,0.2)]">
+          <div className="px-4 py-3 border-b border-[rgba(168,144,96,0.15)] bg-[rgba(245,217,106,0.02)]">
+            <h2 className="text-sm font-semibold text-[#e8dcc8]" style={{ fontFamily: CINZEL, letterSpacing: "0.08em" }}>
+              Storage Cost Leaderboard
+            </h2>
+            <p className="text-xs text-[#a89060]">Top 5 agents by cumulative tFIL spent</p>
           </div>
-          <div className="divide-y divide-border">
+          <div className="divide-y divide-[rgba(168,144,96,0.1)]">
             {leaderboard.length === 0 ? (
-              <p className="px-4 py-6 text-sm text-muted-foreground text-center">
+              <p className="px-4 py-6 text-sm text-[#a89060] text-center">
                 No storage activity recorded yet.
               </p>
             ) : (
               leaderboard.map((row, rank) => (
                 <div key={row.agentId} className="flex items-center gap-4 px-4 py-3">
-                  <span className="text-2xl font-bold tabular-nums text-muted-foreground/40 w-8">
+                  <span className="text-2xl font-bold tabular-nums text-[#a89060]/25 w-8">
                     {rank + 1}
                   </span>
                   <div className="flex-1 min-w-0">
                     <button
                       type="button"
                       onClick={() => openAgentPanel(row.agentId, row.networkId)}
-                      className="text-sm font-medium hover:underline truncate block text-left w-full"
+                      className="text-sm font-medium text-[#e8dcc8] hover:text-[#f5d96a] transition-colors truncate block text-left w-full"
                     >
                       {row.name}
                     </button>
-                    <p className="text-xs text-muted-foreground">#{row.agentId}</p>
+                    <p className="text-xs text-[#a89060]">#{row.agentId}</p>
                   </div>
                   <div className="text-right">
                     <p className={cn("text-sm font-semibold tabular-nums", statusColor(row.economy.status))}>
                       {formatTFil(row.economy.totalSpent)} tFIL
                     </p>
-                    <p className="text-xs text-muted-foreground">{row.economy.status}</p>
+                    <p className="text-xs text-[#a89060]">{row.economy.status}</p>
                   </div>
                 </div>
               ))
@@ -464,10 +470,10 @@ function StatusCard({
     <div className={cn("rounded-xl border p-4", className)}>
       <div className="flex items-center gap-2 mb-2">
         {icon}
-        <span className="text-sm font-semibold">{label}</span>
+        <span className="text-sm font-semibold text-[#e8dcc8]">{label}</span>
       </div>
-      <p className="text-3xl font-bold tabular-nums">{count}</p>
-      <p className="text-xs text-muted-foreground mt-1">{description}</p>
+      <p className="text-3xl font-bold tabular-nums text-[#e8dcc8]">{count}</p>
+      <p className="text-xs text-[#a89060] mt-1">{description}</p>
     </div>
   );
 }

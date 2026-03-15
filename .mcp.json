@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "memfil": {
+      "type": "url",
+      "url": "https://memfil.vercel.app/api/mcp"
+    }
+  }
+}

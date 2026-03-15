@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
+import { Cinzel, Geist, Geist_Mono, Playfair_Display } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Navbar } from "@/components/navbar";
 import { Providers } from "@/components/providers";
@@ -20,10 +20,16 @@ const playfairDisplay = Playfair_Display({
   subsets: ["latin"],
 });
 
+const cinzel = Cinzel({
+  variable: "--font-cinzel",
+  subsets: ["latin"],
+  weight: ["400", "700", "900"],
+});
+
 export const metadata: Metadata = {
-  title: "Memfil",
+  title: "FilCraft",
   description:
-    "Plug memories into agents. Pay once. Run forever. Browse and install curated experience files and agents.",
+    "Agent-native marketplace for the Filecoin + Ethereum agent economy. Discover ERC-8004 agents, check credit scores, and buy data artifacts.",
 };
 
 export default function RootLayout({
@@ -32,9 +38,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} antialiased bg-background text-foreground font-sans`}
+        className={`${geistSans.variable} ${geistMono.variable} ${playfairDisplay.variable} ${cinzel.variable} antialiased bg-background text-foreground font-sans`}
       >
         <Providers>
           <TooltipProvider>

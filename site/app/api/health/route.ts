@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   return NextResponse.json({
     status: "ok",
-    service: "memfil",
+    service: "filcraft",
     version: "1.0.0",
     timestamp: new Date().toISOString(),
   });

@@ -10,11 +10,11 @@ import { HealthDot } from "@/components/agent-card";
 import { cn } from "@/lib/utils";
 
 const TIER_BADGE: Record<string, string> = {
-  new: "bg-zinc-500/10 text-zinc-500 border-zinc-500/30",
-  bronze: "bg-amber-700/10 text-amber-700 border-amber-700/30 dark:text-amber-400 dark:border-amber-500/30",
-  silver: "bg-slate-400/10 text-slate-500 border-slate-400/30 dark:text-slate-300 dark:border-slate-400/30",
-  gold: "bg-yellow-400/10 text-yellow-600 border-yellow-400/30 dark:text-yellow-300 dark:border-yellow-400/30",
-  platinum: "bg-violet-500/10 text-violet-600 border-violet-500/30 dark:text-violet-300 dark:border-violet-400/30",
+  new: "bg-[rgba(168,144,96,0.08)] text-[#a89060] border-[rgba(168,144,96,0.25)]",
+  bronze: "bg-[rgba(200,120,40,0.1)] text-[#c87828] border-[rgba(200,120,40,0.3)]",
+  silver: "bg-[rgba(180,190,200,0.08)] text-[#b0bcc8] border-[rgba(180,190,200,0.25)]",
+  gold: "bg-[rgba(245,217,106,0.1)] text-[#f5d96a] border-[rgba(245,217,106,0.3)]",
+  platinum: "bg-[rgba(167,139,250,0.1)] text-[#a78bfa] border-[rgba(167,139,250,0.3)]",
 };
 
 function truncateAddress(addr: string): string {
@@ -88,32 +88,22 @@ export function MarketplaceAgentCard({ agent }: MarketplaceAgentCardProps) {
 
   return (
     <Link href={`/agents/${networkId}/${agent.agentId}`} className="block group">
-      <div className="rounded-lg border border-border bg-card p-4 hover:shadow-md transition-shadow">
+      <div className="rounded-lg border border-[rgba(168,144,96,0.18)] bg-card p-4 hover:border-[rgba(245,217,106,0.28)] hover:bg-[rgba(245,217,106,0.02)] transition-all duration-200">
         <div className="flex items-start gap-3">
-          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
+          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-[rgba(168,144,96,0.2)] bg-[#1a1208]">
             {resolvedImg ? (
-              <img
-                src={resolvedImg}
-                alt={name}
-                className="h-full w-full object-cover"
-                onError={handleImgError}
-              />
+              <img src={resolvedImg} alt={name} className="h-full w-full object-cover" onError={handleImgError} />
             ) : (
-              <img
-                src={agentInitialsSvg(agent.id, name)}
-                alt={name}
-                className="h-full w-full object-cover"
-                draggable={false}
-              />
+              <img src={agentInitialsSvg(agent.id, name)} alt={name} className="h-full w-full object-cover" draggable={false} />
             )}
             <HealthDot agentId={agent.agentId} networkId={networkId} />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="font-semibold text-foreground leading-tight truncate group-hover:underline">
+            <p className="font-semibold text-[#e8dcc8] leading-tight truncate group-hover:text-[#f5d96a] transition-colors">
               {name}
             </p>
             {description && (
-              <p className="mt-0.5 text-sm text-muted-foreground line-clamp-2">
+              <p className="mt-0.5 text-xs text-[#a89060] line-clamp-2 leading-relaxed">
                 {description}
               </p>
             )}
@@ -126,29 +116,24 @@ export function MarketplaceAgentCard({ agent }: MarketplaceAgentCardProps) {
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors font-mono"
+            className="rounded-full border border-[rgba(168,144,96,0.2)] bg-[rgba(168,144,96,0.05)] px-2.5 py-0.5 text-[10px] text-[#a89060] hover:text-[#e8dcc8] transition-colors font-mono"
             title={`Owner: ${agent.owner}`}
           >
-            Owner: {truncateAddress(agent.owner)}
+            {truncateAddress(agent.owner)}
           </a>
-          <span
-            className={cn(
-              "rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize",
-              TIER_BADGE[cs.tier]
-            )}
-          >
+          <span className={cn("rounded-full border px-2.5 py-0.5 text-[10px] font-semibold capitalize", TIER_BADGE[cs.tier])}>
             {cs.label}
           </span>
-          <span className="rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs text-muted-foreground">
+          <span className="rounded-full border border-[rgba(168,144,96,0.18)] bg-[rgba(168,144,96,0.05)] px-2.5 py-0.5 text-[10px] text-[#a89060]">
             {network.name}
           </span>
           {costDisplay && (
-            <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 py-0.5 text-xs font-medium text-violet-600 dark:text-violet-300">
+            <span className="rounded-full border border-[rgba(167,139,250,0.3)] bg-[rgba(167,139,250,0.08)] px-2.5 py-0.5 text-[10px] font-medium text-[#a78bfa]">
               {costDisplay}
             </span>
           )}
-          <span className="ml-auto text-xs text-muted-foreground group-hover:text-foreground transition-colors">
-            Details →
+          <span className="ml-auto text-[10px] text-[#a89060] group-hover:text-[#f5d96a] transition-colors font-mono">
+            view →
           </span>
         </div>
       </div>

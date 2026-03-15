@@ -6,11 +6,11 @@ import {
   USDC_ADDRESS,
 } from "@/lib/data-marketplace";
 
-// ERC-8004 agent card for the Memfil platform itself
+// ERC-8004 agent card for the FilCraft platform itself
 export async function GET() {
   const card = {
     schema: "erc8004-v1",
-    name: "Memfil Agent Economy",
+    name: "FilCraft Agent Economy",
     description:
       "Agent-native marketplace for the Filecoin + Ethereum agent economy. " +
       "Discover ERC-8004 agents, check credit scores, buy data artifacts, " +

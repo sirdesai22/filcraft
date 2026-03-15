@@ -114,44 +114,49 @@ export default async function EconomyPage() {
     },
   ];
 
+  const CINZEL = "var(--font-cinzel, Cinzel, serif)";
+
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+    <div className="container mx-auto px-4 py-10 max-w-7xl">
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Agent Economy</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-3xl font-bold tracking-widest text-[#f5d96a] mb-2" style={{ fontFamily: CINZEL }}>
+            Agent Economy
+          </h1>
+          <p className="text-sm text-[#a89060] max-w-xl leading-relaxed">
             Live accounting: storage costs, revenue, survival rates, and wind-downs
             for the RFS-4 autonomous agent economy testbed on Filecoin Calibration.
           </p>
         </div>
         <Link
           href="/"
-          className="shrink-0 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+          className="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-[#f5d96a] hover:text-[#fff8d6] transition-colors"
+          style={{ fontFamily: CINZEL, letterSpacing: "0.1em" }}
         >
           View in World →
         </Link>
       </div>
 
       {/* ── Contract addresses ─────────────────────────────────────────────── */}
-      <div className="mb-8 rounded-xl border border-border bg-card overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-border bg-muted/40 flex items-center gap-2">
+      <div className="mb-8 rounded-lg border border-[rgba(168,144,96,0.2)] bg-card overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-[rgba(168,144,96,0.15)] bg-[rgba(245,217,106,0.03)] flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-[#a89060]" style={{ fontFamily: CINZEL }}>
             Deployed Contracts · Filecoin Calibration
           </span>
         </div>
-        <div className="divide-y divide-border">
+        <div className="divide-y divide-[rgba(168,144,96,0.1)]">
           {contracts.map(({ label, sublabel, address }) => (
-            <div key={label} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 px-4 py-3">
+            <div key={label} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 px-4 py-3 hover:bg-[rgba(245,217,106,0.02)] transition-colors">
               <div className="sm:w-52 shrink-0">
-                <p className="text-sm font-semibold">{label}</p>
-                <p className="text-xs text-muted-foreground">{sublabel}</p>
+                <p className="text-sm font-semibold text-[#e8dcc8]">{label}</p>
+                <p className="text-xs text-[#a89060]">{sublabel}</p>
               </div>
               <a
                 href={filscan(address)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-mono text-xs text-primary hover:underline break-all"
+                className="font-mono text-xs text-[#f5d96a]/70 hover:text-[#f5d96a] transition-colors break-all"
               >
                 {address}
               </a>
@@ -170,13 +175,13 @@ export default async function EconomyPage() {
 function EconomySkeleton() {
   return (
     <div className="space-y-6 animate-pulse">
-      <div className="h-20 rounded-xl bg-muted" />
+      <div className="h-20 rounded-lg bg-[#1a1208]" />
       <div className="grid grid-cols-3 gap-4">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="h-24 rounded-xl bg-muted" />
+          <div key={i} className="h-24 rounded-lg bg-[#1a1208]" />
         ))}
       </div>
-      <div className="h-64 rounded-xl bg-muted" />
+      <div className="h-64 rounded-lg bg-[#1a1208]" />
     </div>
   );
 }

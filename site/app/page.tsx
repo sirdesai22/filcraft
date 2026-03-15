@@ -1,4 +1,5 @@
 import { AetheriaWorld } from "@/app/world/AetheriaWorld";
+import { SplashGate } from "@/components/SplashGate";
 import { getAgentsPage } from "@/lib/agents";
 import {
   fetchEconomyAccounts,
@@ -67,8 +68,10 @@ export default async function HomePage() {
   };
 
   return (
-    <main className="min-h-screen w-full overflow-hidden">
-      <AetheriaWorld initialData={initialData} />
-    </main>
+    <SplashGate>
+      <main className="min-h-screen w-full overflow-hidden">
+        <AetheriaWorld initialData={initialData} />
+      </main>
+    </SplashGate>
   );
 }
