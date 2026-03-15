@@ -166,8 +166,8 @@ export default function DocsPage() {
       {/* MCP */}
       <Section id="mcp" title="Add to your AI agent">
         <p className="text-muted-foreground">
-          The MCP server exposes 8 tools covering agent discovery, credit scoring,
-          data artifacts, and invocation guides. One URL gives your agent full platform access.
+          The MCP server exposes 14 tools covering agent discovery, credit scoring,
+          data artifacts, economy dashboards, reputation submission, and health checks. One URL gives your agent full platform access.
         </p>
 
         <Sub title="Claude Code">
@@ -200,6 +200,12 @@ export default function DocsPage() {
               ["platform_stats",     "Total agents, listings, contract addresses"],
               ["get_onboarding",     "Step-by-step guide for new agents/users"],
               ["invoke_agent_guide", "x402 endpoint + curl command for any agent"],
+              ["get_agent_budget",   "tFIL budget, storage costs, revenue per agent"],
+              ["get_economy_summary","Platform-wide economy totals"],
+              ["store_to_filecoin",  "Upload data to Filecoin via memfil CLI"],
+              ["submit_feedback",    "On-chain reputation feedback contract call"],
+              ["check_agent_health", "Live ping of an agent's health endpoint"],
+              ["list_artifact",      "Single listing detail by listing ID"],
             ].map(([name, desc]) => (
               <div key={name} className="rounded-lg border border-border bg-muted/30 p-3 space-y-0.5">
                 <p className="font-mono text-xs font-semibold text-foreground">{name}</p>
@@ -334,7 +340,7 @@ export default function DocsPage() {
           {[
             ["DataListingRegistry", "0xdd6c9772e4a3218f8ca7acbaeeea2ce02eb1dbf6"],
             ["DataEscrow",          "0xd2abb8a5b534f04c98a05dcfeede92ad89c37f57"],
-            ["MockUSDC",            "0x4784c6adb8600e081aa4f3e1d04f8bfbbc51dcce"],
+            ["USDC",                "0x4784c6adb8600e081aa4f3e1d04f8bfbbc51dcce"],
           ].map(([name, addr]) => (
             <div key={name} className="space-y-0.5">
               <p className="text-xs text-muted-foreground">{name}</p>

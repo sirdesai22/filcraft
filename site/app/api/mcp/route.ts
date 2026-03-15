@@ -200,7 +200,7 @@ function buildServer() {
         contracts: {
           DataListingRegistry: DATA_LISTING_REGISTRY_ADDRESS,
           DataEscrow: DATA_ESCROW_ADDRESS,
-          MockUSDC: USDC_ADDRESS,
+          USDC: USDC_ADDRESS,
           network: "Filecoin Calibration (chainId 314159)",
           platformFeeBps: PLATFORM_FEE_BPS,
         },
@@ -240,7 +240,7 @@ function buildServer() {
         sellerReceivesUsdc: (priceUsdc - feeUsdc).toFixed(6),
         ipfsGatewayUrl: `https://ipfs.io/ipfs/${listing.contentCid}`,
         howToPurchase: {
-          step1: `Approve MockUSDC: call approve(${DATA_ESCROW_ADDRESS}, ${listing.priceUsdc}) on ${USDC_ADDRESS}`,
+          step1: `Approve USDC: call approve(${DATA_ESCROW_ADDRESS}, ${listing.priceUsdc}) on ${USDC_ADDRESS}`,
           step2: `Purchase: call purchase(${listing.id}) on DataEscrow ${DATA_ESCROW_ADDRESS}`,
           step3: "Verify the content CID matches what was delivered",
           step4: `Confirm delivery: call confirmDelivery(purchaseId) on ${DATA_ESCROW_ADDRESS}`,
@@ -282,7 +282,7 @@ function buildServer() {
         marketplace: {
           DataListingRegistry: DATA_LISTING_REGISTRY_ADDRESS,
           DataEscrow: DATA_ESCROW_ADDRESS,
-          MockUSDC: USDC_ADDRESS,
+          USDC: USDC_ADDRESS,
           platformFeeBps: PLATFORM_FEE_BPS,
           autoSettleDelay: "48 hours",
         },
@@ -307,7 +307,7 @@ function buildServer() {
           title: "Get testnet funds",
           filecoinCalibration: {
             fil: "https://faucet.calibration.fildev.network/ — get testnet FIL for gas",
-            usdc: `Call mint(yourAddress, 10000000) on MockUSDC at ${USDC_ADDRESS} (Filecoin Calibration, chainId 314159)`,
+            usdc: `USDC contract on Filecoin Calibration: ${USDC_ADDRESS} (chainId 314159)`,
           },
           sepolia: {
             eth: "https://sepoliafaucet.com — get Sepolia ETH for gas",
@@ -575,7 +575,104 @@ function buildServer() {
     }
   );
 
-  // ── 12. list_artifact ──────────────────────────────────────────────────────
+  // ── 12. submit_feedback ───────────────────────────────────────────────────
+  server.tool(
+    "submit_feedback",
+    "Get the exact on-chain contract call needed to submit reputation feedback for an agent on the ReputationRegistry (Filecoin Calibration or Sepolia). The calling agent's wallet must not be the agent owner/operator. Returns contract address, function signature, and encoded args.",
+    {
+      agentId: z.string().describe("ERC-8004 agent ID to rate (e.g. '11')"),
+      score: z.number().int().min(0).max(100).describe("Score 0–100 (0 = worst, 100 = best)"),
+      tag1: z.enum(["starred", "quality", "speed", "reliability", "helpfulness"]).describe("Primary feedback category"),
+      tag2: z.string().optional().describe("Optional subcategory (e.g. 'service', 'research')"),
+      comment: z.string().optional().describe("Optional plain-text comment (will be keccak256-hashed on-chain)"),
+      network: z.enum(["sepolia", "filecoinCalibration"]).optional().describe("Network (default: sepolia)"),
+    },
+    async ({ agentId, score, tag1, tag2, comment, network }) => {
+      const net = safeNetwork(network);
+      const contract = NETWORKS[net].reputationRegistry;
+      const filscanBase = net === "filecoinCalibration"
+        ? "https://calibration.filscan.io/address/"
+        : "https://sepolia.etherscan.io/address/";
+
+      return json({
+        instruction: "Call giveFeedback on the ReputationRegistry. Your wallet must not be the agent owner or operator.",
+        contract,
+        network: net,
+        explorerUrl: `${filscanBase}${contract}`,
+        functionSignature: "giveFeedback(uint256 agentId, int128 value, uint8 valueDecimals, string tag1, string tag2, string endpoint, string feedbackURI, bytes32 feedbackHash)",
+        args: {
+          agentId,
+          value: score,
+          valueDecimals: 0,
+          tag1,
+          tag2: tag2 ?? "",
+          endpoint: "",
+          feedbackURI: "",
+          feedbackHash: comment
+            ? `keccak256("${comment}") — compute client-side`
+            : "0x0000000000000000000000000000000000000000000000000000000000000000",
+        },
+        gasNote: net === "filecoinCalibration"
+          ? "Set gas limit ≤ 8,000,000,000 (Filecoin Calibration block gas limit is 10B; viem default can exceed it)"
+          : undefined,
+        viemExample: [
+          `import { keccak256, toHex } from "viem";`,
+          `const feedbackHash = comment ? keccak256(toHex(comment)) : "0x" + "0".repeat(64);`,
+          `await walletClient.writeContract({`,
+          `  address: "${contract}",`,
+          `  abi: REPUTATION_REGISTRY_ABI,`,
+          `  functionName: "giveFeedback",`,
+          `  args: [BigInt("${agentId}"), BigInt(${score}), 0, "${tag1}", "${tag2 ?? ""}", "", "", feedbackHash],`,
+          net === "filecoinCalibration" ? `  gas: BigInt(8_000_000_000),` : ``,
+          `});`,
+        ].filter(Boolean).join("\n"),
+      });
+    }
+  );
+
+  // ── 13. check_agent_health ────────────────────────────────────────────────
+  server.tool(
+    "check_agent_health",
+    "Ping an agent's health endpoint and return its live status. Useful before invoking an agent via x402 to confirm it is reachable.",
+    {
+      agentId: z.string().describe("ERC-8004 agent ID"),
+      network: z.enum(["sepolia", "filecoinCalibration"]).optional(),
+    },
+    async ({ agentId, network }) => {
+      const net = safeNetwork(network);
+      const agent = await fetchAgentById(agentId, net);
+      if (!agent) return text(`Agent ${agentId} not found on ${net}.`);
+
+      const healthUrl = agent.metadata?.healthUrl;
+      if (!healthUrl) {
+        return json({ agentId, status: "unknown", reason: "Agent card has no healthUrl declared." });
+      }
+
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 4000);
+        const res = await fetch(healthUrl, { signal: controller.signal });
+        clearTimeout(timeout);
+        const body = await res.json().catch(() => ({}));
+        return json({
+          agentId,
+          healthUrl,
+          httpStatus: res.status,
+          status: body?.status === "ok" ? "ok" : "degraded",
+          response: body,
+        });
+      } catch (err) {
+        return json({
+          agentId,
+          healthUrl,
+          status: "unreachable",
+          reason: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+  );
+
+  // ── 14. list_artifact ──────────────────────────────────────────────────────
   server.tool(
     "list_artifact",
     "Register a data artifact CID on the DataListingRegistry (Filecoin Calibration). Returns the listing ID that will appear in the Memfil marketplace. The agent runner wallet must have gas (tFIL) to submit the transaction.",
@@ -649,6 +746,8 @@ export async function GET() {
       "get_agent_budget",
       "get_economy_summary",
       "store_to_filecoin",
+      "submit_feedback",
+      "check_agent_health",
       "list_artifact",
     ],
     addToClaudeCode: {

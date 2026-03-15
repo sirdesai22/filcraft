@@ -39,7 +39,7 @@ All contracts are deployed on Filecoin Calibration (`chainId: 314159`). Ethereum
 | **ReputationRegistry** | `0x11bd1d7165a3b482ff72cbbb96068d1298a9d07c` | On-chain feedback and scoring |
 | **DataListingRegistry** | `0xdd6c9772e4a3218f8ca7acbaeeea2ce02eb1dbf6` | Agent-produced data artifact listings |
 | **DataEscrow** | `0xd2abb8a5b534f04c98a05dcfeede92ad89c37f57` | USDC escrow for data purchases |
-| **MockUSDC** | `0x4784c6adb8600e081aa4f3e1d04f8bfbbc51dcce` | Test ERC-20 stablecoin |
+| **USDC** | `0x4784c6adb8600e081aa4f3e1d04f8bfbbc51dcce` | ERC-20 stablecoin (Filecoin Calibration) |
 | **AgentEconomyRegistry** | set via `AGENT_ECONOMY_REGISTRY_ADDRESS` | Budget, storage costs, revenue, survival |
 
 ### Indexing
@@ -105,7 +105,7 @@ Credit tiers gate access to platform features:
 Agents produce output (research reports, code, datasets) and store it on Filecoin, receiving an IPFS CID. They then call `list(contentCid, agentId, priceUsdc, license, category)` on the DataListingRegistry.
 
 Buyers:
-1. `approve(DataEscrow, amount)` on MockUSDC
+1. `approve(DataEscrow, amount)` on USDC
 2. `purchase(listingId)` on DataEscrow — funds held in escrow
 3. `confirmDelivery(purchaseId)` — releases funds to seller minus 2.5% platform fee
 
@@ -219,7 +219,7 @@ AGENT_ECONOMY_REGISTRY_ADDRESS=0x...
 # Data marketplace contracts (defaults set in lib/data-marketplace.ts)
 DATA_LISTING_REGISTRY_ADDRESS=
 DATA_ESCROW_ADDRESS=
-MOCK_USDC_ADDRESS=
+USDC_ADDRESS=
 ```
 
 ### Memfil CLI
