@@ -7,10 +7,10 @@
  * x402 services — all from a single endpoint.
  *
  * Add to Claude Code:
- *   Settings → MCP Servers → Add → HTTP → https://filcraft.io/api/mcp
+ *   Settings → MCP Servers → Add → HTTP → https://filcraft.vercel.app/api/mcp
  *
  * Or in .claude.json / claude_desktop_config.json:
- *   { "mcpServers": { "memfil": { "type": "http", "url": "https://filcraft.io/api/mcp" } } }
+ *   { "mcpServers": { "filcraft": { "type": "http", "url": "https://filcraft.vercel.app/api/mcp" } } }
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -98,7 +98,7 @@ function buildServer() {
         creditTier: computeCreditScore(a).tier,
         creditScore: computeCreditScore(a).score,
         owner: a.owner,
-        detailUrl: `https://filcraft.io/agents/${a.networkId}/${a.agentId}`,
+        detailUrl: `https://filcraft.vercel.app/agents/${a.networkId}/${a.agentId}`,
       }));
       return json({ total: result.total, page: result.page, hasMore: result.hasMore, agents: items });
     }
@@ -149,7 +149,7 @@ function buildServer() {
                 `-d '{"input": "your query here"}'`,
             }
           : null,
-        explorerUrl: `https://filcraft.io/agents/${agent.networkId}/${agent.agentId}`,
+        explorerUrl: `https://filcraft.vercel.app/agents/${agent.networkId}/${agent.agentId}`,
       });
     }
   );
@@ -213,7 +213,7 @@ function buildServer() {
           metadataUri: l.metadataUri,
           producer: l.producer,
           agentId: l.agentId,
-          purchaseUrl: `https://filcraft.io/artifacts`,
+          purchaseUrl: `https://filcraft.vercel.app/artifacts`,
         })),
       });
     }
@@ -286,8 +286,8 @@ function buildServer() {
           platformFeeBps: PLATFORM_FEE_BPS,
           autoSettleDelay: "48 hours",
         },
-        mcpServer: "https://filcraft.io/api/mcp",
-        agentCard: "https://filcraft.io/.well-known/agent-card.json",
+        mcpServer: "https://filcraft.vercel.app/api/mcp",
+        agentCard: "https://filcraft.vercel.app/.well-known/agent-card.json",
       });
     }
   );
@@ -318,8 +318,8 @@ function buildServer() {
         step2_registerAgent: {
           title: "Register your agent as an ERC-8004 identity",
           options: [
-            "UI: https://filcraft.io/agents/register",
-            "API: POST https://filcraft.io/api/agents/validate with your agent card URL",
+            "UI: https://filcraft.vercel.app/agents/register",
+            "API: POST https://filcraft.vercel.app/api/agents/validate with your agent card URL",
             `Contract: call register(agentURI) on IdentityRegistry ${NETWORKS.sepolia.identityRegistry} (Sepolia) or ${NETWORKS.filecoinCalibration.identityRegistry} (Filecoin Calibration)`,
           ],
           agentCardFormat: {
@@ -377,12 +377,12 @@ function buildServer() {
 
         addMcpToClaudeCode: {
           title: "Add FilCraft to Claude Code",
-          method1_settings: "Settings → MCP Servers → Add → Type: HTTP → URL: https://filcraft.io/api/mcp",
+          method1_settings: "Settings → MCP Servers → Add → Type: HTTP → URL: https://filcraft.vercel.app/api/mcp",
           method2_config: {
             file: "~/.claude.json or ~/.config/claude/claude_desktop_config.json",
             content: {
               mcpServers: {
-                filcraft: { type: "http", url: "https://filcraft.io/api/mcp" },
+                filcraft: { type: "http", url: "https://filcraft.vercel.app/api/mcp" },
               },
             },
           },
@@ -537,7 +537,7 @@ function buildServer() {
           txHash: ev.txHash,
           ...ev.data,
         })),
-        dashboardUrl: "https://filcraft.io/economy",
+        dashboardUrl: "https://filcraft.vercel.app/economy",
       });
     }
   );
@@ -752,7 +752,7 @@ export async function GET() {
     ],
     addToClaudeCode: {
       type: "http",
-      url: "https://filcraft.io/api/mcp",
+      url: "https://filcraft.vercel.app/api/mcp",
     },
   });
 }

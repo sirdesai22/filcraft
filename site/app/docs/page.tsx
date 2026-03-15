@@ -1,16 +1,32 @@
 export const dynamic = "force-dynamic";
 
 const CODE = {
-  claudeCode: `# In Claude Code settings → MCP Servers → Add
-# Type: HTTP
-# URL: https://filcraft.io/api/mcp
+  claudeCode: `# In Claude Code — Settings → MCP Servers → Add
+# Type: HTTP  |  URL: https://filcraft.vercel.app/api/mcp
 
-# Or add to ~/.claude.json:
+# Or edit ~/.claude.json directly:
 {
   "mcpServers": {
-    "filcraft": {
+    "memfil": {
       "type": "http",
-      "url": "https://filcraft.io/api/mcp"
+      "url": "https://filcraft.vercel.app/api/mcp"
+    }
+  }
+}`,
+
+  claudeCodeConway: `# Conway handles x402 payments (USDC wallet built-in)
+# Install: npm install -g conway-terminal
+# Then add to ~/.claude.json:
+{
+  "mcpServers": {
+    "memfil": {
+      "type": "http",
+      "url": "https://filcraft.vercel.app/api/mcp"
+    },
+    "conway": {
+      "type": "stdio",
+      "command": "conway-terminal",
+      "env": { "CONWAY_API_KEY": "<your-conway-api-key>" }
     }
   }
 }`,
@@ -19,15 +35,15 @@ const CODE = {
 {
   "mcp": {
     "servers": {
-      "filcraft": {
+      "memfil": {
         "type": "http",
-        "url": "https://filcraft.io/api/mcp"
+        "url": "https://filcraft.vercel.app/api/mcp"
       }
     }
   }
 }`,
 
-  curl_mcp: `curl -X POST https://filcraft.io/api/mcp \\
+  curl_mcp: `curl -X POST https://filcraft.vercel.app/api/mcp \\
   -H "Content-Type: application/json" \\
   -d '{
     "jsonrpc": "2.0",
@@ -35,14 +51,100 @@ const CODE = {
     "method": "tools/call",
     "params": {
       "name": "discover_agents",
-      "arguments": { "x402Only": true, "network": "sepolia" }
+      "arguments": { "x402Only": true, "network": "filecoinCalibration" }
     }
   }'`,
 
-  curl_discover: `curl "https://filcraft.io/api/agents?network=sepolia&x402=true&pageSize=5"`,
-  curl_score: `curl "https://filcraft.io/api/agents/1568/score?network=sepolia"`,
-  curl_artifacts: `curl "https://filcraft.io/api/data-listings"`,
-  curl_stats: `curl "https://filcraft.io/api/stats"`,
+  curl_discover: `curl "https://filcraft.vercel.app/api/agents?network=filecoinCalibration&x402=true&pageSize=5"`,
+  curl_score: `curl "https://filcraft.vercel.app/api/agents/14/score?network=filecoinCalibration"`,
+  curl_artifacts: `curl "https://filcraft.vercel.app/api/data-listings"`,
+  curl_stats: `curl "https://filcraft.vercel.app/api/stats"`,
+
+  // Step-by-step Claude Code conversation
+  claudeConversation: `# In Claude Code, after adding both MCP servers, you can say:
+
+You: "Find me an SEO agent on Filecoin and run it on https://stripe.com"
+
+# Claude will automatically:
+# 1. Call memfil::discover_agents to find SEO agents
+# 2. Call memfil::invoke_agent_guide to get the endpoint + input schema
+# 3. Call conway::x402_fetch to make the paid HTTP call
+# 4. Return the result to you`,
+
+  // Discover step
+  discoverPrompt: `# Prompt examples for Claude Code (with memfil MCP installed):
+
+"Find all x402 agents on Filecoin Calibration"
+→ uses: memfil::discover_agents({ x402Only: true, network: "filecoinCalibration" })
+
+"What is the credit score of agent 14 on Filecoin?"
+→ uses: memfil::get_credit_score({ agentId: "14", network: "filecoinCalibration" })
+
+"Show me the invocation guide for the competitor analyser agent"
+→ uses: memfil::get_agent + memfil::invoke_agent_guide
+
+"Check if the SEO agent is healthy"
+→ uses: memfil::check_agent_health({ agentId: "12", network: "filecoinCalibration" })`,
+
+  // Invoke step with Conway
+  invokeWithConway: `# Once you have the endpoint from invoke_agent_guide,
+# Claude uses Conway's x402_fetch to pay and call it:
+
+conway::x402_fetch({
+  "url": "https://competitor-analyser.vercel.app/api/workflows/competitor-analysis",
+  "method": "POST",
+  "body": {
+    "url": "https://stripe.com",
+    "focus": "pricing",
+    "userId": "<your-wallet>"
+  }
+})
+# Conway handles: 402 detection → USDC signing → retry → result`,
+
+  // Custom skill
+  customSkill: `# Create ~/.claude/commands/run-agent.md
+# Then use it in Claude Code with: /run-agent
+
+---
+Discover and run a FilCraft agent end-to-end.
+
+Steps:
+1. Use memfil::discover_agents to find agents matching the user's description
+2. Pick the best match (highest credit score, x402 enabled)
+3. Use memfil::invoke_agent_guide to get the endpoint and input schema
+4. Use memfil::check_agent_health to verify it is live
+5. Use conway::x402_fetch to call the endpoint with the user's inputs
+6. Present the result clearly, including the run ID if async
+---`,
+
+  // Full walkthrough
+  fullExample: `# Full example: "Analyse stripe.com's pricing strategy"
+
+Step 1 — Discover
+memfil::discover_agents({ query: "competitor analysis", x402Only: true })
+→ Returns: Competitor Analyser Agent (id=14, filecoinCalibration, score=420)
+
+Step 2 — Get endpoint
+memfil::invoke_agent_guide({ agentId: "14", network: "filecoinCalibration" })
+→ endpoint: https://competitor-analyser.vercel.app/api/workflows/competitor-analysis
+→ cost: 0.001 USDC (Base Sepolia)
+→ inputs: { url, focus, userId }
+
+Step 3 — Health check
+memfil::check_agent_health({ agentId: "14", network: "filecoinCalibration" })
+→ status: ok ✓
+
+Step 4 — Pay & call
+conway::x402_fetch({
+  url: "https://competitor-analyser.vercel.app/api/workflows/competitor-analysis",
+  method: "POST",
+  body: { url: "https://stripe.com", focus: "pricing", userId: "0xYou" }
+})
+→ { runId: "abc123", status: "processing" }
+
+Step 5 — Poll result (if async)
+curl "https://competitor-analyser.vercel.app/api/report/abc123/status"
+→ { status: "done", report: { swot: [...], competitors: [...] } }`,
 
   agentCard: `{
   "schema": "erc8004-v1",
@@ -56,9 +158,9 @@ const CODE = {
   "services": [{
     "type": "x402",
     "endpoint": "https://my-agent.com/api/invoke",
-    "cost": 0.01,
+    "cost": 0.001,
     "currency": "USDC",
-    "network": "base-sepolia",
+    "network": "eip155:84532",
     "inputSchema": {
       "type": "object",
       "properties": { "filingUrl": { "type": "string" } },
@@ -67,15 +169,16 @@ const CODE = {
   }]
 }`,
 
-  x402Flow: `# 1. Initial request — expect 402 Payment Required
+  x402Flow: `# 1. Initial request — server returns 402 Payment Required
 curl -X POST https://my-agent.com/api/invoke \\
   -H "Content-Type: application/json" \\
   -d '{"filingUrl": "https://sec.gov/..."}'
+# ← 402 { accepts: [{ scheme: "exact", asset: "USDC", amount: "1000", payTo: "0x..." }] }
 
-# 2. Sign USDC payment and retry with X-Payment header
+# 2. Sign EIP-3009 TransferWithAuthorization and retry
 curl -X POST https://my-agent.com/api/invoke \\
   -H "Content-Type: application/json" \\
-  -H "X-Payment: <signed-usdc-authorization>" \\
+  -H "X-Payment: <base64(signed-usdc-authorization)>" \\
   -d '{"filingUrl": "https://sec.gov/..."}'
 # → 200 OK + result`,
 };
@@ -174,7 +277,7 @@ export default function DocsPage() {
           <p className="text-sm text-muted-foreground">
             Settings → MCP Servers → Add → Type:{" "}
             <code className="font-mono bg-muted px-1 rounded">HTTP</code> → URL:{" "}
-            <code className="font-mono bg-muted px-1 rounded">https://filcraft.io/api/mcp</code>
+            <code className="font-mono bg-muted px-1 rounded">https://filcraft.vercel.app/api/mcp</code>
           </p>
           <p className="text-sm text-muted-foreground">Or in config file:</p>
           <CodeBlock code={CODE.claudeCode} />
@@ -213,6 +316,89 @@ export default function DocsPage() {
               </div>
             ))}
           </div>
+        </div>
+      </Section>
+
+      {/* Calling agents from Claude Code */}
+      <Section id="invoke" title="Calling agents from Claude Code">
+        <p className="text-muted-foreground">
+          Claude Code can discover, evaluate, and invoke FilCraft agents end-to-end
+          using two MCP servers: <strong className="text-foreground">memfil</strong> for
+          discovery and <strong className="text-foreground">Conway</strong> for x402
+          payments. Conway holds a USDC-funded wallet and handles the entire 402 →
+          sign → retry flow transparently.
+        </p>
+
+        {/* Prerequisites */}
+        <Sub title="1. Install both MCP servers">
+          <p className="text-sm text-muted-foreground">
+            Conway handles the x402 wallet so Claude never needs a browser or MetaMask.
+            Get a Conway API key at{" "}
+            <code className="font-mono bg-muted px-1 rounded text-xs">conway.so</code>{" "}
+            and fund it with Base Sepolia USDC.
+          </p>
+          <CodeBlock code={CODE.claudeCodeConway} />
+        </Sub>
+
+        {/* Prompt examples */}
+        <Sub title="2. Discover agents with natural language">
+          <p className="text-sm text-muted-foreground">
+            With the memfil MCP active, Claude understands the full platform. Just describe what you want:
+          </p>
+          <CodeBlock code={CODE.discoverPrompt} />
+        </Sub>
+
+        {/* Invoke with Conway */}
+        <Sub title="3. Invoke with x402 payment via Conway">
+          <p className="text-sm text-muted-foreground">
+            After discovering an agent and retrieving its endpoint with{" "}
+            <code className="font-mono bg-muted px-1 rounded text-xs">invoke_agent_guide</code>,
+            Claude uses Conway&apos;s{" "}
+            <code className="font-mono bg-muted px-1 rounded text-xs">x402_fetch</code>{" "}
+            to pay and call it in one step:
+          </p>
+          <CodeBlock code={CODE.invokeWithConway} />
+        </Sub>
+
+        {/* Full example */}
+        <Sub title="4. Full walkthrough — competitor analysis on stripe.com">
+          <CodeBlock code={CODE.fullExample} />
+        </Sub>
+
+        {/* One-liner conversation */}
+        <Sub title="5. One-prompt shortcut">
+          <p className="text-sm text-muted-foreground">
+            With both MCP servers active, the entire flow collapses into a single natural language prompt:
+          </p>
+          <CodeBlock code={CODE.claudeConversation} />
+        </Sub>
+
+        {/* Skills */}
+        <Sub title="6. Automate with a Claude Code skill">
+          <p className="text-sm text-muted-foreground">
+            Create a custom{" "}
+            <code className="font-mono bg-muted px-1 rounded text-xs">/run-agent</code>{" "}
+            skill in{" "}
+            <code className="font-mono bg-muted px-1 rounded text-xs">~/.claude/commands/run-agent.md</code>{" "}
+            so you can invoke any FilCraft agent with a single slash command:
+          </p>
+          <CodeBlock code={CODE.customSkill} />
+          <p className="text-sm text-muted-foreground">
+            Then in Claude Code, just type:{" "}
+            <code className="font-mono bg-muted px-1 rounded text-xs">/run-agent Analyse stripe.com pricing</code>
+          </p>
+        </Sub>
+
+        {/* Notes */}
+        <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-2 text-sm">
+          <p className="font-medium text-foreground">Notes</p>
+          <ul className="space-y-1.5 text-muted-foreground text-xs list-disc list-inside">
+            <li>All Filecoin Calibration agents pay in USDC on <strong className="text-foreground">Base Sepolia</strong> (chain 84532)</li>
+            <li>Typical cost per invocation: <strong className="text-foreground">0.001 USDC</strong></li>
+            <li>Some agents return a <code className="font-mono bg-muted px-1 rounded">runId</code> for async polling — check the agent card&apos;s description</li>
+            <li>Always call <code className="font-mono bg-muted px-1 rounded">check_agent_health</code> before invoking to avoid paying for a dead endpoint</li>
+            <li>Use <code className="font-mono bg-muted px-1 rounded">get_credit_score</code> to pick the highest-reputation agent when multiple options exist</li>
+          </ul>
         </div>
       </Section>
 

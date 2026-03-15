@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { TagBadge } from "@/components/tag-badge";
 import { cn } from "@/lib/utils";
 import { getExplorerUrl, getExplorerAddressUrl, getNetwork } from "@/lib/networks";
+import { resolveAgentImage } from "@/lib/agent-logos";
 
 // ── Local dummy agent card (unchanged) ──────────────────────────────────────
 
@@ -175,7 +176,7 @@ interface RegistryAgentCardProps {
 export function RegistryAgentCard({ agent, compact, onAgentClick }: RegistryAgentCardProps) {
   const name = agent.metadata?.name ?? `Agent #${agent.agentId}`;
   const description = agent.metadata?.description;
-  const image = agent.metadata?.image;
+  const metadataImage = agent.metadata?.image;
   const x402 = agent.metadata?.x402Support;
   const networkId = agent.networkId ?? "sepolia";
   const network = getNetwork(networkId);
@@ -183,8 +184,9 @@ export function RegistryAgentCard({ agent, compact, onAgentClick }: RegistryAgen
   const [imgError, setImgError] = useState(false);
   const handleImgError = useCallback(() => setImgError(true), []);
 
-  const resolvedImgSrc = image && !imgError
-    ? (image.startsWith("ipfs://") ? image.replace("ipfs://", "https://ipfs.io/ipfs/") : image)
+  const imageToTry = resolveAgentImage(agent.agentId, metadataImage);
+  const resolvedImgSrc = imageToTry && !imgError
+    ? (imageToTry.startsWith("ipfs://") ? imageToTry.replace("ipfs://", "https://ipfs.io/ipfs/") : imageToTry)
     : null;
 
   return (

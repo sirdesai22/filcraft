@@ -46,6 +46,7 @@ interface AgentRow {
   name: string;
   economy: AgentEconomyAccount;
   completedRuns: number;
+  reputation?: { totalFeedback: number; averageScore: number | null };
 }
 
 interface DashboardData {
@@ -585,7 +586,19 @@ export function EconomyClient({
                     </p>
                     <p className="text-xs text-[#a89060]">#{row.agentId}</p>
                   </div>
-                  <div className="text-right">
+                  {row.reputation && row.reputation.totalFeedback > 0 ? (
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-semibold tabular-nums text-amber-400">
+                        ★ {row.reputation.averageScore?.toFixed(1) ?? "—"}
+                      </p>
+                      <p className="text-xs text-[#a89060]">{row.reputation.totalFeedback} reviews</p>
+                    </div>
+                  ) : (
+                    <div className="text-right shrink-0">
+                      <p className="text-xs text-[#a89060]/40">no reviews</p>
+                    </div>
+                  )}
+                  <div className="text-right shrink-0">
                     <p className={cn("text-sm font-semibold tabular-nums", statusColor(row.economy.status))}>
                       {formatTFil(row.economy.totalSpent)} tFIL
                     </p>

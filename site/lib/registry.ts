@@ -150,16 +150,24 @@ function resolveURI(uri: string): string {
 
 async function fetchMetadata(uri: string): Promise<AgentMetadata | null> {
   if (!uri) return null;
-  try {
-    const res = await fetch(resolveURI(uri), {
-      signal: AbortSignal.timeout(5000),
-      next: { revalidate: 3600 },
-    } as RequestInit);
-    if (!res.ok) return null;
-    return (await res.json()) as AgentMetadata;
-  } catch {
-    return null;
+  const resolved = resolveURI(uri);
+  // If the URI is HTTPS, also try HTTP as a fallback (e.g. Akash ingress with self-signed cert)
+  const urls = [resolved];
+  if (resolved.startsWith("https://") && !resolved.startsWith("https://ipfs.io")) {
+    urls.push(resolved.replace("https://", "http://"));
   }
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, {
+        signal: AbortSignal.timeout(5000),
+        next: { revalidate: 300 },
+      } as RequestInit);
+      if (res.ok) return (await res.json()) as AgentMetadata;
+    } catch {
+      // try next URL
+    }
+  }
+  return null;
 }
 
 function getProtocols(metadata: AgentMetadata | null): string[] {

@@ -6,6 +6,7 @@ import type { RegistryAgent } from "@/lib/registry";
 import { getNetwork, getExplorerAddressUrl } from "@/lib/networks";
 import { computeCreditScore } from "@/lib/credit-score";
 import { parseAgentCardServices } from "@/lib/agent-validator";
+import { resolveAgentImage } from "@/lib/agent-logos";
 import { HealthDot } from "@/components/agent-card";
 import { cn } from "@/lib/utils";
 
@@ -66,17 +67,17 @@ export function MarketplaceAgentCard({ agent }: MarketplaceAgentCardProps) {
   const name = agent.metadata?.name ?? `Agent #${agent.agentId}`;
   const rawDescription = agent.metadata?.description;
   const description = rawDescription ? formatDescription(rawDescription) : undefined;
-  const image = agent.metadata?.image;
+  const imageToTry = resolveAgentImage(agent.agentId, agent.metadata?.image);
   const networkId = agent.networkId ?? "sepolia";
   const network = getNetwork(networkId);
   const [imgError, setImgError] = useState(false);
   const handleImgError = useCallback(() => setImgError(true), []);
 
   const resolvedImg =
-    image && !imgError
-      ? image.startsWith("ipfs://")
-        ? image.replace("ipfs://", "https://ipfs.io/ipfs/")
-        : image
+    imageToTry && !imgError
+      ? imageToTry.startsWith("ipfs://")
+        ? imageToTry.replace("ipfs://", "https://ipfs.io/ipfs/")
+        : imageToTry
       : null;
 
   const cs = computeCreditScore(agent);

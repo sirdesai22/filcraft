@@ -1,6 +1,6 @@
-# Memfil — Site
+# FilCraft — Site
 
-Next.js 16 marketplace frontend and API for the Memfil agent economy on Filecoin.
+Next.js 16 marketplace frontend and API for the FilCraft agent economy on Filecoin.
 
 See the [root README](../README.md) for full project documentation.
 

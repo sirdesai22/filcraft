@@ -531,7 +531,7 @@ export function AetheriaWorld({
         {/* Activity log */}
         <div
           id="activity-log"
-          className="absolute bottom-16 right-12 w-[280px] max-h-[180px] overflow-y-auto pointer-events-auto scrollbar-thin"
+          className="absolute bottom-16 left-12 w-[280px] max-h-[180px] overflow-y-auto pointer-events-auto scrollbar-thin"
           style={{ scrollbarColor: "#5a4a2a transparent" }}
         >
           {data.events.slice(0, 15).map((ev, i) => (
@@ -653,9 +653,7 @@ export function AetheriaWorld({
                 {/* Header with agent identity + close */}
                 <div className="px-4 py-3 border-b border-[#5a4a2a]/60 shrink-0" style={{ background: "rgba(0,0,0,0.3)" }}>
                   <div className="flex items-center justify-between mb-2">
-                    <h2 id="agent-dialog-title" className="text-[#f5d96a] font-bold text-lg tracking-wider" style={{ fontFamily: "Cinzel, serif" }}>
-                      AGENT SCRYING
-                    </h2>
+              
                     <button
                       type="button"
                       onClick={() => setSelectedAgentId(null)}

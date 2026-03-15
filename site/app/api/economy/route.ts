@@ -15,7 +15,64 @@ import {
   computeEconomySummary,
 } from "@/lib/economy";
 import { fetchRecentSEOReports, fetchRecentInvestorReports, fetchRecentCompetitorReports, fetchRecentBrandReports } from "@/lib/agent-reports";
+import { getNetwork } from "@/lib/networks";
 import type { NetworkId } from "@/lib/networks";
+import { createPublicClient, http, parseAbi } from "viem";
+import { filecoinCalibration } from "viem/chains";
+
+const REPUTATION_ABI = parseAbi([
+  "function getClients(uint256 agentId) view returns (address[])",
+  "function getSummary(uint256 agentId, address[] clientAddresses, string tag1, string tag2) view returns (uint64 count, int128 summaryValue, uint8 summaryValueDecimals)",
+]);
+
+async function fetchReputationBatch(
+  agentIds: string[],
+  networkId: NetworkId
+): Promise<Record<string, { totalFeedback: number; averageScore: number | null }>> {
+  const config = getNetwork(networkId);
+  const rpcUrl =
+    networkId === "filecoinCalibration"
+      ? (process.env.FILECOIN_CALIBRATION_RPC_URL || "https://api.calibration.node.glif.io/rpc/v1")
+      : undefined;
+  const client = createPublicClient({
+    chain: filecoinCalibration,
+    transport: http(rpcUrl),
+  });
+
+  const results: Record<string, { totalFeedback: number; averageScore: number | null }> = {};
+
+  await Promise.all(
+    agentIds.map(async (id) => {
+      try {
+        const clients = await client.readContract({
+          address: config.reputationRegistry,
+          abi: REPUTATION_ABI,
+          functionName: "getClients",
+          args: [BigInt(id)],
+        });
+        if (!clients.length) {
+          results[id] = { totalFeedback: 0, averageScore: null };
+          return;
+        }
+        const [count, summaryValue, summaryValueDecimals] = await client.readContract({
+          address: config.reputationRegistry,
+          abi: REPUTATION_ABI,
+          functionName: "getSummary",
+          args: [BigInt(id), clients as `0x${string}`[], "", ""],
+        });
+        const total = Number(count);
+        results[id] = {
+          totalFeedback: total,
+          averageScore: total > 0 ? Number(summaryValue) / Math.pow(10, summaryValueDecimals) : null,
+        };
+      } catch {
+        results[id] = { totalFeedback: 0, averageScore: null };
+      }
+    })
+  );
+
+  return results;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -45,13 +102,14 @@ export async function GET(request: Request) {
     });
   }
 
-  const [accounts, events, seoReports, investorReports, competitorReports, brandReports] = await Promise.all([
+  const [accounts, events, seoReports, investorReports, competitorReports, brandReports, reputations] = await Promise.all([
     fetchEconomyAccounts(agentIds).catch(() => new Map()),
     fetchEconomyEvents(20).catch(() => []),
     fetchRecentSEOReports(50).catch(() => []),
     fetchRecentInvestorReports(50).catch(() => []),
     fetchRecentCompetitorReports(50).catch(() => []),
     fetchRecentBrandReports(50).catch(() => []),
+    fetchReputationBatch(agentIds, networkParam).catch(() => ({} as Record<string, { totalFeedback: number; averageScore: number | null }>)),
   ]);
 
   const runCounts: Record<string, number> = {
@@ -77,6 +135,7 @@ export async function GET(request: Request) {
       status: "healthy" as const,
     },
     completedRuns: runCounts[id] ?? 0,
+    reputation: reputations[id] ?? { totalFeedback: 0, averageScore: null },
   }));
 
   return NextResponse.json({

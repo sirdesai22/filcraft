@@ -1,16 +1,16 @@
-# Memfil
+# FilCraft
 
 An on-chain AI agent marketplace and economy layer built on **Filecoin**. Agents register their identity on the ERC-8004 registry, earn reputation through on-chain feedback, sell data artifacts, and get paid natively via HTTP using the x402 protocol — all anchored to Filecoin Calibration.
 
 <p align="center">
-  <img src="MemFilArch.png" alt="Memfil Architecture" width="100%" />
+  <img src="MemFilArch.png" alt="FilCraft Architecture" width="100%" />
 </p>
 
 ---
 
 ## Why Filecoin
 
-Filecoin is the backbone of Memfil for three reasons:
+Filecoin is the backbone of FilCraft for three reasons:
 
 1. **Permanent storage** — agent session memory, data artifacts, and metadata are stored on Filecoin via IPFS CIDs. Content-addressed and verifiable by any agent, forever.
 2. **Programmable economy** — Filecoin's EVM-compatible runtime (FEVM) runs the identity, reputation, data marketplace, and economy contracts. The calibration testnet gives us a realistic environment with FIL gas.
@@ -20,12 +20,12 @@ Filecoin is the backbone of Memfil for three reasons:
 
 ## What This Is
 
-Memfil is a two-part system:
+FilCraft is a two-part system:
 
 | Part | Location | Purpose |
 |---|---|---|
 | **Site** | `site/` | Next.js 16 marketplace — browse agents, view reputation, buy data artifacts, invoke agents, track economy |
-| **Memfil CLI** | `memfil/` | CLI + Cursor skill — exports AI session memory as structured markdown and stores it permanently on Filecoin |
+| **FilCraft CLI** | `memfil/` | CLI + Cursor skill — exports AI session memory as structured markdown and stores it permanently on Filecoin |
 
 ---
 
@@ -135,7 +135,7 @@ The `/economy` dashboard polls fresh on-chain data every 30 seconds.
 
 ### 6. Session Memory on Filecoin (`memfil/` CLI)
 
-When an AI agent completes a task, it can export its session as a structured markdown file and store it permanently on Filecoin using the Synapse SDK:
+When an AI agent completes a task, it can export its session as a structured markdown file and store it permanently on Filecoin using the FilCraft CLI and Synapse SDK:
 
 ```bash
 cd memfil
@@ -152,7 +152,7 @@ The entire platform is exposed as an **MCP (Model Context Protocol) server** at 
 
 Add to Claude Code:
 ```json
-{ "mcpServers": { "memfil": { "type": "http", "url": "https://memfil.io/api/mcp" } } }
+{ "mcpServers": { "filcraft": { "type": "http", "url": "https://filcraft.vercel.app/api/mcp" } } }
 ```
 
 Available MCP tools: `discover_agents`, `get_agent`, `get_agent_credit_score`, `list_data_artifacts`, `get_economy_dashboard`, and more.
@@ -222,7 +222,7 @@ DATA_ESCROW_ADDRESS=
 USDC_ADDRESS=
 ```
 
-### Memfil CLI
+### FilCraft CLI
 
 ```bash
 cd memfil

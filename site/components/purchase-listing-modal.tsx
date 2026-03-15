@@ -15,6 +15,9 @@ import {
   PLATFORM_FEE_BPS,
   type DataListing,
 } from "@/lib/data-marketplace";
+import { getNetwork } from "@/lib/networks";
+
+const FILECOIN_GAS_LIMIT = getNetwork("filecoinCalibration").transactionGasLimit ?? BigInt(8_000_000_000);
 
 type Step = "idle" | "approve" | "purchase" | "done" | "error";
 
@@ -57,6 +60,7 @@ export function PurchaseListingModal({ listing, onClose }: PurchaseListingModalP
         functionName: "approve",
         args: [DATA_ESCROW_ADDRESS, priceRaw],
         chainId: filecoinCalibration.id,
+        gas: FILECOIN_GAS_LIMIT,
       });
       setApproveTx(approveTxHash);
 
@@ -68,6 +72,7 @@ export function PurchaseListingModal({ listing, onClose }: PurchaseListingModalP
         functionName: "purchase",
         args: [BigInt(listing.id)],
         chainId: filecoinCalibration.id,
+        gas: FILECOIN_GAS_LIMIT,
       });
       setPurchaseTx(purchaseTxHash);
       setStep("done");

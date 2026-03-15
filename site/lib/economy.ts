@@ -1,5 +1,5 @@
 /**
- * economy.ts — AgentEconomyRegistry client for memfil/site.
+ * economy.ts — AgentEconomyRegistry client for FilCraft site.
  *
  * Reads agent economy data from the AgentEconomyRegistry contract deployed on
  * Filecoin Calibration. Used by the /economy dashboard to display survival

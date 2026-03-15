@@ -1,8 +1,8 @@
 {
   "mcpServers": {
-    "memfil": {
+    "filcraft": {
       "type": "url",
-      "url": "https://memfil.vercel.app/api/mcp"
+      "url": "https://filcraft.vercel.app/api/mcp"
     }
   }
 }

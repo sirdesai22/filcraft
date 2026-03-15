@@ -78,7 +78,7 @@ export const AGENTS: Agent[] = [
     compatibleTags: ["reasoning", "memory", "coding", "vision", "planning", "tool-use"],
     installedMemories: 24,
     price: 1.5,
-    author: "@memfil",
+    author: "@filcraft",
   },
 ];
 

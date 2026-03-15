@@ -11,7 +11,7 @@ Low-level technical reference for every layer of the system.
 │                              EPISODES PLATFORM                                  │
 │                                                                                 │
 │  ┌──────────────────────────┐          ┌──────────────────────────────────────┐ │
-│  │      site/ (Next.js)     │          │        memfil/ (CLI + Skill)         │ │
+│  │      site/ (Next.js)     │          │        memfil/ (FilCraft CLI + Skill)│ │
 │  │                          │          │                                      │ │
 │  │  ┌────────┐ ┌─────────┐ │          │  ┌──────────┐  ┌──────────────────┐ │ │
 │  │  │ Pages  │ │   API   │ │  HTTP    │  │ Commands │  │   x402 Client    │ │ │
@@ -358,7 +358,7 @@ Configuration:
   USDC address       = 0x036CbD53842c5426634e7929541eC2318f3dCF7e (Base Sepolia)
 ```
 
-### Client-side (memfil/src/utils/x402.ts)
+### Client-side (memfil/src/utils/x402.ts — FilCraft CLI)
 
 ```
 Libraries: @x402/fetch, @x402/core/client, @x402/evm
@@ -628,7 +628,7 @@ Success → shows agentId, CID, txHash, link to agent detail page
 
 ---
 
-## Layer 9 — memfil CLI
+## Layer 9 — FilCraft CLI
 
 ### Commands
 
@@ -787,7 +787,7 @@ Rate limiting: Not implemented (recommended for production)
 | `X402_DEFAULT_PRICE` | No | `$0.01` | Default x402 payment amount |
 | `X402_NETWORK` | No | `eip155:84532` | x402 payment settlement chain |
 
-### memfil/.env
+### memfil/ (FilCraft CLI) .env
 
 | Variable | Required | Default | Purpose |
 |----------|----------|---------|---------|
@@ -878,9 +878,9 @@ flowchart LR
     aiAgents[AIAgents]
   end
 
-  subgraph memfilLayer [memfil CLI & Skill]
-    memfilCLI[memfilCLI]
-    memfilSkill[memfilSKILL]
+  subgraph filcraftLayer [FilCraft CLI & Skill]
+    filcraftCLI[FilCraft CLI]
+    filcraftSkill[FilCraft Skill]
   end
 
   subgraph siteLayer [Episodes Marketplace (site/)]
@@ -911,11 +911,11 @@ flowchart LR
   end
 
   human --> aiAgents
-  aiAgents --> memfilSkill
-  memfilSkill --> memfilCLI
+  aiAgents --> filcraftSkill
+  filcraftSkill --> filcraftCLI
 
-  memfilCLI -->|search/buy-agent/buy-memory| siteLayer
-  memfilCLI -->|upload/download| filecoinNet
+  filcraftCLI -->|search/buy-agent/buy-memory| siteLayer
+  filcraftCLI -->|upload/download| filecoinNet
 
   ui --> apiAgents
   ui --> apiMemories
@@ -953,8 +953,8 @@ flowchart LR
     siteAPI[HTTP_APIs]
   end
 
-  subgraph memfilBlock [memfil_Skill_&_CLI]
-    memfilTool[memfil_Tool]
+  subgraph filcraftBlock [FilCraft_Skill_&_CLI]
+    filcraftTool[FilCraft_Tool]
   end
 
   subgraph onchain [On-chain_&_Storage]
@@ -966,7 +966,7 @@ flowchart LR
   end
 
   user --> agentClients
-  agentClients --> memfilTool
+  agentClients --> filcraftTool
 
   agentClients --> siteUI
   siteUI --> siteAPI
@@ -976,8 +976,8 @@ flowchart LR
   siteAPI --> filecoin
   siteAPI --> x402
 
-  memfilTool --> siteAPI
-  memfilTool --> filecoin
+  filcraftTool --> siteAPI
+  filcraftTool --> filecoin
 
   filecoin --> ipfs
 ```

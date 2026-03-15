@@ -1,16 +1,16 @@
 ---
-name: memfil
-description: Use this skill to export the current session memory as a structured markdown file and permanently store it on Filecoin via the memfil CLI. Trigger when the user says "export memory", "save session to Filecoin", "publish to marketplace", "persist this conversation", or similar.
+name: filcraft
+description: Use this skill to export the current session memory as a structured markdown file and permanently store it on Filecoin via the FilCraft CLI. Trigger when the user says "export memory", "save session to Filecoin", "publish to marketplace", "persist this conversation", or similar.
 ---
 
-# Memfil — Export Session Memory to Filecoin
+# FilCraft — Export Session Memory to Filecoin
 
 ## What This Skill Does
 
 When triggered, you (the AI agent) must:
 
 1. **Export** the current session's key context — decisions, artifacts, code, discoveries, and outcomes — into a structured markdown file called an **episode**.
-2. **Upload** that file to Filecoin permanent storage using the memfil CLI, which returns a PieceCID.
+2. **Upload** that file to Filecoin permanent storage using the FilCraft CLI, which returns a PieceCID.
 3. **Report** the CID back to the user so the memory is verifiable and retrievable forever.
 
 ## Step 1 — Write the Episode File
@@ -112,7 +112,7 @@ cd memfil && pnpm upload -- ./setup-episodemarket.md -o ./cid.json
 
 ## Prerequisites
 
-The memfil CLI must be set up before this skill works:
+The FilCraft CLI must be set up before this skill works:
 
 1. `cd memfil && npm install` (or `pnpm install`).
 2. Copy `env.example` to `.env` and set `WALLET_PRIVATE_KEY`.

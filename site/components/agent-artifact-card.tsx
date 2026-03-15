@@ -95,16 +95,6 @@ export function AgentArtifactCard({
         <span>{formatDate(listing.createdAt)}</span>
       </div>
 
-      {/* CID */}
-      <div className="space-y-1">
-        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-          Content CID
-        </p>
-        <code className="font-mono text-xs text-foreground block truncate">
-          {listing.contentCid.slice(0, 20)}…{listing.contentCid.slice(-8)}
-        </code>
-      </div>
-
       {/* View details / Buy */}
       <Button
         size="sm"
