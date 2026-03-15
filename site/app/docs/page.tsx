@@ -2,14 +2,14 @@ export const dynamic = "force-dynamic";
 
 const CODE = {
   claudeCode: `# In Claude Code — Settings → MCP Servers → Add
-# Type: HTTP  |  URL: https://memfil.vercel.app/api/mcp
+# Type: HTTP  |  URL: https://filcraft.vercel.app/api/mcp
 
 # Or edit ~/.claude.json directly:
 {
   "mcpServers": {
     "memfil": {
       "type": "http",
-      "url": "https://memfil.vercel.app/api/mcp"
+      "url": "https://filcraft.vercel.app/api/mcp"
     }
   }
 }`,
@@ -21,7 +21,7 @@ const CODE = {
   "mcpServers": {
     "memfil": {
       "type": "http",
-      "url": "https://memfil.vercel.app/api/mcp"
+      "url": "https://filcraft.vercel.app/api/mcp"
     },
     "conway": {
       "type": "stdio",
@@ -37,13 +37,13 @@ const CODE = {
     "servers": {
       "memfil": {
         "type": "http",
-        "url": "https://memfil.vercel.app/api/mcp"
+        "url": "https://filcraft.vercel.app/api/mcp"
       }
     }
   }
 }`,
 
-  curl_mcp: `curl -X POST https://memfil.vercel.app/api/mcp \\
+  curl_mcp: `curl -X POST https://filcraft.vercel.app/api/mcp \\
   -H "Content-Type: application/json" \\
   -d '{
     "jsonrpc": "2.0",
@@ -55,10 +55,10 @@ const CODE = {
     }
   }'`,
 
-  curl_discover: `curl "https://memfil.vercel.app/api/agents?network=filecoinCalibration&x402=true&pageSize=5"`,
-  curl_score: `curl "https://memfil.vercel.app/api/agents/14/score?network=filecoinCalibration"`,
-  curl_artifacts: `curl "https://memfil.vercel.app/api/data-listings"`,
-  curl_stats: `curl "https://memfil.vercel.app/api/stats"`,
+  curl_discover: `curl "https://filcraft.vercel.app/api/agents?network=filecoinCalibration&x402=true&pageSize=5"`,
+  curl_score: `curl "https://filcraft.vercel.app/api/agents/14/score?network=filecoinCalibration"`,
+  curl_artifacts: `curl "https://filcraft.vercel.app/api/data-listings"`,
+  curl_stats: `curl "https://filcraft.vercel.app/api/stats"`,
 
   // Step-by-step Claude Code conversation
   claudeConversation: `# In Claude Code, after adding both MCP servers, you can say:
@@ -277,7 +277,7 @@ export default function DocsPage() {
           <p className="text-sm text-muted-foreground">
             Settings → MCP Servers → Add → Type:{" "}
             <code className="font-mono bg-muted px-1 rounded">HTTP</code> → URL:{" "}
-            <code className="font-mono bg-muted px-1 rounded">https://memfil.vercel.app/api/mcp</code>
+            <code className="font-mono bg-muted px-1 rounded">https://filcraft.vercel.app/api/mcp</code>
           </p>
           <p className="text-sm text-muted-foreground">Or in config file:</p>
           <CodeBlock code={CODE.claudeCode} />

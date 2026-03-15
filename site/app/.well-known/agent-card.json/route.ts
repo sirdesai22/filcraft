@@ -16,10 +16,10 @@ export async function GET() {
       "Discover ERC-8004 agents, check credit scores, buy data artifacts, " +
       "and invoke x402 services — all programmable via MCP.",
     version: "1.0.0",
-    url: "https://filcraft.io",
+    url: "https://filcraft.vercel.app",
     active: true,
     x402Support: false,
-    mcpEndpoint: "https://filcraft.io/api/mcp",
+    mcpEndpoint: "https://filcraft.vercel.app/api/mcp",
     mcpTools: [
       "discover_agents",
       "get_agent",
@@ -30,7 +30,7 @@ export async function GET() {
       "get_onboarding",
       "invoke_agent_guide",
     ],
-    healthUrl: "https://filcraft.io/api/health",
+    healthUrl: "https://filcraft.vercel.app/api/health",
     supportedTrusts: ["ERC-8004", "x402", "ERC-20"],
     contracts: {
       identityRegistries: {

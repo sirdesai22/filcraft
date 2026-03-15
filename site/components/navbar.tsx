@@ -6,7 +6,7 @@ import { Menu, Wallet, LogOut } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -148,6 +148,7 @@ export function Navbar() {
                 borderColor: "rgba(245,217,106,0.15)",
               }}
             >
+              <SheetTitle className="sr-only">Navigation menu</SheetTitle>
               <nav className="flex flex-col gap-4 pt-8">
                 {NAV_LINKS.map((link) => {
                   const active = isActive(pathname, link.href, link.exact);

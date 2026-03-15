@@ -24,7 +24,6 @@ import {
 import { AgentArtifactCard } from "@/components/agent-artifact-card";
 import { ArtifactDetailsDialog } from "@/components/artifact-details-dialog";
 import { GiveFeedback } from "@/components/give-feedback";
-import { AgentInvoker } from "@/components/agent-invoker";
 import type { DataListing } from "@/lib/data-marketplace";
 import { getNetwork, getExplorerAddressUrl, getExplorerUrl, type NetworkId } from "@/lib/networks";
 import type { AgentEconomyAccount } from "@/lib/economy";
@@ -112,9 +111,9 @@ export function AgentDetailPanel({
   const explorerUrl = agentId ? getExplorerUrl(networkId, agentId) : "";
 
   const tabs: Tab[] = ["overview", "invoke", "score", "economy", "artifacts", "activity", "raw"];
-  const tabLabels: Record<Tab, string> = {
+  const     tabLabels: Record<Tab, string> = {
     overview: "Overview",
-    invoke: "Invoke",
+    invoke: "Call Guide",
     score: "Score",
     economy: "Economy",
     artifacts: "Artifacts",
@@ -217,6 +216,8 @@ export function AgentDetailPanel({
               )}
               {tab === "invoke" && (
                 <InvokeTabContent
+                  agentId={agent.agentId}
+                  networkId={networkId}
                   invocationGuide={invocationGuide}
                   healthStatus={healthStatus}
                 />
@@ -486,23 +487,18 @@ function OverviewTabContent({
 }
 
 function InvokeTabContent({
+  agentId,
+  networkId,
   invocationGuide,
   healthStatus,
 }: {
+  agentId: string;
+  networkId: string;
   invocationGuide: ParsedServices | null;
   healthStatus: "ok" | "unreachable" | "unknown";
 }) {
-  if (!invocationGuide) {
-    return (
-      <Card className="border-border">
-        <CardContent className="pt-6 text-center text-sm text-muted-foreground">
-          This agent has no x402 invocation guide in its card metadata.
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const { x402Endpoint, healthUrl } = invocationGuide;
+  const mcpUrl = "https://filcraft.vercel.app/api/mcp";
+  const agentDetailUrl = `https://filcraft.vercel.app/agents/${networkId}/${agentId}`;
 
   return (
     <div className="space-y-4">
@@ -528,38 +524,152 @@ function InvokeTabContent({
             <span className="text-sm">
               {healthStatus === "ok" ? "Live" : healthStatus === "unreachable" ? "Unreachable" : "Status unknown"}
             </span>
-            {healthUrl && (
+            {invocationGuide?.healthUrl && (
               <span className="ml-auto text-xs font-mono text-muted-foreground truncate max-w-[200px]">
-                {healthUrl}
+                {invocationGuide.healthUrl}
               </span>
             )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Interactive invoker */}
+      {/* MCP setup guide */}
       <Card className="border-border">
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-sm flex items-center gap-2">
-              <Zap className="h-4 w-4 text-violet-500" />
-              Run Agent
-            </h2>
-            <div className="flex items-center gap-1.5">
-              <code className="truncate max-w-[180px] rounded bg-muted px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
-                {x402Endpoint}
-              </code>
+          <h2 className="font-semibold text-sm flex items-center gap-2">
+            <Zap className="h-4 w-4 text-violet-500" />
+            Call from Claude Code, Cursor, or OpenCode
+          </h2>
+        </CardHeader>
+        <CardContent className="space-y-4 text-sm">
+          <p className="text-muted-foreground">
+            Add the FilCraft MCP server to your AI coding tool. Then use{" "}
+            <code className="rounded bg-muted px-1 py-0.5 text-xs font-mono">invoke_agent_guide</code>{" "}
+            to get this agent&apos;s endpoint and input schema.
+          </p>
+
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">
+              Claude Code / Cursor — Settings → MCP → Add HTTP
+            </p>
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 p-3">
+              <code className="flex-1 truncate text-xs font-mono">{mcpUrl}</code>
               <button
-                onClick={() => copyText(x402Endpoint)}
+                onClick={() => copyText(mcpUrl)}
                 className="shrink-0 text-muted-foreground hover:text-foreground"
               >
-                <Copy className="h-3 w-3" />
+                <Copy className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>
-        </CardHeader>
-        <CardContent>
-          <AgentInvoker guide={invocationGuide} />
+
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">
+              Or add to config (filcraft MCP)
+            </p>
+            <pre className="rounded-lg border border-border bg-muted/30 p-3 text-[11px] font-mono overflow-x-auto">
+{`{
+  "mcpServers": {
+    "filcraft": {
+      "type": "http",
+      "url": "${mcpUrl}"
+    }
+  }
+}`}
+            </pre>
+            <button
+              onClick={() =>
+                copyText(
+                  JSON.stringify(
+                    { mcpServers: { filcraft: { type: "http", url: mcpUrl } } },
+                    null,
+                    2
+                  )
+                )
+              }
+              className="mt-2 text-xs font-medium text-primary hover:underline"
+            >
+              Copy JSON
+            </button>
+          </div>
+
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">
+              Get this agent&apos;s invocation guide
+            </p>
+            <p className="text-muted-foreground mb-2">
+              In Claude Code or Cursor, ask: &quot;Get the invoke guide for agent {agentId} on {networkId}&quot;
+            </p>
+            <p className="text-xs text-muted-foreground mb-1">Or call the MCP tool directly:</p>
+            <pre className="rounded-lg border border-border bg-muted/30 p-3 text-[11px] font-mono overflow-x-auto">
+{`filcraft::invoke_agent_guide({
+  agentId: "${agentId}",
+  network: "${networkId}"
+})`}
+            </pre>
+            <button
+              onClick={() =>
+                copyText(
+                  `filcraft::invoke_agent_guide({ agentId: "${agentId}", network: "${networkId}" })`
+                )
+              }
+              className="mt-2 text-xs font-medium text-primary hover:underline"
+            >
+              Copy
+            </button>
+          </div>
+
+          {invocationGuide && (
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">
+                x402 endpoint (from agent card)
+              </p>
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 p-3">
+                <code className="flex-1 truncate text-xs font-mono break-all">
+                  {invocationGuide.x402Endpoint}
+                </code>
+                <button
+                  onClick={() => copyText(invocationGuide.x402Endpoint)}
+                  className="shrink-0 text-muted-foreground hover:text-foreground"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Use Conway&apos;s <code className="rounded bg-muted px-0.5">x402_fetch</code> or sign
+                EIP-3009 to pay and call. See{" "}
+                <a
+                  href="/docs#invoke"
+                  className="text-primary hover:underline"
+                >
+                  /docs
+                </a>{" "}
+                for full walkthrough.
+              </p>
+            </div>
+          )}
+
+          <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
+            <p className="font-medium text-foreground text-xs">Claude Code skill</p>
+            <p className="text-xs text-muted-foreground">
+              Create <code className="rounded bg-muted px-0.5">~/.claude/commands/run-agent.md</code>{" "}
+              with steps: discover_agents → invoke_agent_guide → check_agent_health → conway::x402_fetch.
+              Then use <code className="rounded bg-muted px-0.5">/run-agent</code> to invoke any agent.
+            </p>
+            <a
+              href="/docs#invoke"
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              Full skill template →
+            </a>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Agent detail:{" "}
+            <a href={agentDetailUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+              {agentDetailUrl}
+            </a>
+          </p>
         </CardContent>
       </Card>
     </div>
