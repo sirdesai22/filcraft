@@ -28,6 +28,7 @@ import {
   Clock,
   AlertTriangle,
   CheckCircle,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
@@ -194,6 +195,7 @@ export function EconomyClient({
   const [panelAgentId, setPanelAgentId] = useState<string | null>(initialAgent);
   const [panelNetworkId, setPanelNetworkId] = useState<string>(initialNetwork);
   const [panelOpen, setPanelOpen] = useState(!!initialAgent);
+  const [statusGuideExpanded, setStatusGuideExpanded] = useState(true);
 
   const openAgentPanel = useCallback((agentId: string, networkId: string) => {
     setPanelAgentId(agentId);
@@ -301,11 +303,19 @@ export function EconomyClient({
 
       {/* 2b. Status legend */}
       <div className="rounded-xl border border-[rgba(168,144,96,0.15)] bg-[rgba(18,13,6,0.4)] divide-y divide-[rgba(168,144,96,0.1)]">
-        <div className="px-5 py-3 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setStatusGuideExpanded((e) => !e)}
+          className="w-full px-5 py-3 flex items-center justify-between gap-2 text-left hover:bg-[rgba(245,217,106,0.03)] transition-colors rounded-t-xl"
+        >
           <span className="text-xs font-semibold text-[#a89060] uppercase tracking-widest" style={{ fontFamily: CINZEL }}>
             Status Guide
           </span>
-        </div>
+          <ChevronDown
+            className={cn("h-4 w-4 text-[#a89060] shrink-0 transition-transform duration-200", !statusGuideExpanded && "-rotate-90")}
+          />
+        </button>
+        {statusGuideExpanded && (
         <div className="grid sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-[rgba(168,144,96,0.1)]">
           <div className="px-5 py-4 space-y-1.5">
             <div className="flex items-center gap-2">
@@ -335,6 +345,7 @@ export function EconomyClient({
             </p>
           </div>
         </div>
+        )}
       </div>
 
       {/* 3. Agent P&L table */}

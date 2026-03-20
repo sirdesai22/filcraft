@@ -149,15 +149,30 @@ export function LoadingScreen({ onEnter }: { onEnter: () => void }) {
   }, []);
 
   // ── Letter stagger — fires only once when phase becomes 4 ──────────────────
+  // Use rAF + small delay so DOM is painted and animations run reliably
   useEffect(() => {
     if (phase !== 4) return;
-    let n = 0;
-    const iv = setInterval(() => {
-      n++;
-      setVisibleLetters(n);
-      if (n >= TITLE.length) clearInterval(iv);
-    }, 115);
-    return () => clearInterval(iv);
+    setVisibleLetters(0);
+    let iv: ReturnType<typeof setInterval> | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const rafId = requestAnimationFrame(() => {
+      timeoutId = setTimeout(() => {
+        let n = 0;
+        iv = setInterval(() => {
+          n++;
+          setVisibleLetters(n);
+          if (n >= TITLE.length && iv) {
+            clearInterval(iv);
+            iv = null;
+          }
+        }, 115);
+      }, 50);
+    });
+    return () => {
+      cancelAnimationFrame(rafId);
+      if (timeoutId) clearTimeout(timeoutId);
+      if (iv) clearInterval(iv);
+    };
   }, [phase]);
 
   // ── Canvas network animation ────────────────────────────────────────────────
@@ -420,7 +435,7 @@ export function LoadingScreen({ onEnter }: { onEnter: () => void }) {
 
       {/* Root */}
       <div style={{
-        position: "fixed", inset: 0, zIndex: 9999,
+        position: "fixed", top: 56, left: 0, right: 0, bottom: 0, zIndex: 9999,
         background: "radial-gradient(ellipse at 50% 60%, #0c0818 0%, #06040e 45%, #0a0804 100%)",
         display: "flex", alignItems: "center", justifyContent: "center",
         overflow: "hidden",
@@ -575,12 +590,13 @@ export function LoadingScreen({ onEnter }: { onEnter: () => void }) {
             </div>
           </div>
 
-          {/* Title letters */}
+          {/* Title letters — whitespace-nowrap prevents wrap on mobile */}
           <h1 style={{
             fontFamily: CINZEL,
-            fontSize: "clamp(72px, 13vw, 128px)",
+            fontSize: "clamp(44px, 11vw, 128px)",
             fontWeight: 900, color: "#fff8d6",
             margin: 0, letterSpacing: "0.07em", lineHeight: 1,
+            whiteSpace: "nowrap",
           }}>
             {TITLE.split("").map((char, i) => (
               <span key={i} style={{

@@ -236,11 +236,11 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
   );
 
   return (
-    <WorkspaceLayout sidebar={sidebar}>
+    <WorkspaceLayout sidebar={sidebar} sidebarLabel="Filters">
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-widest text-[#f5d96a] md:text-3xl" style={{ fontFamily: CINZEL }}>
               Marketplace
             </h1>
@@ -258,10 +258,10 @@ export function MarketplaceClient({ initialData, initialNetwork }: MarketplaceCl
               )}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <button
               onClick={() => setRegisterOpen(true)}
-              className="rounded border border-[rgba(245,217,106,0.3)] bg-[rgba(245,217,106,0.08)] px-4 py-2 text-sm font-medium text-[#f5d96a] hover:bg-[rgba(245,217,106,0.15)] hover:border-[rgba(245,217,106,0.5)] transition-colors"
+              className="rounded border border-[rgba(245,217,106,0.3)] bg-[rgba(245,217,106,0.08)] px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium text-[#f5d96a] hover:bg-[rgba(245,217,106,0.15)] hover:border-[rgba(245,217,106,0.5)] transition-colors whitespace-nowrap"
               style={{ fontFamily: CINZEL }}
             >
               Register Agent

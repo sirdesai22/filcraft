@@ -42,9 +42,10 @@ export function SplashGate({ children }: { children: React.ReactNode }) {
     setState(alreadyShown ? "done" : "splash");
   }, []);
 
-  // Tiny dark flash during hydration — invisible against our #0a0804 background
+  // Dark overlay below navbar — keeps navbar visible for fast LCP
+  const NAVBAR_H = 56;
   if (state === "checking") {
-    return <div style={{ position: "fixed", inset: 0, background: "#0a0804", zIndex: 9999 }} />;
+    return <div style={{ position: "fixed", top: NAVBAR_H, left: 0, right: 0, bottom: 0, background: "#0a0804", zIndex: 9999 }} />;
   }
 
   if (state === "splash") {

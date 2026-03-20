@@ -135,7 +135,7 @@ export default async function EconomyPage({
   const CINZEL = "var(--font-cinzel, Cinzel, serif)";
 
   return (
-    <div className="container mx-auto px-4 py-10 max-w-7xl">
+    <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-10 max-w-7xl">
       <div className="mb-8 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-widest text-[#f5d96a] mb-2" style={{ fontFamily: CINZEL }}>
@@ -147,7 +147,7 @@ export default async function EconomyPage({
           </p>
         </div>
         <Link
-          href="/"
+          href="/world"
           className="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-[#f5d96a] hover:text-[#fff8d6] transition-colors"
           style={{ fontFamily: CINZEL, letterSpacing: "0.1em" }}
         >

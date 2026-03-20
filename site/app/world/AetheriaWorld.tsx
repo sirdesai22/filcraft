@@ -23,6 +23,121 @@ import type {
   EconomySummary,
 } from "@/lib/economy";
 
+// ── Virtual Joystick (mobile) ─────────────────────────────────────────────────
+
+function VirtualJoystick({
+  axis,
+  onValue,
+  side,
+}: {
+  axis: "pan" | "rotate";
+  onValue: (axis: "pan" | "rotate", x: number, y: number) => void;
+  side: "left" | "right";
+}) {
+  const baseRef = useRef<HTMLDivElement>(null);
+  const [thumb, setThumb] = useState({ x: 0, y: 0 });
+  const activeRef = useRef(false);
+
+  const updateFromClient = useCallback((clientX: number, clientY: number) => {
+    const base = baseRef.current;
+    if (!base) return;
+    const rect = base.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = clientX - cx;
+    const dy = clientY - cy;
+    const R = Math.min(rect.width, rect.height) / 2 * 0.7;
+    const dist = Math.min(1, Math.hypot(dx, dy) / Math.max(1, R));
+    const angle = Math.atan2(dy, dx);
+    const nx = Math.cos(angle) * dist;
+    const ny = Math.sin(angle) * dist;
+    setThumb({ x: nx * 0.6, y: ny * 0.6 });
+    if (axis === "pan") {
+      onValue("pan", nx, ny);
+    } else {
+      onValue("rotate", nx, 0);
+    }
+  }, [axis, onValue]);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    baseRef.current?.setPointerCapture(e.pointerId);
+    activeRef.current = true;
+    updateFromClient(e.clientX, e.clientY);
+  }, [updateFromClient]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!activeRef.current) return;
+    updateFromClient(e.clientX, e.clientY);
+  }, [updateFromClient]);
+
+  const handlePointerUp = useCallback(() => {
+    activeRef.current = false;
+    setThumb({ x: 0, y: 0 });
+    if (axis === "pan") {
+      onValue("pan", 0, 0);
+    } else {
+      onValue("rotate", 0, 0);
+    }
+  }, [axis, onValue]);
+
+  const releaseRef = useRef(handlePointerUp);
+  releaseRef.current = handlePointerUp;
+  useEffect(() => {
+    const up = () => { if (activeRef.current) releaseRef.current(); };
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    return () => {
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+    };
+  }, []);
+
+  return (
+    <div
+      ref={baseRef}
+      role="slider"
+      aria-label={axis === "pan" ? "Pan joystick" : "Rotate joystick"}
+      tabIndex={-1}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerUp}
+      className="touch-manipulation select-none pointer-events-auto w-[clamp(72px,22vw,100px)] h-[clamp(72px,22vw,100px)]"
+      style={{
+        position: "absolute",
+        ...(side === "left"
+          ? { left: "max(12px, env(safe-area-inset-left))" }
+          : { right: "max(12px, env(safe-area-inset-right))" }),
+        bottom: "max(16px, calc(env(safe-area-inset-bottom) + 8px))",
+        touchAction: "none",
+      }}
+    >
+      {/* Base circle */}
+      <div
+        className="absolute inset-0 rounded-full"
+        style={{
+          background: "rgba(6,4,1,0.85)",
+          border: "1px solid rgba(90,74,42,0.5)",
+          boxShadow: "inset 0 0 20px rgba(0,0,0,0.4)",
+        }}
+      />
+      {/* Thumb — positioned via transform for responsive scaling */}
+      <div
+        className="absolute left-1/2 top-1/2 w-[44%] h-[44%] -translate-x-1/2 -translate-y-1/2 rounded-full"
+        style={{
+          marginLeft: `calc(${thumb.x} * 28%)`,
+          marginTop: `calc(${thumb.y} * 28%)`,
+          background: "radial-gradient(circle at 35% 35%, rgba(245,217,106,0.4), rgba(180,140,40,0.25))",
+          border: "1px solid rgba(245,217,106,0.4)",
+          boxShadow: "0 0 12px rgba(245,217,106,0.2)",
+          pointerEvents: "none",
+        }}
+      />
+    </div>
+  );
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface AgentRow {
@@ -113,6 +228,13 @@ export function AetheriaWorld({
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [showAllAgents, setShowAllAgents] = useState(false);
   const [scoreboardExpanded, setScoreboardExpanded] = useState(true);
+
+  // Default scoreboard collapsed on mobile for more canvas space
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 640px)").matches) {
+      setScoreboardExpanded(false);
+    }
+  }, []);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [agentExtra, setAgentExtra] = useState<{
@@ -133,6 +255,20 @@ export function AetheriaWorld({
   const [regValidation, setRegValidation] = useState<{ valid: boolean; agentCard: any; health: boolean; errors: string[] } | null>(null);
   const [regTxHash, setRegTxHash] = useState<`0x${string}` | undefined>();
   const [showControlsModal, setShowControlsModal] = useState(false);
+  const setMobileKey = useCallback((key: string, value: boolean) => {
+    const mk = (containerRef.current as unknown as { __aetheriaMobileKeys?: Record<string, boolean> })?.__aetheriaMobileKeys;
+    if (mk) mk[key] = value;
+  }, []);
+  const setJoystick = useCallback((axis: "pan" | "rotate", x: number, y: number) => {
+    const j = (containerRef.current as unknown as { __aetheriaMobileJoystick?: { panX: number; panY: number; rotate: number } })?.__aetheriaMobileJoystick;
+    if (!j) return;
+    if (axis === "pan") {
+      j.panX = x;
+      j.panY = y;
+    } else {
+      j.rotate = x;
+    }
+  }, []);
   const { writeContract: regWriteContract, isPending: regIsWriting, error: regWriteError } = useWriteContract();
   const { isLoading: regIsConfirming, isSuccess: regIsConfirmed } = useWaitForTransactionReceipt({ hash: regTxHash });
 
@@ -408,9 +544,9 @@ export function AetheriaWorld({
         className="absolute inset-0 pointer-events-none z-10"
         style={{ fontFamily: "MedievalSharp, cursive" }}
       >
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 text-center">
+        <div className="absolute top-2 sm:top-3 left-1/2 -translate-x-1/2 text-center px-2">
           <h1
-            className="font-black text-[26px] text-[#f5d96a] tracking-[6px] uppercase"
+            className="font-black text-lg sm:text-[26px] text-[#f5d96a] tracking-[4px] sm:tracking-[6px] uppercase"
             style={{
               fontFamily: "Cinzel, serif",
               textShadow: "0 0 20px rgba(245,217,106,0.5), 0 2px 4px rgba(0,0,0,0.8)",
@@ -429,9 +565,9 @@ export function AetheriaWorld({
         {/* Scoreboard panel */}
         <div
           id="scoreboard-panel"
-          className="absolute top-3 right-3 pointer-events-auto flex flex-col transition-all duration-200"
+          className="absolute top-2 sm:top-3 right-2 sm:right-3 pointer-events-auto flex flex-col transition-all duration-200 max-w-[calc(100vw-1rem)]"
           style={{
-            width: scoreboardExpanded ? 300 : 180,
+            width: scoreboardExpanded ? "min(300px, calc(100vw - 16px))" : 160,
             background: "linear-gradient(160deg, rgba(6,4,1,0.98) 0%, rgba(16,10,2,0.97) 100%)",
             border: "1px solid rgba(180,140,40,0.25)",
             borderRadius: 3,
@@ -577,10 +713,10 @@ export function AetheriaWorld({
           )}
         </div>
 
-        {/* Activity log */}
+        {/* Activity log — hidden on mobile to avoid clutter */}
         <div
           id="activity-log"
-          className="absolute bottom-16 left-12 w-[280px] max-h-[180px] overflow-y-auto pointer-events-auto scrollbar-thin"
+          className="hidden sm:block absolute bottom-16 left-12 w-[280px] max-h-[180px] overflow-y-auto pointer-events-auto scrollbar-thin"
           style={{ scrollbarColor: "#5a4a2a transparent" }}
         >
           {data.events.slice(0, 15).map((ev, i) => (
@@ -1427,13 +1563,19 @@ export function AetheriaWorld({
           </>
         )}
 
+        {/* Mobile virtual controls — joysticks, visible only on mobile */}
+        <div className="md:hidden absolute inset-0 pointer-events-none z-10">
+          <VirtualJoystick axis="pan" onValue={setJoystick} side="left" />
+          <VirtualJoystick axis="rotate" onValue={setJoystick} side="right" />
+        </div>
+
         <button
           type="button"
           onClick={() => setShowControlsModal(true)}
-          className="absolute bottom-3 left-3 p-3 rounded-full text-[#a89060] hover:text-[#f5d96a] hover:bg-[rgba(245,217,106,0.12)] transition-colors focus:outline-none focus:ring-2 focus:ring-[#f5d96a]/40 z-10 pointer-events-auto"
+          className="absolute left-3 top-3 md:top-auto md:bottom-3 p-2.5 sm:p-3 rounded-full text-[#a89060] hover:text-[#f5d96a] hover:bg-[rgba(245,217,106,0.12)] transition-colors focus:outline-none focus:ring-2 focus:ring-[#f5d96a]/40 z-10 pointer-events-auto"
           aria-label="World controls"
         >
-          <Info className="size-9" strokeWidth={1.5} />
+          <Info className="size-6 md:size-9" strokeWidth={1.5} />
         </button>
 
         <Dialog open={showControlsModal} onOpenChange={setShowControlsModal}>
@@ -1468,6 +1610,16 @@ export function AetheriaWorld({
                 <div className="flex items-center gap-3">
                   <kbd className="px-2.5 py-1 rounded bg-[#2a2520] border border-[#5a4a2a] text-[#f5d96a] font-mono text-sm">Double-click</kbd>
                   <span>Follow selected agent</span>
+                </div>
+              </div>
+              <div className="pt-3 border-t border-[#5a4a2a]/40">
+                <div className="text-sm font-medium text-[#f5d96a] mb-2">Mobile</div>
+                <div className="grid gap-2 text-sm text-[#c8b898]">
+                  <div>One-finger drag — rotate camera</div>
+                  <div>Two-finger drag — pan</div>
+                  <div>Two-finger pinch — zoom</div>
+                  <div>Left joystick — pan</div>
+                  <div>Right joystick — rotate camera</div>
                 </div>
               </div>
             </div>
@@ -1630,6 +1782,11 @@ function initWorld(
   );
 
   const keys: Record<string, boolean> = {};
+  const mobileKeys: Record<string, boolean> = {};
+  const mobileJoystick = { panX: 0, panY: 0, rotate: 0 };
+  (container as unknown as { __aetheriaMobileKeys?: Record<string, boolean> }).__aetheriaMobileKeys = mobileKeys;
+  (container as unknown as { __aetheriaMobileJoystick?: { panX: number; panY: number; rotate: number } }).__aetheriaMobileJoystick = mobileJoystick;
+
   window.addEventListener("keydown", (e) => {
     const k = e.key?.toLowerCase?.();
     if (k) keys[k] = true;
@@ -1639,34 +1796,112 @@ function initWorld(
     if (k) keys[k] = false;
   });
 
+  // Touch: one-finger drag = rotate, two-finger = pan, pinch = zoom
+  let touchRotateId: number | null = null;
+  let touchPanIds: number[] = [];
+  let touchZoomDist = 0;
+  function getTouch(e: TouchEvent, id: number) {
+    for (let i = 0; i < e.touches.length; i++) {
+      if (e.touches[i].identifier === id) return e.touches[i];
+    }
+    return null;
+  }
+  function dist(a: Touch, b: Touch) {
+    return Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+  }
+  canvas.addEventListener("touchstart", (e) => {
+    if (e.touches.length === 1 && touchRotateId === null) {
+      touchRotateId = e.touches[0].identifier;
+      orbit.draggingRot = true;
+      orbit.last = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    } else if (e.touches.length === 2 && touchPanIds.length === 0) {
+      touchPanIds = [e.touches[0].identifier, e.touches[1].identifier];
+      touchZoomDist = dist(e.touches[0], e.touches[1]);
+      orbit.draggingPan = true;
+      orbit.last = { x: (e.touches[0].clientX + e.touches[1].clientX) / 2, y: (e.touches[0].clientY + e.touches[1].clientY) / 2 };
+    }
+  }, { passive: true });
+  canvas.addEventListener("touchmove", (e) => {
+    if (touchRotateId !== null) {
+      const t = getTouch(e, touchRotateId);
+      if (t) {
+        const dx = t.clientX - orbit.last.x;
+        const dy = t.clientY - orbit.last.y;
+        orbit.tTheta -= dx * 0.005;
+        orbit.tPhi = Math.max(ISO_PHI - 0.2, Math.min(ISO_PHI + 0.2, orbit.tPhi - dy * 0.005));
+        orbit.last = { x: t.clientX, y: t.clientY };
+      }
+    } else if (touchPanIds.length === 2) {
+      const t0 = getTouch(e, touchPanIds[0]);
+      const t1 = getTouch(e, touchPanIds[1]);
+      if (t0 && t1) {
+        const cx = (t0.clientX + t1.clientX) / 2;
+        const cy = (t0.clientY + t1.clientY) / 2;
+        const dx = cx - orbit.last.x;
+        const dy = cy - orbit.last.y;
+        const s = orbit.dist * 0.002;
+        const sinT = Math.sin(orbit.theta);
+        const cosT = Math.cos(orbit.theta);
+        orbit.target.x += (-dx * cosT - dy * sinT) * s;
+        orbit.target.z += (dx * sinT - dy * cosT) * s;
+        orbit.last = { x: cx, y: cy };
+        const d = dist(t0, t1);
+        const zoomDelta = (touchZoomDist - d) * 0.01;
+        orbit.tDist = Math.max(18, Math.min(42, orbit.tDist + zoomDelta));
+        touchZoomDist = d;
+      }
+    }
+  }, { passive: true });
+  canvas.addEventListener("touchend", (e) => {
+    if (touchRotateId !== null && !getTouch(e, touchRotateId)) {
+      touchRotateId = null;
+      orbit.draggingRot = false;
+    }
+    if (touchPanIds.length === 2) {
+      const has0 = getTouch(e, touchPanIds[0]);
+      const has1 = getTouch(e, touchPanIds[1]);
+      if (!has0 || !has1) {
+        touchPanIds = [];
+        orbit.draggingPan = false;
+      }
+    }
+  }, { passive: true });
+  canvas.addEventListener("touchcancel", () => {
+    touchRotateId = null;
+    touchPanIds = [];
+    orbit.draggingRot = false;
+    orbit.draggingPan = false;
+  }, { passive: true });
+
   function processKeys(dt: number) {
+    const k = (key: string) => keys[key] || mobileKeys[key];
+    const j = (container as unknown as { __aetheriaMobileJoystick?: { panX: number; panY: number; rotate: number } })?.__aetheriaMobileJoystick;
     const p = 20 * dt;
     const sinT = Math.sin(orbit.theta);
     const cosT = Math.cos(orbit.theta);
     let mx = 0;
     let mz = 0;
-    if (keys["w"] || keys["arrowup"]) {
-      mx -= sinT;
-      mz -= cosT;
-    }
-    if (keys["s"] || keys["arrowdown"]) {
-      mx += sinT;
-      mz += cosT;
-    }
-    if (keys["a"] || keys["arrowleft"]) {
-      mx -= cosT;
-      mz += sinT;
-    }
-    if (keys["d"] || keys["arrowright"]) {
-      mx += cosT;
-      mz -= sinT;
+    if (j && (j.panX !== 0 || j.panY !== 0)) {
+      mx = -j.panY * sinT - j.panX * cosT;
+      mz = -j.panY * cosT + j.panX * sinT;
+    } else {
+      if (k("w") || keys["arrowup"]) { mx -= sinT; mz -= cosT; }
+      if (k("s") || keys["arrowdown"]) { mx += sinT; mz += cosT; }
+      if (k("a") || keys["arrowleft"]) { mx -= cosT; mz += sinT; }
+      if (k("d") || keys["arrowright"]) { mx += cosT; mz -= sinT; }
     }
     if (mx || mz) {
       orbit.target.x += mx * p;
       orbit.target.z += mz * p;
     }
-    if (keys["q"]) orbit.tTheta += 1.5 * dt;
-    if (keys["e"]) orbit.tTheta -= 1.5 * dt;
+    let rot = 0;
+    if (j && j.rotate !== 0) {
+      rot = -j.rotate * 1.5 * dt;
+    } else {
+      if (k("q")) rot += 1.5 * dt;
+      if (k("e")) rot -= 1.5 * dt;
+    }
+    orbit.tTheta += rot;
   }
 
   // Lighting
