@@ -57,10 +57,6 @@ const KEYFRAMES = `
     0%, 100% { opacity: 0.07; transform: scale(1); }
     50%       { opacity: 0.65; transform: scale(1.6); }
   }
-  @keyframes letterReveal {
-    from { opacity: 0; transform: translateY(30px) scale(0.88); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
-  }
   @keyframes subtitleReveal {
     from { opacity: 0; letter-spacing: 0.7em; }
     to   { opacity: 1; letter-spacing: 0.38em; }
@@ -123,7 +119,6 @@ const KEYFRAMES = `
 export function LoadingScreen({ onEnter }: { onEnter: () => void }) {
   const [phase, setPhase] = useState(0);
   const [exiting, setExiting] = useState(false);
-  const [visibleLetters, setVisibleLetters] = useState(0);
   const [showExplosion, setShowExplosion] = useState(false);
 
   const canvasRef  = useRef<HTMLCanvasElement>(null);
@@ -143,37 +138,6 @@ export function LoadingScreen({ onEnter }: { onEnter: () => void }) {
     ];
     return () => t.forEach(clearTimeout);
   }, []);
-
-  // ── Letter stagger (phase 4) — rAF + elapsed time (setInterval is throttled in
-  // background tabs and can leave only "Fi" visible before phase advances).
-  // ── Fallback: when phase >= 5, always show the full title.
-  useEffect(() => {
-    if (phase >= 5) {
-      setVisibleLetters(TITLE.length);
-      return;
-    }
-    if (phase !== 4) return;
-
-    setVisibleLetters(0);
-    const start = performance.now();
-    const INITIAL_MS = 40;
-    const PER_LETTER_MS = 85;
-    let rafId = 0;
-
-    const tick = (now: number) => {
-      const elapsed = now - start;
-      const n =
-        elapsed < INITIAL_MS
-          ? 0
-          : Math.min(TITLE.length, Math.floor((elapsed - INITIAL_MS) / PER_LETTER_MS) + 1);
-      setVisibleLetters(n);
-      if (n < TITLE.length) {
-        rafId = requestAnimationFrame(tick);
-      }
-    };
-    rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
-  }, [phase]);
 
   // ── Canvas network animation ────────────────────────────────────────────────
   useEffect(() => {
@@ -593,28 +557,22 @@ export function LoadingScreen({ onEnter }: { onEnter: () => void }) {
             </div>
           </div>
 
-          {/* Title letters — whitespace-nowrap prevents wrap on mobile */}
-          <h1 style={{
-            fontFamily: CINZEL,
-            fontSize: "clamp(44px, 11vw, 128px)",
-            fontWeight: 900, color: "#fff8d6",
-            margin: 0, letterSpacing: "0.07em", lineHeight: 1,
-            whiteSpace: "nowrap",
-          }}>
-            {TITLE.split("").map((char, i) => (
-              <span key={i} style={{
-                display: "inline-block",
-                visibility: i < visibleLetters ? "visible" : "hidden",
-                animation: i < visibleLetters
-                  ? `letterReveal 0.5s cubic-bezier(0.22,1,0.36,1) both`
-                  : "none",
-                textShadow: i < visibleLetters
-                  ? "0 0 22px rgba(245,217,106,0.5), 0 2px 4px rgba(0,0,0,0.6)"
-                  : undefined,
-              }}>
-                {char}
-              </span>
-            ))}
+          {/* Title — shown in full when phase >= 4 (parent fades in) */}
+          <h1
+            style={{
+              fontFamily: CINZEL,
+              fontSize: "clamp(44px, 11vw, 128px)",
+              fontWeight: 900,
+              color: "#fff8d6",
+              margin: 0,
+              letterSpacing: "0.07em",
+              lineHeight: 1,
+              whiteSpace: "nowrap",
+              textShadow:
+                "0 0 22px rgba(245,217,106,0.5), 0 2px 4px rgba(0,0,0,0.6)",
+            }}
+          >
+            {TITLE}
           </h1>
 
           {/* Tagline */}
