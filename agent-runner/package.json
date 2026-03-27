@@ -1,0 +1,20 @@
+{
+  "name": "agent-runner",
+  "version": "0.1.0",
+  "description": "RFS-4 autonomous agent economy testbed runner",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "viem": "^2.21.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "@types/node": "^22.10.0"
+  }
+}

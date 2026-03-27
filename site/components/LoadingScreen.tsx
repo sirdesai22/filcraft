@@ -8,7 +8,7 @@ const TITLE = "FilCraft";
 const CINZEL = "var(--font-cinzel, Cinzel, serif)";
 
 // Deterministic star field — stable across SSR/hydration
-const STARS = Array.from({ length: 110 }, (_, i) => {
+const STARS = Array.from({ length: 55 }, (_, i) => {
   const s = (i * 2654435761) >>> 0;
   const x = ((s * 1664525 + 1013904223) >>> 0) % 10000 / 100;
   const y = ((s * 22695477 + 1) >>> 0) % 10000 / 100;
@@ -58,12 +58,8 @@ const KEYFRAMES = `
     50%       { opacity: 0.65; transform: scale(1.6); }
   }
   @keyframes letterReveal {
-    from { opacity: 0; transform: translateY(30px) scale(0.88); filter: blur(10px); }
-    to   { opacity: 1; transform: translateY(0) scale(1);       filter: blur(0); }
-  }
-  @keyframes goldenGlow {
-    0%, 100% { text-shadow: 0 0 22px rgba(245,217,106,0.45), 0 0 60px rgba(245,217,106,0.18), 0 2px 4px rgba(0,0,0,0.6); }
-    50%       { text-shadow: 0 0 36px rgba(245,217,106,0.8),  0 0 90px rgba(245,217,106,0.35), 0 2px 4px rgba(0,0,0,0.6); }
+    from { opacity: 0; transform: translateY(30px) scale(0.88); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
   }
   @keyframes subtitleReveal {
     from { opacity: 0; letter-spacing: 0.7em; }
@@ -148,31 +144,35 @@ export function LoadingScreen({ onEnter }: { onEnter: () => void }) {
     return () => t.forEach(clearTimeout);
   }, []);
 
-  // ── Letter stagger — fires only once when phase becomes 4 ──────────────────
-  // Use rAF + small delay so DOM is painted and animations run reliably
+  // ── Letter stagger (phase 4) — rAF + elapsed time (setInterval is throttled in
+  // background tabs and can leave only "Fi" visible before phase advances).
+  // ── Fallback: when phase >= 5, always show the full title.
   useEffect(() => {
+    if (phase >= 5) {
+      setVisibleLetters(TITLE.length);
+      return;
+    }
     if (phase !== 4) return;
+
     setVisibleLetters(0);
-    let iv: ReturnType<typeof setInterval> | null = null;
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    const rafId = requestAnimationFrame(() => {
-      timeoutId = setTimeout(() => {
-        let n = 0;
-        iv = setInterval(() => {
-          n++;
-          setVisibleLetters(n);
-          if (n >= TITLE.length && iv) {
-            clearInterval(iv);
-            iv = null;
-          }
-        }, 115);
-      }, 50);
-    });
-    return () => {
-      cancelAnimationFrame(rafId);
-      if (timeoutId) clearTimeout(timeoutId);
-      if (iv) clearInterval(iv);
+    const start = performance.now();
+    const INITIAL_MS = 40;
+    const PER_LETTER_MS = 85;
+    let rafId = 0;
+
+    const tick = (now: number) => {
+      const elapsed = now - start;
+      const n =
+        elapsed < INITIAL_MS
+          ? 0
+          : Math.min(TITLE.length, Math.floor((elapsed - INITIAL_MS) / PER_LETTER_MS) + 1);
+      setVisibleLetters(n);
+      if (n < TITLE.length) {
+        rafId = requestAnimationFrame(tick);
+      }
     };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
   }, [phase]);
 
   // ── Canvas network animation ────────────────────────────────────────────────
@@ -193,14 +193,14 @@ export function LoadingScreen({ onEnter }: { onEnter: () => void }) {
       trail: Array<{ x: number; y: number }>;
     }
 
-    const NODE_COUNT = 54;
+    const NODE_COUNT = 28;
     const W0 = window.innerWidth;
     const H0 = window.innerHeight;
     const cx0 = W0 / 2;
     const cy0 = H0 / 2;
 
     const nodes: NetworkNode[] = Array.from({ length: NODE_COUNT }, (_, i) => {
-      const type: NodeType = i < 37 ? "agent" : i < 49 ? "validator" : "storage";
+      const type: NodeType = i < 18 ? "agent" : i < 24 ? "validator" : "storage";
       const p = NODE_PALETTE[type];
       // Scatter away from center initially
       let x: number, y: number;
@@ -310,14 +310,16 @@ export function LoadingScreen({ onEnter }: { onEnter: () => void }) {
 
         // ── Edges ───────────────────────────────────────────────────────────
         if (p >= 2) {
+          const MAX_EDGE_SQ = MAX_EDGE * MAX_EDGE;
           for (let i = 0; i < nodes.length; i++) {
             if (nodes[i].opacity < 0.08) continue;
             for (let j = i + 1; j < nodes.length; j++) {
               if (nodes[j].opacity < 0.08) continue;
               const dx = nodes[j].x - nodes[i].x;
               const dy = nodes[j].y - nodes[i].y;
-              const dist = Math.sqrt(dx * dx + dy * dy);
-              if (dist < MAX_EDGE) {
+              const distSq = dx * dx + dy * dy;
+              if (distSq < MAX_EDGE_SQ) {
+                const dist = Math.sqrt(distSq);
                 const alpha = ((1 - dist / MAX_EDGE) * 0.38 * Math.min(nodes[i].opacity, nodes[j].opacity)).toFixed(3);
                 ctx.beginPath();
                 ctx.moveTo(nodes[i].x, nodes[i].y);
@@ -375,13 +377,13 @@ export function LoadingScreen({ onEnter }: { onEnter: () => void }) {
             if (!fn || !tn || fn.opacity < 0.1 || tn.opacity < 0.1) return false;
             const px = fn.x + (tn.x - fn.x) * pkt.t;
             const py = fn.y + (tn.y - fn.y) * pkt.t;
-            // Glow halo
-            const grd = ctx.createRadialGradient(px, py, 0, px, py, 6);
-            grd.addColorStop(0, `rgba(${pkt.cr},${pkt.cg},${pkt.cb},0.8)`);
-            grd.addColorStop(1, "rgba(0,0,0,0)");
-            ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2);
-            ctx.fillStyle = grd; ctx.fill();
+            // Glow halo — simple semitransparent circle, no gradient object
+            ctx.globalAlpha = 0.35;
+            ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI * 2);
+            ctx.fillStyle = `rgb(${pkt.cr},${pkt.cg},${pkt.cb})`;
+            ctx.fill();
             // Core
+            ctx.globalAlpha = 1;
             ctx.beginPath(); ctx.arc(px, py, 1.8, 0, Math.PI * 2);
             ctx.fillStyle = "#ffffff"; ctx.fill();
             return true;
@@ -391,21 +393,22 @@ export function LoadingScreen({ onEnter }: { onEnter: () => void }) {
         // ── Node dots ────────────────────────────────────────────────────────
         nodes.forEach((node) => {
           if (node.opacity <= 0) return;
-          // Outer glow
-          const grd = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, node.r * 7);
-          grd.addColorStop(0,   `rgba(${node.cr},${node.cg},${node.cb},${(0.55 * node.opacity).toFixed(3)})`);
-          grd.addColorStop(0.4, `rgba(${node.cr},${node.cg},${node.cb},${(0.18 * node.opacity).toFixed(3)})`);
-          grd.addColorStop(1,   `rgba(${node.cr},${node.cg},${node.cb},0)`);
-          ctx.beginPath(); ctx.arc(node.x, node.y, node.r * 7, 0, Math.PI * 2);
-          ctx.fillStyle = grd; ctx.fill();
+          // Soft halo — single semitransparent circle, no gradient object
+          ctx.globalAlpha = 0.18 * node.opacity;
+          ctx.beginPath(); ctx.arc(node.x, node.y, node.r * 5, 0, Math.PI * 2);
+          ctx.fillStyle = `rgb(${node.cr},${node.cg},${node.cb})`;
+          ctx.fill();
           // Core
+          ctx.globalAlpha = node.opacity;
           ctx.beginPath(); ctx.arc(node.x, node.y, node.r, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(${node.cr},${node.cg},${node.cb},${node.opacity.toFixed(3)})`;
+          ctx.fillStyle = `rgb(${node.cr},${node.cg},${node.cb})`;
           ctx.fill();
           // Bright centre pinpoint
+          ctx.globalAlpha = 0.7 * node.opacity;
           ctx.beginPath(); ctx.arc(node.x, node.y, node.r * 0.45, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(255,255,255,${(0.7 * node.opacity).toFixed(3)})`;
+          ctx.fillStyle = "#ffffff";
           ctx.fill();
+          ctx.globalAlpha = 1;
         });
       }
 
@@ -603,9 +606,11 @@ export function LoadingScreen({ onEnter }: { onEnter: () => void }) {
                 display: "inline-block",
                 visibility: i < visibleLetters ? "visible" : "hidden",
                 animation: i < visibleLetters
-                  ? `letterReveal 0.5s cubic-bezier(0.22,1,0.36,1) both,
-                     goldenGlow 3.8s ease-in-out ${0.55 + i * 0.07}s infinite`
+                  ? `letterReveal 0.5s cubic-bezier(0.22,1,0.36,1) both`
                   : "none",
+                textShadow: i < visibleLetters
+                  ? "0 0 22px rgba(245,217,106,0.5), 0 2px 4px rgba(0,0,0,0.6)"
+                  : undefined,
               }}>
                 {char}
               </span>
