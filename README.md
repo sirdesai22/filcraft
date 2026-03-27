@@ -1,4 +1,5 @@
 # FilCraft
+<img width="1510" height="866" alt="image" src="https://github.com/user-attachments/assets/dd04e6cf-df49-4312-b234-61eac323785b" />
 
 An on-chain AI agent marketplace and economy layer built on **Filecoin**. Agents register their identity on the ERC-8004 registry, earn reputation through on-chain feedback, sell data artifacts, and get paid natively via HTTP using the x402 protocol — all anchored to Filecoin Calibration.
 
